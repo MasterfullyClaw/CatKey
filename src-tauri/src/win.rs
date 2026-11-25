@@ -7,6 +7,8 @@ use std::mem::{size_of, zeroed};
 use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::Command;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use std::ptr::{null, null_mut};
 
 use windows_sys::core::BOOL;
@@ -26,8 +28,9 @@ use windows_sys::Win32::System::Diagnostics::ToolHelp::{
 };
 use windows_sys::Win32::System::Environment::ExpandEnvironmentStringsW;
 use windows_sys::Win32::System::Registry::{
-    RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW, HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_SZ,
+    RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW, HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_BINARY, RRF_RT_REG_SZ,
 };
+use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
 use windows_sys::Win32::System::SystemInformation::GetLocalTime;
 use windows_sys::Win32::System::Threading::{
     CreateMutexW, GetCurrentProcess, GetCurrentProcessId, GetCurrentThread, OpenProcess, OpenProcessToken, ProcessPowerThrottling,
@@ -41,12 +44,34 @@ use windows_sys::Win32::UI::Shell::{
     SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    DestroyIcon, EnumChildWindows, EnumWindows, GetIconInfo, GetWindow, GetWindowLongPtrW, GetWindowTextLengthW,
+    AllowSetForegroundWindow, DestroyIcon, ASFW_ANY, EnumChildWindows, EnumWindows, GetIconInfo, GetWindow, GetWindowLongPtrW, GetWindowTextLengthW,
     GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible, GWL_EXSTYLE, GW_OWNER, HICON, ICONINFO, SW_SHOWNORMAL,
     WS_EX_TOOLWINDOW,
 };
 
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// Shell APIs (opening files/links, icons) want COM on the calling thread.
+fn ensure_com() {
+    thread_local! {
+        static DONE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+    DONE.with(|d| {
+        if !d.get() {
+            unsafe {
+                CoInitializeEx(null(), (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32);
+            }
+            d.set(true);
+        }
+    });
+}
+
+/// Let another process take the foreground (we are the one the user just started).
+pub fn allow_any_foreground() {
+    unsafe {
+        AllowSetForegroundWindow(ASFW_ANY);
+    }
+}
 
 pub fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
@@ -311,6 +336,7 @@ unsafe fn hicon_to_png(icon: HICON) -> Option<Vec<u8>> {
 
 /// The icon of a program / file as a PNG data URL (48 px when available).
 pub fn icon_data_url(path: &str) -> Option<String> {
+    ensure_com();
     let path = expand_env(path);
     if path.is_empty() || path.contains("://") {
         return None;
@@ -394,6 +420,34 @@ pub fn process_running(name: &str) -> bool {
     }
 }
 
+/// Full path of the first running process with this exe name.
+pub fn find_process_path(name: &str) -> Option<String> {
+    unsafe {
+        let snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if snap == INVALID_HANDLE_VALUE {
+            return None;
+        }
+        let mut pe: PROCESSENTRY32W = zeroed();
+        pe.dwSize = size_of::<PROCESSENTRY32W>() as u32;
+        let mut found = None;
+        if Process32FirstW(snap, &mut pe) != 0 {
+            loop {
+                if from_wide(&pe.szExeFile).eq_ignore_ascii_case(name) {
+                    found = process_path(pe.th32ProcessID);
+                    if found.is_some() {
+                        break;
+                    }
+                }
+                if Process32NextW(snap, &mut pe) == 0 {
+                    break;
+                }
+            }
+        }
+        CloseHandle(snap);
+        found
+    }
+}
+
 /// Keep Windows 11 "efficiency mode" from slowing the keyboard thread down.
 pub fn opt_out_of_power_throttling_for_process() {
     unsafe {
@@ -466,6 +520,7 @@ pub fn local_date() -> String {
 }
 
 fn shell_execute(verb: Option<&str>, file: &str, params: &str, dir: Option<&str>) -> Result<(), u32> {
+    ensure_com();
     unsafe {
         let verb_w = verb.map(wide);
         let file_w = wide(file);
@@ -561,6 +616,30 @@ pub fn get_run_entry() -> Option<String> {
     }
 }
 
+/// Windows' own on/off switch for our startup entry (Settings › Apps › Startup,
+/// Task Manager › Startup apps). `Some(false)` = switched off there.
+pub fn startup_approved() -> Option<bool> {
+    unsafe {
+        let key = wide("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run");
+        let name = wide(RUN_NAME);
+        let mut buf = [0u8; 32];
+        let mut size = buf.len() as u32;
+        let r = RegGetValueW(
+            HKEY_CURRENT_USER,
+            key.as_ptr(),
+            name.as_ptr(),
+            RRF_RT_REG_BINARY,
+            null_mut(),
+            buf.as_mut_ptr() as *mut c_void,
+            &mut size,
+        );
+        if r != 0 || size == 0 {
+            return None;
+        }
+        Some(buf[0] & 1 == 0)
+    }
+}
+
 pub fn set_run_entry(command: Option<&str>) -> bool {
     unsafe {
         let key = wide(RUN_KEY);
@@ -598,8 +677,29 @@ fn schtasks(args: &[&str]) -> Result<String, String> {
     }
 }
 
+/// Last answer from `schtasks /Query` (it starts a process, so don't ask every few seconds).
+static TASK_CACHE: Mutex<Option<(Instant, bool)>> = Mutex::new(None);
+
 pub fn admin_task_exists() -> bool {
-    schtasks(&["/Query", "/TN", TASK_NAME]).is_ok()
+    // Fast path: registered tasks live as files under %SystemRoot%\System32\Tasks.
+    if let Ok(root) = std::env::var("SystemRoot") {
+        if std::path::Path::new(&root).join("System32").join("Tasks").join(TASK_NAME).exists() {
+            return true;
+        }
+    }
+    let mut cache = TASK_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((at, exists)) = *cache {
+        if at.elapsed() < Duration::from_secs(30) {
+            return exists;
+        }
+    }
+    let exists = schtasks(&["/Query", "/TN", TASK_NAME]).is_ok();
+    *cache = Some((Instant::now(), exists));
+    exists
+}
+
+fn forget_task_cache() {
+    *TASK_CACHE.lock().unwrap_or_else(|e| e.into_inner()) = None;
 }
 
 fn xml_escape(s: &str) -> String {
@@ -650,6 +750,7 @@ pub fn create_admin_task() -> Result<(), String> {
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     let p = path.to_string_lossy().to_string();
     let r = schtasks(&["/Create", "/TN", TASK_NAME, "/XML", &p, "/F"]).map(|_| ());
+    forget_task_cache();
     let _ = std::fs::remove_file(&path);
     r
 }
@@ -658,5 +759,7 @@ pub fn delete_admin_task() -> Result<(), String> {
     if !admin_task_exists() {
         return Ok(());
     }
-    schtasks(&["/Delete", "/TN", TASK_NAME, "/F"]).map(|_| ())
+    let r = schtasks(&["/Delete", "/TN", TASK_NAME, "/F"]).map(|_| ());
+    forget_task_cache();
+    r
 }

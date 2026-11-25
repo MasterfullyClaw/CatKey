@@ -23,6 +23,20 @@ Cat Key starts with Windows by default and lives in the tray: **left-click** the
 
 If you were using **PowerToys Keyboard Manager**, turn it off in PowerToys (Keyboard Manager → toggle off). Two remappers on the same keys fight each other.
 
+### Checkup
+
+When something needs you, a **Quick checkup** card appears on the main screen (it's also always at the top of **Settings**). Each line has a button that fixes it or opens the right Windows page:
+
+| Line | What the button does |
+| --- | --- |
+| The keyboard engine isn't running | **Restart Cat Key** |
+| Windows switched Cat Key off in Startup apps | **Open Startup apps** (Settings → Apps → Startup), switch Cat Key on |
+| Start with Windows isn't set up yet | **Fix it** writes the startup entry again |
+| Admin apps aren't covered yet | **Allow** asks Windows for admin permission once (UAC), so shortcuts also work in Task Manager and admin terminals |
+| PowerToys Keyboard Manager is on | **Open PowerToys** to switch it off, or **Import its shortcuts** |
+
+If the window doesn't appear, Cat Key may already be running in the tray (the little cat by the clock; it can hide behind the **^** arrow). Click it to open the window. Problems are written to `%APPDATA%\CatKey\catkey.log`.
+
 ## Use it
 
 | Want to… | Do this |

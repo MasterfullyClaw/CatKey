@@ -50,6 +50,12 @@ pub enum Cmd {
 }
 
 static THREAD_ID: AtomicU32 = AtomicU32::new(0);
+static HOOK_OK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// True while the keyboard hook is installed and its thread is running.
+pub fn engine_running() -> bool {
+    HOOK_OK.load(Ordering::SeqCst) && THREAD_ID.load(Ordering::SeqCst) != 0
+}
 static PENDING: Mutex<Vec<Cmd>> = Mutex::new(Vec::new());
 
 struct Ctx {
@@ -128,6 +134,7 @@ unsafe fn run(compiled: Arc<Compiled>, enabled: bool, effects: Sender<Effect>) {
     if hook.is_null() {
         crate::log("could not install the keyboard hook");
     }
+    HOOK_OK.store(!hook.is_null(), Ordering::SeqCst);
     CTX.with(|c| {
         *c.borrow_mut() = Some(Ctx {
             engine: Engine::new(compiled, enabled),
@@ -172,6 +179,7 @@ unsafe fn run(compiled: Arc<Compiled>, enabled: bool, effects: Sender<Effect>) {
             }
         }
     });
+    HOOK_OK.store(false, Ordering::SeqCst);
     THREAD_ID.store(0, Ordering::SeqCst);
 }
 
@@ -185,6 +193,7 @@ unsafe fn refresh_hook() {
                         UnhookWindowsHookEx(ctx.hook);
                     }
                     ctx.hook = fresh;
+                    HOOK_OK.store(true, Ordering::SeqCst);
                 }
             }
         }

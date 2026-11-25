@@ -188,6 +188,28 @@ pub fn apply_startup(settings: &Settings) -> Result<(), String> {
     Ok(())
 }
 
+/// "on" | "off" | "blocked" (Windows switched it off in Startup apps) | "missing"
+pub fn startup_status(settings: &Settings) -> &'static str {
+    if !settings.launch_at_startup {
+        return "off";
+    }
+    if settings.admin_mode && win::is_elevated() {
+        return if win::admin_task_exists() { "on" } else { "missing" };
+    }
+    match win::get_run_entry() {
+        Some(cmd) if cmd == win::autostart_command() => {
+            if win::startup_approved() == Some(false) {
+                "blocked"
+            } else {
+                "on"
+            }
+        }
+        _ => "missing",
+    }
+}
+
+static CREATING: AtomicBool = AtomicBool::new(false);
+
 pub fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.unminimize();
@@ -195,6 +217,19 @@ pub fn show_main(app: &AppHandle) {
         let _ = w.set_focus();
         return;
     }
+    if CREATING.swap(true, Ordering::SeqCst) {
+        return; // already being created
+    }
+    // On Windows, creating a webview from the main thread inside an event handler
+    // (tray click, menu, second-instance callback) deadlocks. Build it from a thread.
+    let app = app.clone();
+    std::thread::spawn(move || {
+        build_main(&app);
+        CREATING.store(false, Ordering::SeqCst);
+    });
+}
+
+fn build_main(app: &AppHandle) {
     let built = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
         .title("Cat Key")
         .inner_size(1040.0, 720.0)
@@ -216,14 +251,11 @@ pub fn show_main(app: &AppHandle) {
                 }
             });
             // If the page is slow to say it's ready, show the window anyway.
-            let w2 = w.clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(1800));
-                if !w2.is_visible().unwrap_or(true) {
-                    let _ = w2.show();
-                    let _ = w2.set_focus();
-                }
-            });
+            std::thread::sleep(Duration::from_millis(1800));
+            if !w.is_visible().unwrap_or(false) {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
         }
         Err(e) => crate::log(&format!("could not open the window: {e}")),
     }
@@ -299,6 +331,10 @@ pub fn run(args: Vec<String>) {
     }
     // A second copy only wakes the first one up (single-instance plugin) and exits.
     let second = win::another_instance_running();
+    if second {
+        // We were started by the user, so we may hand the foreground to the first copy.
+        win::allow_any_foreground();
+    }
     if first_run && !second {
         let _ = save_config_file(&dir, &cfg);
     }
@@ -352,6 +388,9 @@ pub fn run(args: Vec<String>) {
             crate::commands::window_close,
             crate::commands::quit_app,
             crate::commands::open_link,
+            crate::commands::open_system_page,
+            crate::commands::repair_startup,
+            crate::commands::restart_app,
         ])
         .setup(move |app| {
             if second {

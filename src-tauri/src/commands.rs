@@ -21,6 +21,10 @@ pub struct Status {
     config_dir: String,
     /// Rule id -> why it can't run (shown on the card).
     problems: HashMap<String, String>,
+    /// The keyboard hook is installed and its thread is alive.
+    engine_running: bool,
+    /// "on" | "off" | "blocked" (Windows turned it off in Startup apps) | "missing"
+    startup: String,
 }
 
 #[derive(Serialize)]
@@ -32,8 +36,13 @@ pub struct StatePayload {
 }
 
 fn status(state: &AppState) -> Status {
-    let cfg = state.config.lock().unwrap();
-    let problems = cfg.rules.iter().filter_map(|r| rule_problem(r).map(|p| (r.id.clone(), p))).collect();
+    // Take what we need and let go of the lock right away (callers may hold nothing else).
+    let (problems, settings) = {
+        let cfg = state.config.lock().unwrap();
+        let problems: HashMap<String, String> =
+            cfg.rules.iter().filter_map(|r| rule_problem(r).map(|p| (r.id.clone(), p))).collect();
+        (problems, cfg.settings.clone())
+    };
     Status {
         version: env!("CARGO_PKG_VERSION").to_string(),
         admin: win::is_elevated(),
@@ -42,6 +51,8 @@ fn status(state: &AppState) -> Status {
         config_reset: state.config_reset,
         config_dir: state.dir.to_string_lossy().to_string(),
         problems,
+        engine_running: hook::engine_running(),
+        startup: app::startup_status(&settings).to_string(),
     }
 }
 
@@ -53,17 +64,22 @@ fn fresh_stats(state: &AppState) -> Stats {
     s
 }
 
+// `async` so these run on a worker thread: status() reads the registry and looks at
+// running processes, and the window's main thread should never wait on that.
 #[tauri::command]
-pub fn get_state(state: State<'_, AppState>) -> StatePayload {
-    StatePayload {
-        config: state.config.lock().unwrap().clone(),
-        status: status(&state),
-        stats: fresh_stats(&state),
-    }
+pub async fn get_state(app: AppHandle) -> StatePayload {
+    let state = app.state::<AppState>();
+    // Separate statements on purpose: a lock guard created inside one struct literal
+    // would stay alive while status() locks the same config again (that froze 1.0.0).
+    let config = state.config.lock().unwrap().clone();
+    let status = status(&state);
+    let stats = fresh_stats(&state);
+    StatePayload { config, status, stats }
 }
 
 #[tauri::command]
-pub fn get_status(state: State<'_, AppState>) -> Status {
+pub async fn get_status(app: AppHandle) -> Status {
+    let state = app.state::<AppState>();
     status(&state)
 }
 
@@ -73,7 +89,7 @@ pub fn get_stats(state: State<'_, AppState>) -> Stats {
 }
 
 #[tauri::command]
-pub fn save_config(app: AppHandle, config: Config) -> Result<Config, String> {
+pub async fn save_config(app: AppHandle, config: Config) -> Result<Config, String> {
     app::apply_config(&app, config)
 }
 
@@ -246,7 +262,7 @@ pub fn restore_defaults(app: AppHandle) -> Result<Config, String> {
 
 /// "saved" when done here, "relaunching" when an admin copy is starting.
 #[tauri::command]
-pub fn set_admin_mode(app: AppHandle, enabled: bool) -> Result<String, String> {
+pub async fn set_admin_mode(app: AppHandle, enabled: bool) -> Result<String, String> {
     let mut cfg = app.state::<AppState>().config.lock().unwrap().clone();
     cfg.settings.admin_mode = enabled;
     if !enabled || win::is_elevated() {
@@ -300,9 +316,50 @@ pub fn window_toggle_maximize(window: WebviewWindow) {
 
 /// Close the window and free the webview; Cat Key keeps running in the tray.
 #[tauri::command]
-pub fn window_close(window: WebviewWindow) {
+pub async fn window_close(window: WebviewWindow) {
     hook::send(hook::Cmd::StopRecord);
     let _ = window.destroy();
+}
+
+/// Open a Windows or PowerToys page so the user can fix something the checkup found.
+#[tauri::command]
+pub async fn open_system_page(page: String) -> Result<(), String> {
+    match page.as_str() {
+        "startup" => win::launch("ms-settings:startupapps", ""),
+        "powertoys" => {
+            let path = win::find_process_path("PowerToys.exe")
+                .or_else(|| {
+                    let local = std::env::var("LOCALAPPDATA").ok()?;
+                    let p = format!("{local}\\PowerToys\\PowerToys.exe");
+                    std::path::Path::new(&p).is_file().then_some(p)
+                })
+                .or_else(|| {
+                    let pf = std::env::var("ProgramFiles").ok()?;
+                    let p = format!("{pf}\\PowerToys\\PowerToys.exe");
+                    std::path::Path::new(&p).is_file().then_some(p)
+                })
+                .ok_or("PowerToys wasn't found. Open it from the Start menu.")?;
+            win::launch(&path, "")
+        }
+        _ => Err("unknown page".into()),
+    }
+}
+
+/// Re-apply "start with Windows" (fixes a missing startup entry).
+#[tauri::command]
+pub async fn repair_startup(app: AppHandle) -> Result<String, String> {
+    let settings = app.state::<AppState>().config.lock().unwrap().settings.clone();
+    app::apply_startup(&settings)?;
+    Ok(app::startup_status(&settings).to_string())
+}
+
+/// Start a fresh copy of Cat Key and quit this one.
+#[tauri::command]
+pub fn restart_app(app: AppHandle) {
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::process::Command::new(exe).args(["--wait-pid", &std::process::id().to_string()]).spawn();
+    }
+    app.exit(0);
 }
 
 #[tauri::command]

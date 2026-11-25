@@ -228,12 +228,14 @@ async function refreshStatus() {
   if (document.hidden) return;
   const st = await invoke('get_status').catch(() => null);
   if (!st) return;
-  const changed = st.powertoysRunning !== S.status.powertoysRunning || st.admin !== S.status.admin || JSON.stringify(st.problems) !== JSON.stringify(S.status.problems);
+  const key = (x) => JSON.stringify([x.powertoysRunning, x.admin, x.engineRunning, x.startup, x.problems]);
+  const changed = key(st) !== key(S.status);
   S.status = st;
   if (changed) {
     renderBanners();
     renderTitle();
     renderList();
+    if (SETTINGS_OPEN) renderSettings();
   }
 }
 
@@ -289,29 +291,83 @@ function renderHero() {
   hero.setMood(on ? 'awake' : 'nap');
 }
 
+function checkupRows() {
+  const st = S.status;
+  const s = S.config.settings;
+  const rows = [];
+  if (st.engineRunning === false) {
+    rows.push({ level: 'bad', title: 'The keyboard engine isn’t running', desc: 'Your shortcuts are off until Cat Key restarts.', actions: [['Restart Cat Key', () => invoke('restart_app')]] });
+  } else {
+    rows.push({ level: 'ok', title: 'Keyboard engine is running', desc: 'Every shortcut is handled the moment you press it.' });
+  }
+  if (!s.launchAtStartup) {
+    rows.push({ level: 'info', title: 'Doesn’t start with Windows', desc: 'After a restart you’d have to open Cat Key yourself.', actions: [['Turn on', () => commitSettings({ launchAtStartup: true }).then(() => setTimeout(refreshStatusNow, 800))]] });
+  } else if (st.startup === 'blocked') {
+    rows.push({ level: 'warn', title: 'Windows switched Cat Key off in Startup apps', desc: 'Find Cat Key in that list and switch it on, so it wakes up every time you sign in.', actions: [['Open Startup apps', () => invoke('open_system_page', { page: 'startup' }).catch((e) => toast(String(e), { kind: 'err' }))]] });
+  } else if (st.startup === 'missing') {
+    rows.push({ level: 'warn', title: 'Start with Windows isn’t set up yet', desc: 'One click and Cat Key wakes up quietly every time you sign in.', actions: [['Fix it', async () => {
+      try { await invoke('repair_startup'); toast('Fixed. Cat Key now starts with Windows.'); } catch (e) { toast(`Couldn’t fix it: ${e}`, { kind: 'err' }); }
+      refreshStatusNow();
+    }]] });
+  } else {
+    rows.push({ level: 'ok', title: 'Starts with Windows', desc: 'Wakes up quietly in the tray when you sign in.' });
+  }
+  if (st.admin) {
+    rows.push({ level: 'ok', title: 'Works in admin apps too', desc: 'Running as administrator, so Task Manager and admin terminals get your shortcuts.' });
+  } else if (s.adminMode) {
+    rows.push({ level: 'warn', title: 'Admin mode is on, but this copy runs normally', desc: 'Give permission once more so shortcuts reach apps running as administrator.', actions: [['Allow', () => setAdmin(true)]] });
+  } else {
+    rows.push({ level: 'info', title: 'Admin apps aren’t covered yet', desc: 'Windows keeps apps running as administrator (Task Manager, admin terminals) apart. Allow once and your shortcuts work there too.', actions: [['Allow', () => setAdmin(true)]] });
+  }
+  if (st.powertoysRunning) {
+    rows.push({ level: s.hidePowertoysTip ? 'info' : 'warn', title: 'PowerToys Keyboard Manager is on', desc: 'Two remappers fight over the same keys. In PowerToys, open Keyboard Manager and switch it off. Your shortcuts already live here.', actions: [
+      ['Open PowerToys', () => invoke('open_system_page', { page: 'powertoys' }).catch((e) => toast(String(e), { kind: 'warn' }))],
+      ['Import its shortcuts', importPowerToys],
+    ] });
+  } else {
+    rows.push({ level: 'ok', title: 'No other remapper is fighting for your keys', desc: 'Cat Key has the keyboard to itself.' });
+  }
+  return rows;
+}
+
+function checkupEl(rows) {
+  const list = h('div', { class: 'checkup-list' });
+  for (const r of rows) {
+    const ic = r.level === 'ok' ? 'check' : r.level === 'info' ? 'info' : 'warn';
+    list.append(h('div', { class: `check-row ${r.level}` },
+      h('span', { class: 'check-ico', html: icon(ic) }),
+      h('div', { class: 'txt' }, h('div', { class: 't1', text: r.title }), r.desc ? h('div', { class: 't2', text: r.desc }) : null),
+      r.actions ? h('div', { class: 'acts' }, ...r.actions.map(([label, fn], i) =>
+        h('button', { class: `btn small${i === 0 && r.level !== 'ok' ? ' strong' : ''}`, type: 'button', text: label, onclick: fn }))) : null));
+  }
+  return list;
+}
+
+async function refreshStatusNow() {
+  const st = await invoke('get_status').catch(() => null);
+  if (!st) return;
+  S.status = st;
+  renderBanners();
+  renderTitle();
+  if (SETTINGS_OPEN) renderSettings();
+}
+
 function renderBanners() {
   const box = $('#banners');
   box.textContent = '';
-  if (S.status.powertoysRunning && !S.config.settings.hidePowertoysTip && !S.bannerDismissed) {
-    box.append(
-      h('section', { class: 'banner', role: 'status' },
-        h('span', { class: 'ico', html: icon('info') }),
-        h('div', { class: 'txt' },
-          h('div', { class: 't1', text: 'PowerToys Keyboard Manager is running too' }),
-          h('div', { class: 't2', text: 'Two remappers fight over the same keys. Turn it off in PowerToys › Keyboard Manager. Your shortcuts already live here.' })),
-        h('button', { class: 'btn', onclick: importPowerToys, text: 'Import its shortcuts' }),
-        h('button', { class: 'btn ghost', text: 'Dismiss', onclick: () => { S.bannerDismissed = true; renderBanners(); } }),
-        h('button', { class: 'btn ghost', text: 'Don’t show again', onclick: () => commitSettings({ hidePowertoysTip: true }) })));
-  }
-  if (S.status.admin === false && S.config.settings.adminMode) {
-    box.append(
-      h('section', { class: 'banner warn', role: 'status' },
-        h('span', { class: 'ico', html: icon('shield') }),
-        h('div', { class: 'txt' },
-          h('div', { class: 't1', text: 'Admin mode is on, but this copy runs normally' }),
-          h('div', { class: 't2', text: 'Shortcuts won’t reach apps running as administrator until Cat Key restarts with permission.' })),
-        h('button', { class: 'btn', text: 'Restart as admin', onclick: () => setAdmin(true) })));
-  }
+  const rows = checkupRows();
+  const issues = rows.filter((r) => r.level === 'warn' || r.level === 'bad');
+  if (S.checkupDismissed || (!issues.length && !S.status.firstRun)) return;
+  const shown = S.status.firstRun ? rows : rows.filter((r) => r.level !== 'ok');
+  const head = issues.length
+    ? `${cat()} found ${issues.length === 1 ? 'one thing' : `${issues.length} things`} that need you.`
+    : `All set. ${cat()} checked everything.`;
+  box.append(h('section', { class: 'checkup', role: 'status' },
+    h('div', { class: 'checkup-head' },
+      h('span', { class: 'check-badge', html: icon(issues.length ? 'shield' : 'check') }),
+      h('div', { class: 'txt' }, h('div', { class: 't1 display', text: 'Quick checkup' }), h('div', { class: 't2', text: head })),
+      h('button', { class: 'tbtn', type: 'button', 'aria-label': 'Hide the checkup', title: 'Hide (it’s also in Settings)', html: icon('x'), onclick: () => { S.checkupDismissed = true; renderBanners(); } })),
+    checkupEl(shown)));
 }
 
 // ------------------------------------------------------------------ list
@@ -1212,11 +1268,14 @@ function renderSettings() {
   d.append(
     h('div', { class: 'drawer-head' }, h('h1', { id: 'st-title', text: 'Settings' }), h('button', { class: 'tbtn', 'aria-label': 'Close settings', html: icon('x'), onclick: closeSettings })),
     h('div', { class: 'drawer-body' },
+      h('section', {}, h('div', { class: 'row-between' }, h('h2', { text: 'Checkup' }),
+        h('button', { class: 'link', type: 'button', text: 'Check again', onclick: () => { refreshStatusNow(); toast(`${cat()} checked everything again.`); } })),
+        checkupEl(checkupRows())),
       h('section', {}, h('h2', { text: 'Your cat' }), skins,
         h('label', { class: 'row-between', style: { fontWeight: '800' } }, "Cat's name", nameInput),
         h('div', { class: 'row-between', style: { fontWeight: '800' } }, 'Theme', theme)),
       h('section', { style: { gap: '0' } }, h('h2', { text: 'How it behaves', style: { marginBottom: '4px' } }),
-        settingRow('Start with Windows', 'Wakes up quietly in the tray when you sign in.', switchEl(s.launchAtStartup, 'Start with Windows', () => commitSettings({ launchAtStartup: !s.launchAtStartup }))),
+        settingRow('Start with Windows', 'Wakes up quietly in the tray when you sign in.', switchEl(s.launchAtStartup, 'Start with Windows', () => commitSettings({ launchAtStartup: !s.launchAtStartup }).then(() => setTimeout(refreshStatusNow, 900)))),
         settingRow('Work in admin apps', adminDesc, switchEl(s.adminMode, 'Work in admin apps', () => setAdmin(!s.adminMode))),
         settingRow('Cute sounds', 'Soft little blips when you flip a switch.', switchEl(s.sounds, 'Cute sounds', () => { commitSettings({ sounds: !s.sounds }); setSoundsEnabled(!s.sounds); sounds.on(); })),
         settingRow('Pause hotkey', 'One shortcut that pauses every remap. Handy for games.', pauseCtl)),
@@ -1278,6 +1337,7 @@ async function setAdmin(on) {
       if (!on && S.status.admin) {
         toast('Admin mode off. It takes effect when Cat Key restarts.', { ms: 8000, action: { label: 'Restart now', fn: () => invoke('restart_normal') } });
       }
+      setTimeout(refreshStatusNow, 900);
     }
   } catch (e) {
     const msg = String(e);

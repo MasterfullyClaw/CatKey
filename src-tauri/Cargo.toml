@@ -1,6 +1,6 @@
 [package]
 name = "catkey"
-version = "1.0.0"
+version = "1.0.1"
 description = "Cat Key - a purr-fect keyboard shortcut remapper for Windows"
 authors = ["Masterfully"]
 edition = "2021"

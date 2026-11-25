@@ -7,6 +7,14 @@ const DEFAULT_RULES = [
   ['LAlt+LShift+N', 'LCtrl+LShift+N', 'New window (private)'], ['LAlt+S', 'LCtrl+S', 'Save'], ['LAlt+Z', 'LCtrl+Z', 'Undo'], ['LAlt+R', 'LCtrl+R', 'Reload'],
 ].map(([trigger, keys, name], i) => ({ id: `d${i}`, enabled: true, name, trigger, action: { type: 'keys', keys }, scope: { mode: 'all', apps: [] } }));
 
+function mockStatus(params) {
+  return {
+    version: '1.0.1', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
+    configDir: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', problems: {}, engineRunning: params.get('engine') !== '0',
+    startup: params.get('startup') || 'on',
+  };
+}
+
 export function createMock() {
   const params = new URLSearchParams(location.search);
   let config = {
@@ -43,11 +51,11 @@ export function createMock() {
         case 'get_state':
           return {
             config: structuredClone(config),
-            status: { version: '1.0.0', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: false, configReset: false, configDir: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', problems: {} },
+            status: mockStatus(params),
             stats: { day: '', today: 42, total: 4200, perRule },
           };
         case 'get_status':
-          return { version: '1.0.0', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: false, configReset: false, configDir: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', problems: {} };
+          return mockStatus(params);
         case 'get_stats':
           return { day: '', today: 42, total: 4200, perRule };
         case 'save_config':
