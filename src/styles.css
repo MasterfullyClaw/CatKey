@@ -166,6 +166,20 @@ select.field { padding: 0 10px; }
 .btn.strong { background: var(--ac); color: var(--aci); border-color: transparent; }
 .btn.strong:hover { background: var(--ac); filter: brightness(1.06); }
 
+/* ---------- view tabs ---------- */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 14px 0 12px; border: 1px solid transparent; border-radius: 14px; background: transparent; color: var(--mu);
+  font-weight: 800; font-size: 14.5px; transition: background .2s, color .2s, transform .15s cubic-bezier(.34,1.56,.64,1); }
+.tab .ic { display: inline-flex; }
+.tab:hover { color: var(--tx); background: var(--s1); }
+.tab:active { transform: scale(.97); }
+.tab[aria-selected="true"] { color: var(--act); background: var(--acs); }
+.tab .count { min-width: 22px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--s2); color: var(--mu); font-size: 11.5px; line-height: 20px; text-align: center; }
+.tab[aria-selected="true"] .count { background: var(--ac); color: var(--aci); }
+.view-templates .toolbar, .view-templates .list, .view-templates .list-head, .view-templates .suggest { display: none; }
+.templates { display: none; flex-direction: column; gap: 14px; }
+.view-templates .templates { display: flex; }
+
 /* ---------- toolbar ---------- */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 4px; }
 .search { flex: 1 1 260px; display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border-radius: 14px; background: var(--s1); border: 1px solid var(--line); color: var(--mu); transition: border-color .2s, box-shadow .2s; }
@@ -175,6 +189,11 @@ select.field { padding: 0 10px; }
 .search kbd { font: 800 11px Nunito; color: var(--mu); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
 
 /* ---------- rule cards ---------- */
+.list-head { display: flex; align-items: center; gap: 14px; padding-left: 15px; margin-bottom: -8px; color: var(--mu); font-weight: 800; font-size: 11px; letter-spacing: .7px; text-transform: uppercase; }
+.list-head.none { display: none; }
+.list-head .c1 { width: 214px; }
+.list-head .c2 { width: 40px; }
+.list-head .c3 { width: 228px; }
 .list { display: flex; flex-direction: column; gap: 8px; }
 .card { position: relative; display: flex; align-items: center; gap: 12px; min-height: 66px; padding: 8px 10px 8px 6px; border-radius: 16px;
   background: var(--s1); border: 1px solid var(--line); transition: opacity .2s, border-color .3s, box-shadow .3s, background .2s; }
@@ -183,10 +202,18 @@ select.field { padding: 0 10px; }
 .card.fired { border-color: var(--ac); box-shadow: 0 0 0 4px var(--acs); }
 .card.fresh { border-color: var(--ac); }
 .napping .card .card-main { opacity: .45; }
-.card-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 4px 4px 4px 8px; border: 0; border-radius: 12px; background: transparent; text-align: left; transition: opacity .2s; }
+.card-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 4px 4px 4px 8px; border: 0; border-radius: 12px; background: transparent; text-align: left; transition: opacity .2s; cursor: pointer; }
 .card-main > .from { flex: none; width: 214px; }
 .card-main > .to { flex: none; width: 228px; }
 .arrow { flex: none; width: 40px; height: 16px; color: var(--mu); }
+/* On cards that press keys the arrow is a swap button: hover the card and it turns into ⇄. */
+.arrow.swap { position: relative; display: flex; align-items: center; justify-content: center; height: 34px; padding: 0; border: 0; border-radius: 11px; background: transparent; color: var(--mu); transition: background .2s, color .2s; }
+.arrow .go, .arrow .sw { display: flex; align-items: center; justify-content: center; transition: opacity .18s, transform .32s cubic-bezier(.34,1.56,.64,1); }
+.arrow .sw { position: absolute; inset: 0; opacity: 0; transform: rotate(-120deg) scale(.5); color: var(--act); }
+.card:hover .arrow.swap .go, .arrow.swap:focus-visible .go { opacity: 0; transform: scale(.6); }
+.card:hover .arrow.swap .sw, .arrow.swap:focus-visible .sw { opacity: 1; transform: none; }
+.arrow.swap:hover { background: var(--acs); }
+.arrow.swap:active .sw { transform: rotate(180deg) scale(.9); }
 .card.fired .arrow .dot { animation: dots .6s ease 2; }
 @keyframes dots { 50% { fill: var(--ac); opacity: 1; } }
 .meta { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -211,6 +238,41 @@ select.field { padding: 0 10px; }
 .tag-ico { width: 32px; height: 32px; flex: none; border-radius: 9px; background: var(--acs); color: var(--act); display: flex; align-items: center; justify-content: center; }
 .empty { padding: 34px 20px; border-radius: 18px; border: 1.5px dashed var(--line); color: var(--mu); font-weight: 700; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .empty .mascot-mini { opacity: .9; }
+
+/* ---------- templates ---------- */
+.tpl-intro { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.tpl-intro h2 { margin: 0; font-size: 21px; }
+.tpl-intro p { margin: 3px 0 0; max-width: 560px; font-size: 13.5px; }
+.tpl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 12px; align-items: start; }
+.tpl { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 20px; background: var(--s1); border: 1px solid var(--line); animation: rise .35s ease; }
+.tpl.starter { border-color: color-mix(in srgb, var(--ac) 50%, var(--line)); }
+.tpl-head { display: flex; align-items: flex-start; gap: 12px; }
+.tpl-ico { width: 40px; height: 40px; flex: none; border-radius: 13px; background: var(--acs); color: var(--act); display: flex; align-items: center; justify-content: center; }
+.tpl-head .txt { flex: 1; min-width: 0; }
+.tpl-head .t1 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 17px; }
+.tpl-head .t2 { color: var(--mu); font-size: 13px; line-height: 1.45; margin-top: 2px; }
+.lock { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 8px; border-radius: 11px; background: var(--s2); color: var(--mu); font: 800 11px Nunito; }
+.lock svg { width: 12px; height: 12px; }
+.tpl-rules { display: flex; flex-direction: column; gap: 4px; }
+.tpl-rule { display: grid; grid-template-columns: minmax(0, 1.1fr) 14px minmax(0, 1.1fr) minmax(0, 1fr) 16px; align-items: center; gap: 8px; min-height: 36px; padding: 4px 10px; border-radius: 11px; background: var(--s2); }
+.tpl-rule .caps { gap: 4px; }
+.tpl-rule .kc { height: 26px; line-height: 26px; padding: 0 7px; border-radius: 7px; font-size: 12px; }
+.tpl-rule .kc small { font-size: 9px; }
+.tpl-rule .mini-arrow { color: var(--mu); text-align: center; font-weight: 800; }
+.tpl-rule .nm { color: var(--mu); font-weight: 700; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tpl-rule .tick { display: flex; color: var(--good); }
+.tpl-rule .tick svg { width: 16px; height: 16px; }
+.tpl-rule.has { background: color-mix(in srgb, var(--good) 8%, var(--s2)); }
+.tpl > .link { align-self: flex-start; margin-top: -4px; }
+.tpl-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tpl-foot .spacer { flex: 1; }
+.chipbtn { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px 0 10px; border-radius: 17px; border: 1.5px dashed var(--line); background: transparent; color: var(--mu); font-weight: 800; font-size: 13px; transition: background .2s, color .2s, border-color .2s, transform .15s cubic-bezier(.34,1.56,.64,1); }
+.chipbtn:hover { color: var(--tx); border-color: var(--ac); }
+.chipbtn:active { transform: scale(.96); }
+.chipbtn.on { border-style: solid; border-color: var(--ac); background: var(--acs); color: var(--act); }
+.chipbtn svg { width: 16px; height: 16px; }
+.in-list { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; color: var(--good); font-weight: 800; font-size: 13px; }
+.in-list svg { width: 16px; height: 16px; }
 
 /* ---------- suggestions ---------- */
 .suggest { display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
@@ -258,6 +320,17 @@ select.field { padding: 0 10px; }
 .recorder .tag { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 10px; background: var(--s1); border: 1px solid var(--line); font-weight: 800; font-size: 13px; white-space: nowrap; }
 .recorder.listening .tag { color: var(--mu); }
 .err { color: var(--bad); font-weight: 700; font-size: 13px; }
+
+/* swap button between "When I press" and "Cat Key will…" */
+.swaprow { display: flex; align-items: center; gap: 12px; margin: -12px 0; }
+.swaprow:empty { display: none; }
+.swaprow .line { flex: 1; border-top: 1.5px dashed var(--line); }
+.swapbtn { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px 0 12px; border-radius: 18px; border: 1px solid var(--line); background: var(--s2); color: var(--act);
+  font-weight: 800; font-size: 13.5px; transition: background .2s, border-color .2s, transform .15s cubic-bezier(.34,1.56,.64,1); }
+.swapbtn:hover { background: var(--acs); border-color: var(--ac); }
+.swapbtn:active { transform: scale(.95); }
+.swapbtn[disabled] { opacity: .45; cursor: default; }
+.swapbtn .ic { display: inline-flex; }
 
 .manual { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border-radius: 16px; background: var(--s2); animation: rise .25s ease; }
 .modchip { display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 4px 0 4px; border-radius: 12px; border: 1px solid var(--line); background: var(--s1); }

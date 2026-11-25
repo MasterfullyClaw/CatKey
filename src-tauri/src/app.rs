@@ -39,6 +39,8 @@ pub struct AppState {
     pub stats: Mutex<Stats>,
     pub first_run: bool,
     pub config_reset: bool,
+    /// config.json came from an older Cat Key and was brought up to date (the UI says so once).
+    pub upgraded: AtomicBool,
     pub icons: Mutex<HashMap<String, Option<String>>>,
 }
 
@@ -61,21 +63,23 @@ pub fn save_config_file(dir: &Path, cfg: &Config) -> Result<(), String> {
 }
 
 /// (config, first run?, was the file broken and replaced?)
-fn load_config(dir: &Path) -> (Config, bool, bool) {
+/// (config, first run, file was damaged, upgraded from an older version)
+fn load_config(dir: &Path) -> (Config, bool, bool, bool) {
     let path = dir.join("config.json");
     match std::fs::read_to_string(&path) {
         Ok(text) => match serde_json::from_str::<Config>(&text) {
             Ok(mut c) => {
+                let upgraded = c.migrate();
                 c.normalize();
-                (c, false, false)
+                (c, false, false, upgraded)
             }
             Err(e) => {
                 crate::log(&format!("config.json could not be read ({e}); keeping a copy and starting fresh"));
                 let _ = std::fs::copy(&path, dir.join("config.broken.json"));
-                (Config::default(), false, true)
+                (Config::default(), false, true, false)
             }
         },
-        Err(_) => (Config::default(), true, false),
+        Err(_) => (Config::default(), true, false, false),
     }
 }
 
@@ -322,7 +326,7 @@ pub fn run(args: Vec<String>) {
     win::opt_out_of_power_throttling_for_process();
     let dir = config_dir();
     let _ = std::fs::create_dir_all(&dir);
-    let (cfg, first_run, config_reset) = load_config(&dir);
+    let (cfg, first_run, config_reset, upgraded) = load_config(&dir);
 
     if autostart && !cfg.settings.launch_at_startup {
         // Started by a leftover startup entry after the user turned it off.
@@ -335,8 +339,11 @@ pub fn run(args: Vec<String>) {
         // We were started by the user, so we may hand the foreground to the first copy.
         win::allow_any_foreground();
     }
-    if first_run && !second {
-        let _ = save_config_file(&dir, &cfg);
+    if (first_run || upgraded) && !second {
+        // Save the starter set (or an upgrade) once, so it isn't offered again after the user changes it.
+        if let Err(e) = save_config_file(&dir, &cfg) {
+            crate::log(&format!("couldn't save config.json: {e}"));
+        }
     }
 
     // The keyboard works from here on, before any window exists.
@@ -354,6 +361,7 @@ pub fn run(args: Vec<String>) {
         compiled: Mutex::new(compiled),
         first_run,
         config_reset,
+        upgraded: AtomicBool::new(upgraded),
         icons: Mutex::new(HashMap::new()),
     };
 

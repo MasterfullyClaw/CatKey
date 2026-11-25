@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
-pub const CONFIG_VERSION: u32 = 1;
+/// 2 = 1.0.2: Alt+T (new tab) joined the starter set; user templates.
+pub const CONFIG_VERSION: u32 = 2;
 
 fn yes() -> bool {
     true
@@ -35,6 +36,26 @@ pub struct Config {
     pub rules: Vec<Rule>,
     #[serde(default)]
     pub settings: Settings,
+    /// Templates the user saved. The built-in ones live in code (`builtin_templates`).
+    #[serde(default)]
+    pub templates: Vec<Template>,
+}
+
+/// A named set of shortcuts that can be added to (or removed from) the list in one go.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Template {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    /// Ships with Cat Key: always there, can't be renamed, changed or deleted.
+    #[serde(default)]
+    pub builtin: bool,
+    #[serde(default)]
+    pub rules: Vec<Rule>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -192,38 +213,149 @@ pub fn default_rules() -> Vec<Rule> {
         rule("LAlt+S", "LCtrl+S", "Save"),
         rule("LAlt+Z", "LCtrl+Z", "Undo"),
         rule("LAlt+R", "LCtrl+R", "Reload"),
+        new_tab(),
+    ]
+}
+
+fn new_tab() -> Rule {
+    rule("LAlt+T", "LCtrl+T", "New tab")
+}
+
+pub const STARTER_TEMPLATE_ID: &str = "builtin-starter";
+
+/// Templates that ship with Cat Key. Fixed ids, so the UI can tell them apart.
+pub fn builtin_templates() -> Vec<Template> {
+    fn tpl(id: &str, name: &str, description: &str, rules: Vec<Rule>) -> Template {
+        let rules = rules
+            .into_iter()
+            .enumerate()
+            .map(|(i, mut r)| {
+                r.id = format!("{id}-{}", i + 1);
+                r
+            })
+            .collect();
+        Template { id: id.into(), name: name.into(), description: description.into(), builtin: true, rules }
+    }
+    vec![
+        tpl(
+            STARTER_TEMPLATE_ID,
+            "Your starter set",
+            "The shortcuts Cat Key came with: your PowerToys set plus Alt + T for a new tab. Alt works like ⌘ on a Mac.",
+            default_rules(),
+        ),
+        tpl(
+            "builtin-mac-more",
+            "More Mac-style",
+            "More of the ⌘ habits: cut, redo, reopen a closed tab, zoom, bold, switching tabs and more.",
+            vec![
+                rule("LAlt+X", "LCtrl+X", "Cut"),
+                rule("LAlt+LShift+Z", "LCtrl+Y", "Redo"),
+                rule("LAlt+LShift+T", "LCtrl+LShift+T", "Reopen closed tab"),
+                rule("LAlt+L", "LCtrl+L", "Address bar"),
+                rule("LAlt+P", "LCtrl+P", "Print"),
+                rule("LAlt+O", "LCtrl+O", "Open"),
+                rule("LAlt+K", "LCtrl+K", "Quick search"),
+                rule("LAlt+B", "LCtrl+B", "Bold"),
+                rule("LAlt+I", "LCtrl+I", "Italic"),
+                rule("LAlt+Equals", "LCtrl+Equals", "Zoom in"),
+                rule("LAlt+Minus", "LCtrl+Minus", "Zoom out"),
+                rule("LAlt+0", "LCtrl+0", "Reset zoom"),
+                rule("LAlt+LShift+RBracket", "LCtrl+Tab", "Next tab"),
+                rule("LAlt+LShift+LBracket", "LCtrl+LShift+Tab", "Previous tab"),
+                rule("LAlt+LBracket", "LAlt+Left", "Back"),
+                rule("LAlt+RBracket", "LAlt+Right", "Forward"),
+                rule("LAlt+Backspace", "LCtrl+Backspace", "Delete word"),
+            ],
+        ),
+        tpl(
+            "builtin-caps-esc",
+            "Caps Lock as Escape",
+            "Caps Lock becomes Escape: close pop-ups and menus without reaching. Loved by Vim users.",
+            vec![rule("CapsLock", "Esc", "Escape")],
+        ),
     ]
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Config { version: CONFIG_VERSION, enabled: true, rules: default_rules(), settings: Settings::default() }
+        Config {
+            version: CONFIG_VERSION,
+            enabled: true,
+            rules: default_rules(),
+            settings: Settings::default(),
+            templates: Vec::new(),
+        }
+    }
+}
+
+/// Trim names, tidy app lists and clamp text of one rule.
+fn tidy_rule(r: &mut Rule) {
+    r.name = r.name.trim().chars().take(60).collect();
+    r.scope.apps = tidy_apps(&r.scope.apps);
+    if r.scope.apps.is_empty() {
+        r.scope.mode = ScopeMode::All;
+    }
+    if let Action::Launch { target, args } = &mut r.action {
+        *target = target.trim().to_string();
+        *args = args.trim().to_string();
+    }
+    if let Action::Text { text } = &mut r.action {
+        if text.chars().count() > 4000 {
+            *text = text.chars().take(4000).collect();
+        }
+    }
+}
+
+fn unique_ids(rules: &mut [Rule]) {
+    let mut seen = std::collections::HashSet::new();
+    for r in rules {
+        if r.id.trim().is_empty() || !seen.insert(r.id.clone()) {
+            r.id = new_id();
+            seen.insert(r.id.clone());
+        }
     }
 }
 
 impl Config {
+    /// Bring a config saved by an older Cat Key up to date. Call before `normalize`.
+    /// Returns true when something was added, so the caller can save it once.
+    pub fn migrate(&mut self) -> bool {
+        let mut changed = false;
+        if self.version < 2 {
+            // 1.0.2: Alt+T opens a new tab, like the rest of the starter set,
+            // unless the user already gave Alt+T a job of their own.
+            let t = new_tab();
+            if !self.rules.iter().any(|r| r.trigger.overlaps(&t.trigger)) {
+                self.rules.push(t);
+                changed = true;
+            }
+        }
+        changed
+    }
+
     /// Fill ids, tidy app names, clamp odd values. Safe to call repeatedly.
     pub fn normalize(&mut self) {
         self.version = CONFIG_VERSION;
-        let mut seen = std::collections::HashSet::new();
+        unique_ids(&mut self.rules);
         for r in &mut self.rules {
-            if r.id.trim().is_empty() || !seen.insert(r.id.clone()) {
-                r.id = new_id();
-                seen.insert(r.id.clone());
+            tidy_rule(r);
+        }
+        // Built-in templates are never stored; user templates get tidy ids and names.
+        self.templates.retain(|t| !t.builtin && !t.id.starts_with("builtin-"));
+        let mut seen = std::collections::HashSet::new();
+        for t in &mut self.templates {
+            if t.id.trim().is_empty() || !seen.insert(t.id.clone()) {
+                t.id = format!("t{}", &new_id()[1..]);
+                seen.insert(t.id.clone());
             }
-            r.name = r.name.trim().chars().take(60).collect();
-            r.scope.apps = tidy_apps(&r.scope.apps);
-            if r.scope.apps.is_empty() {
-                r.scope.mode = ScopeMode::All;
+            t.name = t.name.trim().chars().take(40).collect();
+            if t.name.is_empty() {
+                t.name = "My template".into();
             }
-            if let Action::Launch { target, args } = &mut r.action {
-                *target = target.trim().to_string();
-                *args = args.trim().to_string();
-            }
-            if let Action::Text { text } = &mut r.action {
-                if text.chars().count() > 4000 {
-                    *text = text.chars().take(4000).collect();
-                }
+            t.description = t.description.trim().chars().take(200).collect();
+            unique_ids(&mut t.rules);
+            for r in &mut t.rules {
+                tidy_rule(r);
             }
         }
         self.settings.excluded_apps = tidy_apps(&self.settings.excluded_apps);
@@ -472,8 +604,9 @@ mod tests {
         let back: Config = serde_json::from_str(&json).unwrap();
         assert_eq!(back, cfg);
         let c = compile(&back);
-        assert_eq!(c.rule_count(), 12);
-        assert_eq!(c.shortcuts[b'T' as usize].len(), 1);
+        assert_eq!(c.rule_count(), 13);
+        // The starter Alt+T (new tab) and this per-app Alt+T launcher.
+        assert_eq!(c.shortcuts[b'T' as usize].len(), 2);
     }
 
     #[test]
@@ -496,6 +629,88 @@ mod tests {
         let list = &c.shortcuts[b'F' as usize];
         assert!(matches!(list[0].scope, CScope::Only(_)));
         assert!(matches!(list[1].scope, CScope::All));
+    }
+
+    #[test]
+    fn old_config_gets_new_tab_once() {
+        let mut cfg: Config = serde_json::from_str(
+            r#"{"version":1,"rules":[{"trigger":"LAlt+W","action":{"type":"keys","keys":"LCtrl+W"}}]}"#,
+        )
+        .unwrap();
+        assert!(cfg.migrate());
+        cfg.normalize();
+        assert_eq!(cfg.version, CONFIG_VERSION);
+        let t: Vec<_> = cfg.rules.iter().filter(|r| r.trigger == Shortcut::parse("LAlt+T").unwrap()).collect();
+        assert_eq!(t.len(), 1);
+        assert_eq!(t[0].action, Action::Keys { keys: Shortcut::parse("LCtrl+T").unwrap() });
+        // Saved and loaded again: nothing more is added.
+        let mut again: Config = serde_json::from_str(&serde_json::to_string(&cfg).unwrap()).unwrap();
+        assert!(!again.migrate());
+        assert_eq!(again.rules.len(), 2);
+    }
+
+    #[test]
+    fn migration_respects_own_alt_t() {
+        let mut cfg: Config = serde_json::from_str(
+            r#"{"version":1,"rules":[{"trigger":"Alt+T","action":{"type":"launch","target":"wt.exe"}}]}"#,
+        )
+        .unwrap();
+        assert!(!cfg.migrate());
+        assert_eq!(cfg.rules.len(), 1);
+    }
+
+    #[test]
+    fn builtin_templates_are_sound() {
+        let all = builtin_templates();
+        assert_eq!(all[0].id, STARTER_TEMPLATE_ID);
+        assert_eq!(all[0].rules.len(), default_rules().len());
+        let mut ids = std::collections::HashSet::new();
+        for t in &all {
+            assert!(t.builtin && !t.name.is_empty() && !t.rules.is_empty());
+            assert!(ids.insert(t.id.clone()));
+            for r in &t.rules {
+                assert!(ids.insert(r.id.clone()), "duplicate id {}", r.id);
+                assert_eq!(rule_problem(r), None, "{}", r.name);
+            }
+            // No template fights with itself.
+            for (i, a) in t.rules.iter().enumerate() {
+                for b in &t.rules[i + 1..] {
+                    assert!(!a.trigger.overlaps(&b.trigger), "{} vs {}", a.name, b.name);
+                }
+            }
+        }
+        // The extras never clash with the starter set.
+        for a in &all[0].rules {
+            for b in &all[1].rules {
+                assert!(!a.trigger.overlaps(&b.trigger), "{} vs {}", a.name, b.name);
+            }
+        }
+    }
+
+    #[test]
+    fn user_templates_are_tidied() {
+        let mut cfg = Config::default();
+        cfg.templates.push(Template { id: String::new(), name: "  ".into(), description: String::new(), builtin: false, rules: default_rules() });
+        cfg.templates.push(Template { id: "builtin-starter".into(), name: "x".into(), description: String::new(), builtin: true, rules: vec![] });
+        cfg.normalize();
+        assert_eq!(cfg.templates.len(), 1);
+        assert_eq!(cfg.templates[0].name, "My template");
+        assert!(cfg.templates[0].id.starts_with('t'));
+        let json = serde_json::to_string(&cfg).unwrap();
+        let back: Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, cfg);
+        // Templates never become live shortcuts.
+        assert_eq!(compile(&cfg).rule_count(), default_rules().len());
+    }
+
+    #[test]
+    fn overlap_rules() {
+        let p = |s: &str| Shortcut::parse(s).unwrap();
+        assert!(p("Alt+T").overlaps(&p("LAlt+T")));
+        assert!(!p("LAlt+T").overlaps(&p("RAlt+T")));
+        assert!(!p("LAlt+T").overlaps(&p("LAlt+LShift+T")));
+        assert!(!p("LAlt+T").overlaps(&p("LCtrl+T")));
+        assert!(p("CapsLock").overlaps(&p("CapsLock")));
     }
 
     #[test]

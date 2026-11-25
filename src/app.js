@@ -40,6 +40,9 @@ const I = {
   link: '<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/>',
   shield: '<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3z"/>',
   moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+  swap: '<path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/>',
+  layers: '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
 };
 const FILLED = new Set(['paw', 'more', 'sparkle']);
 const icon = (name, extra = '') =>
@@ -48,6 +51,8 @@ const icon = (name, extra = '') =>
 // ------------------------------------------------------------------ DOM helpers
 
 const $ = (sel, root = document) => root.querySelector(sel);
+// Overlays (menus, dialogs, confetti) live inside #app, where the theme colors are defined.
+const layer = () => document.getElementById('app') || document.body;
 function h(tag, props, ...kids) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props || {})) {
@@ -80,6 +85,10 @@ const S = {
   fresh: new Set(),
   firedTimers: new Map(),
   bannerDismissed: false,
+  view: 'shortcuts', // 'shortcuts' | 'templates'
+  templates: [], // built-in templates (from Rust); the user's own live in config.templates
+  tplReversed: new Set(), // template ids shown (and added) with keys swapped
+  tplOpen: new Set(), // template ids showing every shortcut
 };
 let hero = null; // hero Mascot
 let REC = null; // active recording target
@@ -184,6 +193,29 @@ function scopeText(scope) {
   return 'Everywhere';
 }
 
+// ------------------------------------------------------------------ swap (what you press ⇄ what it does)
+
+const REVERSED = ' (reversed)';
+const canSwap = (r) => r?.action?.type === 'keys' && !!r.action.keys && !!r.trigger;
+function swappedName(name) {
+  if (!name) return '';
+  return name.endsWith(REVERSED) ? name.slice(0, -REVERSED.length) : (name + REVERSED).slice(0, 60);
+}
+/** The same rule with the keys you press and the keys it sends trading places. */
+function swapped(r) {
+  if (!canSwap(r)) return null;
+  return { ...clone(r), name: swappedName(r.name), trigger: r.action.keys, action: { type: 'keys', keys: r.trigger } };
+}
+/** Why a swapped rule couldn't work ('' = fine). */
+function swapProblem(sw) {
+  const { err } = analyze(sw);
+  return err.trigger || err.keys || K.reservedNote(sw.trigger) || '';
+}
+/** Another switched-on rule that fires on the same keys in the same apps. */
+function clashFor(r, list = rules()) {
+  return list.find((x) => x.id !== r.id && x.enabled && K.overlaps(x.trigger, r.trigger) && scopesOverlap(x.scope, r.scope));
+}
+
 // ------------------------------------------------------------------ boot
 
 async function boot() {
@@ -191,7 +223,10 @@ async function boot() {
   S.config = st.config;
   S.status = st.status;
   S.stats = st.stats || S.stats;
+  S.templates = st.templates || [];
   setSoundsEnabled(S.config.settings.sounds);
+  const newTab = st.upgraded && rules().find((r) => r.trigger === 'LAlt+T' && r.action.keys === 'LCtrl+T');
+  if (newTab) markFresh(newTab.id);
 
   $('#btn-settings').innerHTML = icon('gear');
   $('#btn-min').innerHTML = icon('minus');
@@ -208,6 +243,9 @@ async function boot() {
 
   if (S.status.firstRun) {
     setTimeout(() => toast(`${cat()} brought your ${rules().length} shortcuts over. They already work everywhere!`, { ms: 6000 }), 500);
+  }
+  if (newTab) {
+    setTimeout(() => toast('New: Alt + T opens a new tab. Want it the other way round? Click the arrow on its card to swap.', { ms: 10000 }), 900);
   }
   if (S.status.configReset) {
     toast('Your settings file was damaged, so Cat Key started fresh (a copy was kept).', { kind: 'warn', ms: 8000 });
@@ -255,9 +293,39 @@ function renderAll() {
   renderTitle();
   renderHero();
   renderBanners();
+  renderTabs();
   renderFilters();
   renderList();
   renderSuggestions();
+  renderTemplates();
+  applyView();
+}
+
+// ------------------------------------------------------------------ tabs: your shortcuts | templates
+
+function renderTabs() {
+  const box = $('#tabs');
+  box.textContent = '';
+  for (const [id, label, n, ic] of [['shortcuts', 'Your shortcuts', rules().length, 'keyboard'], ['templates', 'Templates', allTemplates().length, 'layers']]) {
+    box.append(h('button', { class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(S.view === id), onclick: () => setView(id) },
+      h('span', { class: 'ic', html: icon(ic) }), h('span', { text: label }), h('span', { class: 'count', text: String(n) })));
+  }
+}
+
+function applyView() {
+  $('#app').classList.toggle('view-templates', S.view === 'templates');
+}
+
+function setView(v) {
+  if (S.view === v) return;
+  S.view = v;
+  sounds.pop();
+  renderTabs();
+  applyView();
+  const scroll = $('#scroll');
+  const gap = $('#tabs').getBoundingClientRect().top - scroll.getBoundingClientRect().top;
+  if (gap < 0) scroll.scrollTo({ top: scroll.scrollTop + gap - 12, behavior: reduced() ? 'auto' : 'smooth' });
+  if (!reduced()) $(v === 'templates' ? '#templates' : '#list').animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 280, easing: 'cubic-bezier(.22,1,.36,1)' });
 }
 
 function renderTitle() {
@@ -421,9 +489,17 @@ function fillCard(el, r) {
 
   const perApp = r.scope.mode !== 'all' && r.scope.apps.length;
   const problem = S.status.problems?.[r.id];
-  const main = h('button', { class: 'card-main', type: 'button', 'aria-label': `Edit ${ruleName(r)}`, onclick: () => openEditor(r) },
+  const arrowSvg = '<svg viewBox="0 0 40 16" width="40" height="16" aria-hidden="true"><circle class="dot" cx="4" cy="8" r="1.9" fill="currentColor" opacity=".45"/><circle class="dot" cx="11" cy="8" r="1.9" fill="currentColor" opacity=".75"/><path d="M17 8h17M29 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const arrow = canSwap(r)
+    ? h('button', { class: 'arrow swap', type: 'button', title: `Swap them: ${K.plain(a.keys)} would do ${K.plain(r.trigger)}`,
+        'aria-label': `Swap ${ruleName(r)} so ${K.plain(a.keys)} does ${K.plain(r.trigger)}`,
+        onclick: (e) => { e.stopPropagation(); swapRule(r); }, onkeydown: (e) => e.stopPropagation() },
+      h('span', { class: 'go', html: arrowSvg }), h('span', { class: 'sw', html: icon('swap') }))
+    : h('span', { class: 'arrow', html: arrowSvg });
+  const main = h('div', { class: 'card-main', role: 'button', tabindex: '0', 'aria-label': `Edit ${ruleName(r)}`, onclick: () => openEditor(r),
+    onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openEditor(r); } } },
     h('span', { class: 'from' }, capsEl(r.trigger)),
-    h('span', { class: 'arrow', html: '<svg viewBox="0 0 40 16" width="40" height="16" aria-hidden="true"><circle class="dot" cx="4" cy="8" r="1.9" fill="currentColor" opacity=".45"/><circle class="dot" cx="11" cy="8" r="1.9" fill="currentColor" opacity=".75"/><path d="M17 8h17M29 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' }),
+    arrow,
     to,
     h('span', { class: 'meta' },
       h('span', { class: 'name' }, h('span', { text: ruleName(r) }),
@@ -442,6 +518,7 @@ function fillCard(el, r) {
 function renderList() {
   const box = $('#list');
   const list = visibleRules();
+  $('#list-head').classList.toggle('none', !list.length);
   const before = new Map();
   for (const el of box.children) if (el.dataset.id) before.set(el.dataset.id, el.getBoundingClientRect().top);
   const existing = new Map([...box.querySelectorAll('.card')].map((e) => [e.dataset.id, e]));
@@ -478,14 +555,20 @@ function renderList() {
   }
 }
 
+function suggestionList() {
+  const t = S.templates.find((x) => x.id === 'builtin-mac-more');
+  return t ? t.rules.filter((r) => r.action.type === 'keys').map((r) => [r.trigger, r.action.keys, r.name]) : SUGGESTIONS;
+}
+
 function renderSuggestions() {
   const box = $('#suggest');
   box.textContent = '';
   const have = rules().map((r) => r.trigger);
-  const list = SUGGESTIONS.filter(([from]) => !have.some((t) => K.overlaps(t, from))).slice(0, 6);
+  const list = suggestionList().filter(([from]) => !have.some((t) => K.overlaps(t, from))).slice(0, 6);
   if (!list.length) return;
-  box.append(h('h2', { html: `${icon('sparkle')}<span></span>` }));
-  box.querySelector('h2 span').textContent = `${cat()} suggests`;
+  box.append(h('div', { class: 'row-between' },
+    h('h2', { html: icon('sparkle') }, h('span', { text: `${cat()} suggests` })),
+    h('button', { class: 'link', type: 'button', text: 'See all templates', onclick: () => setView('templates') })));
   const row = h('div', { class: 'row' });
   for (const [from, to, name] of list) {
     row.append(h('button', { class: 'sg', type: 'button', onclick: (e) => addSuggestion(from, to, name, e.currentTarget) },
@@ -575,6 +658,21 @@ function deleteRule(id) {
   } else finish();
 }
 
+function swapRule(r) {
+  const sw = swapped(r);
+  if (!sw) { toast('Only shortcuts that press keys can be swapped.', { kind: 'warn' }); return; }
+  const problem = swapProblem(sw);
+  if (problem) { toast(`Can’t swap this one. ${problem}`, { kind: 'warn', ms: 6000 }); return; }
+  sounds.pop();
+  commit({ ...S.config, rules: rules().map((x) => (x.id === r.id ? sw : x)) });
+  const main = document.querySelector(`.card[data-id="${CSS.escape(r.id)}"] .card-main`);
+  if (main && !reduced()) main.animate([{ transform: 'perspective(700px) rotateX(75deg)', opacity: 0.15 }, { transform: 'none', opacity: 1 }], { duration: 440, easing: 'cubic-bezier(.34,1.3,.64,1)' });
+  const undo = { label: 'Undo', fn: () => commit({ ...S.config, rules: rules().map((x) => (x.id === r.id ? r : x)) }) };
+  const clash = sw.enabled ? clashFor(sw) : null;
+  if (clash) toast(`Swapped. “${ruleName(clash)}” also uses ${K.plain(sw.trigger)}, and the one higher in the list wins.`, { kind: 'warn', ms: 8000, action: undo });
+  else toast(`Swapped: ${K.plain(sw.trigger)} now does ${K.plain(sw.action.keys)}.`, { ms: 6000, action: undo });
+}
+
 function duplicateRule(r) {
   const copy = { ...clone(r), id: newId(), enabled: false, name: r.name ? `${r.name} (copy)` : '' };
   const list = [...rules()];
@@ -660,8 +758,8 @@ function wire() {
       if (SETTINGS_OPEN) { closeSettings(); return; }
     }
     const ctrl = e.ctrlKey && !e.altKey && !e.metaKey;
-    if (ctrl && e.key.toLowerCase() === 'f' && !E && !SETTINGS_OPEN) { e.preventDefault(); search.focus(); search.select(); }
-    if (ctrl && e.key.toLowerCase() === 'n' && !E && !SETTINGS_OPEN) { e.preventDefault(); openEditor(null); }
+    if (ctrl && e.key.toLowerCase() === 'f' && !E && !SETTINGS_OPEN && !DIALOG) { e.preventDefault(); setView('shortcuts'); search.focus(); search.select(); }
+    if (ctrl && e.key.toLowerCase() === 'n' && !E && !SETTINGS_OPEN && !DIALOG) { e.preventDefault(); openEditor(null); }
     if (ctrl && e.key.toLowerCase() === 's' && E) { e.preventDefault(); saveEditor(); }
   });
 }
@@ -762,6 +860,7 @@ function openEditor(rule) {
       h('div', { class: 'step' },
         h('div', { class: 'step-title' }, h('span', { class: 'n', text: '1' }), 'When I press'),
         h('div', { id: 'ed-trigger', class: 'step', style: { gap: '10px' } })),
+      h('div', { class: 'swaprow', id: 'ed-swaprow' }),
       h('div', { class: 'step' },
         h('div', { class: 'step-title' }, h('span', { class: 'n', text: '2' }), 'Cat Key will…'),
         h('div', { class: 'seg soft modes', role: 'group', 'aria-label': 'Action', id: 'ed-modes' }),
@@ -840,6 +939,43 @@ function renderRecorderSection(kind) {
   if (E.manual[kind]) box.append(manualEl(kind));
   if (E.err[kind]) box.append(h('div', { class: 'err', role: 'alert', text: E.err[kind] }));
   E.justRecorded = null;
+  renderSwapRow();
+}
+
+function renderSwapRow() {
+  const box = $('#ed-swaprow');
+  if (!box || !E) return;
+  box.textContent = '';
+  if (E.d.action.type !== 'keys') return;
+  const ready = !!E.d.trigger && !!E.d.action.keys;
+  box.append(h('span', { class: 'line' }),
+    h('button', { class: 'swapbtn', type: 'button', disabled: ready ? null : true, onclick: swapInEditor,
+      title: ready ? `Swap them: ${K.plain(E.d.action.keys)} would do ${K.plain(E.d.trigger)}` : 'Record both sides first, then you can swap them' },
+      h('span', { class: 'ic', html: icon('swap') }), h('span', { text: 'Swap' })),
+    h('span', { class: 'line' }));
+}
+
+function swapInEditor() {
+  if (!E || E.d.action.type !== 'keys') return;
+  if (E.rec) stopRec();
+  const t = E.d.trigger;
+  E.d.trigger = E.d.action.keys || '';
+  E.d.action.keys = t || '';
+  E.mem.keys = E.d.action.keys;
+  if (E.d.name) { E.d.name = swappedName(E.d.name); $('#ed-name').value = E.d.name; }
+  E.err.trigger = null;
+  E.err.keys = null;
+  sounds.pop();
+  E.mini?.react(700);
+  renderRecorderSection('trigger');
+  renderRecorderSection('keys');
+  renderNotes();
+  $('#ed-name').placeholder = autoName(E.d);
+  if (reduced()) return;
+  const ease = 'cubic-bezier(.22,1,.36,1)';
+  $('#ed-swaprow .ic')?.animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(180deg)' }], { duration: 440, easing: 'cubic-bezier(.34,1.3,.64,1)' });
+  $('#ed-trigger .recorder')?.animate([{ transform: 'translateY(34px)', opacity: 0.25 }, { transform: 'none', opacity: 1 }], { duration: 400, easing: ease });
+  $('#ed-keys .recorder')?.animate([{ transform: 'translateY(-34px)', opacity: 0.25 }, { transform: 'none', opacity: 1 }], { duration: 400, easing: ease });
 }
 
 function manualEl(kind) {
@@ -922,6 +1058,7 @@ function setMode(type) {
   sounds.pop();
   renderModes();
   renderPanel();
+  renderSwapRow();
   renderNotes();
   $('#ed-name').placeholder = autoName(E.d);
 }
@@ -1064,6 +1201,150 @@ async function saveEditor() {
   document.querySelector(`.card[data-id="${CSS.escape(d.id)}"]`)?.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'nearest' });
 }
 
+// ------------------------------------------------------------------ templates
+
+const STARTER = 'builtin-starter';
+const allTemplates = () => [...S.templates, ...(S.config.templates || [])];
+const actKey = (a) => [a.type, a.keys || '', a.target || '', a.args || '', a.text || ''].join('\u0001');
+const scopeKey = (s) => `${s?.mode || 'all'}:${[...(s?.apps || [])].sort().join(',')}`;
+/** Same keys, same result, same apps (on/off and name don't matter). */
+const sameRule = (a, b) => a.trigger === b.trigger && actKey(a.action) === actKey(b.action) && scopeKey(a.scope) === scopeKey(b.scope);
+const inList = (x) => rules().some((r) => sameRule(r, x));
+
+/** A template's shortcuts as they'd be added (swapped when Reverse is on). */
+function tplRules(t) {
+  return S.tplReversed.has(t.id) ? t.rules.map((r) => swapped(r) || r) : t.rules;
+}
+
+function templateCard(t) {
+  const list = tplRules(t);
+  const have = list.filter(inList).length;
+  const missing = list.length - have;
+  const rev = S.tplReversed.has(t.id);
+  const open = S.tplOpen.has(t.id) || list.length <= 6;
+  const shown = open ? list : list.slice(0, 5);
+  const rows = h('div', { class: 'tpl-rules' }, ...shown.map((x) => {
+    const has = inList(x);
+    return h('div', { class: `tpl-rule${has ? ' has' : ''}` },
+      h('span', { class: 'from' }, capsEl(x.trigger)),
+      h('span', { class: 'mini-arrow', 'aria-hidden': 'true', text: '→' }),
+      h('span', { class: 'to' }, x.action.type === 'keys' ? capsEl(x.action.keys, { to: true }) : h('span', { class: 'nm', text: autoName(x) })),
+      h('span', { class: 'nm', title: ruleName(x), text: ruleName(x) }),
+      h('span', { class: 'tick', title: has ? 'Already in your list' : '', html: has ? icon('check') : '' }));
+  }));
+  const more = list.length > 6
+    ? h('button', { class: 'link', type: 'button', text: open ? 'Show fewer' : `Show all ${list.length}`, onclick: () => { open ? S.tplOpen.delete(t.id) : S.tplOpen.add(t.id); renderTemplates(); } })
+    : null;
+  const primary = missing === 0
+    ? h('span', { class: 'in-list', html: `${icon('check')}<span>All in your list</span>` })
+    : h('button', { class: 'btn strong small', type: 'button', html: `${icon('plus')}<span>${have ? `Add ${missing} missing` : list.length === 1 ? 'Add it' : `Add all ${list.length}`}</span>`, onclick: (e) => addTemplate(t, e.currentTarget) });
+  const remove = have ? h('button', { class: 'btn ghost small', type: 'button', text: missing ? `Remove ${have}` : 'Remove from my list', onclick: () => removeTemplateRules(t) }) : null;
+  const reverse = t.rules.some(canSwap)
+    ? h('button', { class: `chipbtn${rev ? ' on' : ''}`, type: 'button', 'aria-pressed': String(rev),
+        title: rev ? 'Showing it reversed: what you press and what it does trade places' : 'Flip the whole template: what you press and what it does trade places',
+        onclick: () => { rev ? S.tplReversed.delete(t.id) : S.tplReversed.add(t.id); sounds.pop(); renderTemplates(); } },
+      h('span', { html: icon('swap'), style: { display: 'inline-flex' } }), rev ? 'Reversed' : 'Reverse')
+    : null;
+  const badge = t.builtin ? h('span', { class: 'lock', title: 'Comes with Cat Key, so it can’t be changed or deleted.', html: `${icon('lock')}<span>Built-in</span>` }) : null;
+  return h('article', { class: `tpl${t.id === STARTER ? ' starter' : ''}`, 'data-id': t.id },
+    h('div', { class: 'tpl-head' },
+      h('span', { class: 'tpl-ico', html: icon(t.id === STARTER ? 'paw' : t.builtin ? 'sparkle' : 'layers') }),
+      h('div', { class: 'txt' },
+        h('div', { class: 't1' }, h('span', { class: 'display', text: t.name }), badge),
+        h('div', { class: 't2', text: t.description || `${t.rules.length} shortcut${t.rules.length === 1 ? '' : 's'}` })),
+      t.builtin ? null : h('button', { class: 'more', type: 'button', 'aria-label': `More for ${t.name}`, html: icon('more'), onclick: (e) => templateMenu(e.currentTarget, t) })),
+    rows, more,
+    h('div', { class: 'tpl-foot' }, reverse, h('span', { class: 'spacer' }), remove, primary));
+}
+
+function renderTemplates() {
+  const box = $('#templates');
+  box.textContent = '';
+  box.append(h('div', { class: 'tpl-intro' },
+    h('div', { class: 'txt' },
+      h('h2', { class: 'display', text: 'Templates' }),
+      h('p', { class: 'hint', text: `Ready-made sets of shortcuts. Add a whole set in one click, or flip it with Reverse first. The built-in ones are always here, ${cat()} won’t let them be deleted.` })),
+    h('button', { class: 'btn', type: 'button', html: `${icon('layers')}<span>Save my shortcuts as a template</span>`, onclick: saveAsTemplate })));
+  const grid = h('div', { class: 'tpl-grid' });
+  for (const t of allTemplates()) grid.append(templateCard(t));
+  box.append(grid);
+}
+
+async function addTemplate(t, btn) {
+  const fresh = [];
+  let clashes = 0;
+  for (const x of tplRules(t)) {
+    if (inList(x)) continue;
+    const r = { ...clone(x), id: newId() };
+    // Keys you already use stay yours: the template's copy comes in switched off.
+    r.enabled = !clashFor(r, [...rules(), ...fresh]);
+    if (!r.enabled) clashes++;
+    fresh.push(r);
+  }
+  if (!fresh.length) return;
+  if (btn) { const rc = btn.getBoundingClientRect(); confetti(rc.left + rc.width / 2, rc.top); }
+  fresh.forEach((r) => markFresh(r.id));
+  sounds.saved();
+  await commit({ ...S.config, rules: [...rules(), ...fresh] });
+  hero.react(1300);
+  const n = fresh.length;
+  const msg = `Added ${n} shortcut${n === 1 ? '' : 's'} from “${t.name}”.` +
+    (clashes ? ` ${clashes} ${clashes === 1 ? 'is' : 'are'} switched off because you already use ${clashes === 1 ? 'its keys' : 'their keys'}.` : '');
+  toast(msg, { kind: clashes ? 'warn' : 'ok', ms: 8000, action: { label: 'Undo', fn: () => commit({ ...S.config, rules: rules().filter((r) => !fresh.some((f) => f.id === r.id)) }) } });
+}
+
+function removeTemplateRules(t) {
+  const list = tplRules(t);
+  const before = rules();
+  const keep = before.filter((r) => !list.some((x) => sameRule(r, x)));
+  const n = before.length - keep.length;
+  if (!n) return;
+  sounds.off();
+  commit({ ...S.config, rules: keep });
+  toast(`Removed ${n} shortcut${n === 1 ? '' : 's'} from your list. “${t.name}” is still here.`, { ms: 8000, action: { label: 'Undo', fn: () => commit({ ...S.config, rules: before }) } });
+}
+
+const shortDate = () => new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+async function saveAsTemplate() {
+  const n = rules().length;
+  if (!n) { toast('Add a shortcut first, then save your list as a template.', { kind: 'warn' }); return; }
+  const name = await promptBox('Save as a template', `Keeps a copy of your ${n} shortcut${n === 1 ? '' : 's'}, so you can bring them back in one click.`, `My shortcuts · ${shortDate()}`, 'Save template');
+  if (!name) return;
+  const t = { id: `t${newId().slice(1)}`, name, description: `${n} shortcut${n === 1 ? '' : 's'}, saved ${shortDate()}.`, builtin: false, rules: rules().map((r) => ({ ...clone(r), id: newId() })) };
+  sounds.saved();
+  await commit({ ...S.config, templates: [...(S.config.templates || []), t] });
+  toast(`Saved “${name}”. It’s in Templates.`);
+}
+
+function templateMenu(anchor, t) {
+  showPop(anchor, h('div', { class: 'pop', role: 'menu' },
+    menuItem('edit', 'Rename', () => renameTemplate(t)),
+    menuItem('refresh', 'Replace with my current shortcuts', () => refillTemplate(t)),
+    h('div', { class: 'sep' }),
+    menuItem('trash', 'Delete template', () => deleteTemplate(t), 'danger')));
+}
+
+const updateTemplate = (id, change) => commit({ ...S.config, templates: (S.config.templates || []).map((x) => (x.id === id ? change(x) : x)) });
+
+async function renameTemplate(t) {
+  const name = await promptBox('Rename template', 'Give it a name you’ll recognise.', t.name, 'Rename');
+  if (name && name !== t.name) updateTemplate(t.id, (x) => ({ ...x, name }));
+}
+
+async function refillTemplate(t) {
+  const n = rules().length;
+  if (!(await confirmBox(`Replace “${t.name}”?`, `It will hold your current ${n} shortcut${n === 1 ? '' : 's'} instead of the ones it has now.`, 'Replace'))) return;
+  updateTemplate(t.id, (x) => ({ ...x, description: `${n} shortcut${n === 1 ? '' : 's'}, saved ${shortDate()}.`, rules: rules().map((r) => ({ ...clone(r), id: newId() })) }));
+  toast(`“${t.name}” now holds your current shortcuts.`);
+}
+
+function deleteTemplate(t) {
+  const before = S.config.templates || [];
+  commit({ ...S.config, templates: before.filter((x) => x.id !== t.id) });
+  toast(`Deleted the template “${t.name}”. Your shortcuts weren’t touched.`, { ms: 7000, action: { label: 'Undo', fn: () => commit({ ...S.config, templates: before }) } });
+}
+
 // ------------------------------------------------------------------ popovers, menus, dialogs, toasts
 
 let POP = null;
@@ -1080,7 +1361,7 @@ function onOutside(e) {
 function showPop(anchor, pop) {
   closePop();
   POP = pop;
-  document.body.append(pop);
+  layer().append(pop);
   const r = anchor.getBoundingClientRect();
   const w = pop.offsetWidth;
   const left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w));
@@ -1092,10 +1373,13 @@ function showPop(anchor, pop) {
   pop.querySelector('button, input')?.focus();
 }
 
+const menuItem = (ic, text, fn, cls = '') => h('button', { class: `item ${cls}`, type: 'button', role: 'menuitem', onclick: () => { closePop(); fn(); } }, h('span', { html: icon(ic) }), h('span', { class: 'nm', text }));
+
 function ruleMenu(anchor, r) {
-  const item = (ic, text, fn, cls = '') => h('button', { class: `item ${cls}`, type: 'button', role: 'menuitem', onclick: () => { closePop(); fn(); } }, h('span', { html: icon(ic) }), h('span', { class: 'nm', text }));
+  const item = menuItem;
   showPop(anchor, h('div', { class: 'pop', role: 'menu' },
     item('edit', 'Edit', () => openEditor(r)),
+    canSwap(r) ? item('swap', `Swap: ${K.plain(r.action.keys)} does ${K.plain(r.trigger)}`, () => swapRule(r)) : null,
     item('copy', 'Duplicate', () => duplicateRule(r)),
     item(r.enabled ? 'moon' : 'paw', r.enabled ? 'Turn off' : 'Turn on', () => toggleRule(r.id)),
     h('div', { class: 'sep' }),
@@ -1141,8 +1425,28 @@ function confirmBox(title, text, okLabel = 'OK', danger = false) {
     const done = (v) => { scrim.remove(); box.remove(); DIALOG = null; resolve(v); };
     DIALOG = done;
     scrim.onclick = () => done(false);
-    document.body.append(scrim, box);
+    layer().append(scrim, box);
     box.querySelector('.btn.ghost').focus();
+  });
+}
+
+function promptBox(title, text, value = '', okLabel = 'Save') {
+  return new Promise((resolve) => {
+    const scrim = h('div', { class: 'dialog-scrim' });
+    const input = h('input', { class: 'field', type: 'text', maxlength: '40', value, 'aria-label': title, style: { width: '100%', marginBottom: '18px' } });
+    const done = (v) => { scrim.remove(); box.remove(); DIALOG = null; resolve(v); };
+    const ok = () => done(input.value.trim() || null);
+    const box = h('div', { class: 'dialog', role: 'dialog', 'aria-modal': 'true' },
+      h('h2', { text: title }), h('p', { text }), input,
+      h('div', { class: 'row' },
+        h('button', { class: 'btn ghost', type: 'button', text: 'Cancel', onclick: () => done(null) }),
+        h('button', { class: 'btn primary', type: 'button', text: okLabel, onclick: ok })));
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok(); });
+    DIALOG = (yes) => (yes ? ok() : done(null));
+    scrim.onclick = () => done(null);
+    layer().append(scrim, box);
+    input.focus();
+    input.select();
   });
 }
 
@@ -1164,7 +1468,7 @@ function confetti(x, y) {
     const p = h('span', { class: 'confetti', html: icon('paw') });
     p.style.left = `${x - 8}px`;
     p.style.top = `${y - 8}px`;
-    document.body.append(p);
+    layer().append(p);
     const ang = (-90 + (i - 3) * 22 + (Math.random() * 14 - 7)) * (Math.PI / 180);
     const dist = 60 + Math.random() * 50;
     p.animate([
@@ -1285,11 +1589,22 @@ function renderSettings() {
         h('div', { class: 'grid2' },
           h('button', { class: 'btn', type: 'button', html: `${icon('down')}<span>Import from PowerToys</span>`, onclick: importPowerToys }),
           h('button', { class: 'btn', type: 'button', html: `${icon('folder')}<span>Import file…</span>`, onclick: async () => {
-            try { const r = await invoke('import_file'); if (r) { S.config = r.config; renderAll(); toast(r.added ? `Added ${r.added} shortcut${r.added === 1 ? '' : 's'}.` : 'Nothing new in that file.'); } } catch (e) { toast(String(e), { kind: 'warn' }); }
+            try {
+              const r = await invoke('import_file');
+              if (r) {
+                S.config = r.config;
+                renderAll();
+                const parts = [];
+                if (r.added) parts.push(`${r.added} shortcut${r.added === 1 ? '' : 's'}`);
+                if (r.templates) parts.push(`${r.templates} template${r.templates === 1 ? '' : 's'}`);
+                toast(parts.length ? `Added ${parts.join(' and ')}.` : 'Nothing new in that file.');
+              }
+            } catch (e) { toast(String(e), { kind: 'warn' }); }
           } }),
           h('button', { class: 'btn', type: 'button', html: `${icon('up')}<span>Export…</span>`, onclick: async () => { try { if (await invoke('export_file')) toast('Exported. Keep it somewhere safe.'); } catch (e) { toast(String(e), { kind: 'err' }); } } }),
           h('button', { class: 'btn', type: 'button', html: `${icon('refresh')}<span>Restore defaults</span>`, onclick: async () => {
-            if (!(await confirmBox('Restore the starter shortcuts?', 'This replaces your shortcut list with the original 11 Alt shortcuts. Settings stay as they are.', 'Restore', true))) return;
+            const n = S.templates.find((t) => t.id === STARTER)?.rules.length || 12;
+            if (!(await confirmBox('Restore the starter shortcuts?', `This replaces your shortcut list with the starter set (${n} Alt shortcuts). Settings and templates stay as they are.`, 'Restore', true))) return;
             S.config = await invoke('restore_defaults');
             renderAll();
             toast('Starter shortcuts are back.');

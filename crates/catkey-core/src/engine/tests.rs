@@ -475,3 +475,22 @@ fn config_swap_keeps_held_keys_consistent() {
     d(&mut e, m, LALT);
     assert_eq!(d(&mut e, m, b'C'), pass());
 }
+
+#[test]
+fn swapped_pair_works_both_ways() {
+    // Alt+W -> Ctrl+W plus its reverse, Ctrl+W -> Alt+W (what the swap button makes).
+    let mut e = engine(vec![r("LAlt+W", "LCtrl+W"), r("LCtrl+W", "LAlt+W")]);
+    let m = &mut Mock::default();
+    d(&mut e, m, LCTRL);
+    assert_eq!(d(&mut e, m, b'W'), swallow("LCtrl↑ LAlt↓ W↓"));
+    assert_eq!(u(&mut e, m, b'W'), swallow("W↑"));
+    // The tap before Alt goes up keeps the Alt menu closed; nothing is left held.
+    assert_eq!(u(&mut e, m, LCTRL).1, "· LAlt↑");
+    assert_eq!(e.os_mods, 0);
+    // The original direction still works right after.
+    d(&mut e, m, LALT);
+    assert_eq!(d(&mut e, m, b'W'), swallow("· LAlt↑ LCtrl↓ W↓"));
+    u(&mut e, m, b'W');
+    u(&mut e, m, LALT);
+    assert_eq!(e.os_mods, 0);
+}

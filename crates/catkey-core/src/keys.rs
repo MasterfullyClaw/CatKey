@@ -149,6 +149,18 @@ impl ModSpec {
         self.0 == 0
     }
 
+    /// Can one key press satisfy both specs? ("either Alt" meets "left Alt", "left" never meets "right")
+    pub fn overlaps(self, other: ModSpec) -> bool {
+        (0..4u8).all(|f| {
+            match (Side::from_bits(self.0 >> (f * 2)), Side::from_bits(other.0 >> (f * 2))) {
+                (Side::None, Side::None) => true,
+                (Side::None, _) | (_, Side::None) => false,
+                (Side::Any, _) | (_, Side::Any) => true,
+                (a, b) => a == b,
+            }
+        })
+    }
+
     /// Exact match: every family must be exactly as the rule says, nothing extra held.
     pub fn matches(self, state: u8) -> bool {
         for f in 0..4u8 {
@@ -432,6 +444,11 @@ pub struct Shortcut {
 impl Shortcut {
     pub fn new(mods: ModSpec, key: u8) -> Self {
         Shortcut { mods, key }
+    }
+
+    /// Would one key press fire both shortcuts?
+    pub fn overlaps(&self, other: &Shortcut) -> bool {
+        self.key == other.key && self.mods.overlaps(other.mods)
     }
 
     pub fn parse(s: &str) -> Result<Shortcut, String> {

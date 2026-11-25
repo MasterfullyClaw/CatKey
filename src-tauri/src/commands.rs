@@ -3,7 +3,7 @@
 use crate::app::{self, AppState, Stats, POWERTOYS_ENGINE};
 use crate::{hook, win};
 use catkey_core::config::rule_problem;
-use catkey_core::{powertoys, Config};
+use catkey_core::{builtin_templates, powertoys, Config, Template};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -33,6 +33,10 @@ pub struct StatePayload {
     config: Config,
     status: Status,
     stats: Stats,
+    /// Templates that ship with Cat Key (the user's own are in `config.templates`).
+    templates: Vec<Template>,
+    /// Settings came from an older version and just got its new shortcuts (told once).
+    upgraded: bool,
 }
 
 fn status(state: &AppState) -> Status {
@@ -74,7 +78,8 @@ pub async fn get_state(app: AppHandle) -> StatePayload {
     let config = state.config.lock().unwrap().clone();
     let status = status(&state);
     let stats = fresh_stats(&state);
-    StatePayload { config, status, stats }
+    let upgraded = state.upgraded.swap(false, std::sync::atomic::Ordering::SeqCst);
+    StatePayload { config, status, stats, templates: builtin_templates(), upgraded }
 }
 
 #[tauri::command]
@@ -180,6 +185,8 @@ pub async fn pick_program(app: AppHandle) -> Option<Picked> {
 pub struct ImportResult {
     found: usize,
     added: usize,
+    /// Templates brought over from a Cat Key export.
+    templates: usize,
     config: Config,
 }
 
@@ -200,7 +207,7 @@ fn merge_and_apply(app: &AppHandle, incoming: Vec<catkey_core::Rule>) -> Result<
     let added = fresh.len();
     cfg.rules.extend(fresh);
     let config = if added > 0 { app::apply_config(app, cfg)? } else { cfg };
-    Ok(ImportResult { found, added, config })
+    Ok(ImportResult { found, added, templates: 0, config })
 }
 
 #[tauri::command]
@@ -224,14 +231,31 @@ pub async fn import_file(app: AppHandle) -> Result<Option<ImportResult>, String>
     };
     let path = file.into_path().map_err(|e| e.to_string())?;
     let text = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    let incoming = match serde_json::from_str::<Config>(&text) {
-        Ok(c) if !c.rules.is_empty() => c.rules,
-        _ => powertoys::import(&text)?,
+    let (incoming, templates) = match serde_json::from_str::<Config>(&text) {
+        Ok(c) if !c.rules.is_empty() || !c.templates.is_empty() => (c.rules, c.templates),
+        _ => (powertoys::import(&text)?, Vec::new()),
     };
-    if incoming.is_empty() {
+    if incoming.is_empty() && templates.is_empty() {
         return Err("No shortcuts found in that file.".into());
     }
-    merge_and_apply(&app, incoming).map(Some)
+    let mut new_templates = 0;
+    if !templates.is_empty() {
+        // Templates from a Cat Key export come along too (skipping names already here).
+        let mut cfg = app.state::<AppState>().config.lock().unwrap().clone();
+        let before = cfg.templates.len();
+        for t in templates.into_iter().filter(|t| !t.builtin && !t.id.starts_with("builtin-")) {
+            if !cfg.templates.iter().any(|x| x.name.eq_ignore_ascii_case(&t.name)) {
+                cfg.templates.push(Template { id: String::new(), ..t });
+            }
+        }
+        new_templates = cfg.templates.len() - before;
+        if new_templates > 0 {
+            app::apply_config(&app, cfg)?;
+        }
+    }
+    let mut res = merge_and_apply(&app, incoming)?;
+    res.templates = new_templates;
+    Ok(Some(res))
 }
 
 #[tauri::command]

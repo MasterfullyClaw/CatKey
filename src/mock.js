@@ -1,15 +1,33 @@
 // Fake backend used only when the page is opened outside the app (design previews).
 // The real app never loads this file.
 
-const DEFAULT_RULES = [
+const STARTER = [
   ['LAlt+W', 'LCtrl+W', 'Close tab'], ['LAlt+C', 'LCtrl+C', 'Copy'], ['LAlt+V', 'LCtrl+V', 'Paste'], ['LAlt+N', 'Ctrl+N', 'New'],
   ['LAlt+Q', 'LAlt+F4', 'Quit app'], ['LAlt+F', 'LCtrl+F', 'Find'], ['LAlt+A', 'LCtrl+A', 'Select all'],
   ['LAlt+LShift+N', 'LCtrl+LShift+N', 'New window (private)'], ['LAlt+S', 'LCtrl+S', 'Save'], ['LAlt+Z', 'LCtrl+Z', 'Undo'], ['LAlt+R', 'LCtrl+R', 'Reload'],
-].map(([trigger, keys, name], i) => ({ id: `d${i}`, enabled: true, name, trigger, action: { type: 'keys', keys }, scope: { mode: 'all', apps: [] } }));
+  ['LAlt+T', 'LCtrl+T', 'New tab'],
+];
+const MORE = [
+  ['LAlt+X', 'LCtrl+X', 'Cut'], ['LAlt+LShift+Z', 'LCtrl+Y', 'Redo'], ['LAlt+LShift+T', 'LCtrl+LShift+T', 'Reopen closed tab'],
+  ['LAlt+L', 'LCtrl+L', 'Address bar'], ['LAlt+P', 'LCtrl+P', 'Print'], ['LAlt+O', 'LCtrl+O', 'Open'], ['LAlt+K', 'LCtrl+K', 'Quick search'],
+  ['LAlt+B', 'LCtrl+B', 'Bold'], ['LAlt+I', 'LCtrl+I', 'Italic'], ['LAlt+Equals', 'LCtrl+Equals', 'Zoom in'], ['LAlt+Minus', 'LCtrl+Minus', 'Zoom out'],
+  ['LAlt+0', 'LCtrl+0', 'Reset zoom'], ['LAlt+LShift+RBracket', 'LCtrl+Tab', 'Next tab'], ['LAlt+LShift+LBracket', 'LCtrl+LShift+Tab', 'Previous tab'],
+  ['LAlt+LBracket', 'LAlt+Left', 'Back'], ['LAlt+RBracket', 'LAlt+Right', 'Forward'], ['LAlt+Backspace', 'LCtrl+Backspace', 'Delete word'],
+];
+const rulesFrom = (list, prefix) => list.map(([trigger, keys, name], i) => ({ id: `${prefix}${i}`, enabled: true, name, trigger, action: { type: 'keys', keys }, scope: { mode: 'all', apps: [] } }));
+const DEFAULT_RULES = rulesFrom(STARTER, 'd');
+const TEMPLATES = [
+  { id: 'builtin-starter', name: 'Your starter set', builtin: true, rules: rulesFrom(STARTER, 'builtin-starter-'),
+    description: 'The shortcuts Cat Key came with: your PowerToys set plus Alt + T for a new tab. Alt works like ⌘ on a Mac.' },
+  { id: 'builtin-mac-more', name: 'More Mac-style', builtin: true, rules: rulesFrom(MORE, 'builtin-mac-more-'),
+    description: 'More of the ⌘ habits: cut, redo, reopen a closed tab, zoom, bold, switching tabs and more.' },
+  { id: 'builtin-caps-esc', name: 'Caps Lock as Escape', builtin: true, rules: rulesFrom([['CapsLock', 'Esc', 'Escape']], 'builtin-caps-esc-'),
+    description: 'Caps Lock becomes Escape: close pop-ups and menus without reaching. Loved by Vim users.' },
+];
 
 function mockStatus(params) {
   return {
-    version: '1.0.1', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
+    version: '1.0.2', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
     configDir: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', problems: {}, engineRunning: params.get('engine') !== '0',
     startup: params.get('startup') || 'on',
   };
@@ -17,8 +35,9 @@ function mockStatus(params) {
 
 export function createMock() {
   const params = new URLSearchParams(location.search);
+  let upgraded = params.get('upgraded') === '1';
   let config = {
-    version: 1,
+    version: 2,
     enabled: params.get('nap') !== '1',
     rules: DEFAULT_RULES.concat(params.get('extras') === '1' ? [
       { id: 'x1', enabled: true, name: 'Address bar', trigger: 'LAlt+L', action: { type: 'keys', keys: 'LCtrl+L' }, scope: { mode: 'only', apps: ['chrome.exe'] } },
@@ -29,8 +48,14 @@ export function createMock() {
       launchAtStartup: true, adminMode: false, theme: params.get('theme') || 'dark', skin: params.get('skin') || 'mochi',
       catName: '', sounds: false, pauseHotkey: null, excludedApps: [], hidePowertoysTip: false,
     },
+    templates: params.get('mytpl') === '1'
+      ? [{ id: 'tmine', name: 'Work laptop', description: '3 shortcuts, saved Nov 20.', builtin: false, rules: rulesFrom(STARTER.slice(0, 3), 'tm') }]
+      : [],
   };
-  const perRule = { d0: 187, d1: 1204, d2: 1031, d3: 96, d4: 58, d5: 143, d6: 312, d7: 21, d8: 455, d9: 602, d10: 77, x1: 64, x2: 12, x3: 9 };
+  if (params.get('swapped') === '1') {
+    config.rules = config.rules.map((r) => (r.id === 'd0' ? { ...r, name: 'Close tab (reversed)', trigger: 'LCtrl+W', action: { type: 'keys', keys: 'LAlt+W' } } : r));
+  }
+  const perRule = { d0: 187, d1: 1204, d2: 1031, d3: 96, d4: 58, d5: 143, d6: 312, d7: 21, d8: 455, d9: 602, d10: 77, d11: 3, x1: 64, x2: 12, x3: 9 };
   const apps = [
     { exe: 'chrome.exe', name: 'Google Chrome', path: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', icon: null },
     { exe: 'code.exe', name: 'Visual Studio Code', path: 'C:\\Users\\me\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe', icon: null },
@@ -48,12 +73,17 @@ export function createMock() {
     },
     invoke: async (cmd, args = {}) => {
       switch (cmd) {
-        case 'get_state':
+        case 'get_state': {
+          const was = upgraded;
+          upgraded = false;
           return {
             config: structuredClone(config),
             status: mockStatus(params),
             stats: { day: '', today: 42, total: 4200, perRule },
+            templates: structuredClone(TEMPLATES),
+            upgraded: was,
           };
+        }
         case 'get_status':
           return mockStatus(params);
         case 'get_stats':

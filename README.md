@@ -2,7 +2,9 @@
 
 **Purr-fect keyboard shortcuts for Windows.** Cat Key remaps shortcuts system-wide (Alt + C → Ctrl + C and friends) with a tiny Rust engine, a calm tray icon and an animated anime cat who taps along every time a shortcut fires.
 
-- **Your Mac-style shortcuts, out of the box:** Alt + W / C / V / N / F / A / S / Z / R → Ctrl + the same key, Alt + Shift + N → Ctrl + Shift + N, Alt + Q → Alt + F4.
+- **Your Mac-style shortcuts, out of the box:** Alt + W / C / V / N / F / A / S / Z / R / T → Ctrl + the same key, Alt + Shift + N → Ctrl + Shift + N, Alt + Q → Alt + F4.
+- **Swap ⇄** any shortcut in one click: what you press and what it does trade places (Alt + W → Ctrl + W becomes Ctrl + W → Alt + W). Hover a card and click its arrow, use the ⋯ menu, or the **Swap** button in the editor.
+- **Templates:** ready-made sets you add (or remove) in one click, and can **Reverse** first. The built-in ones can't be changed or deleted: *Your starter set* (the shortcuts above), *More Mac-style* (cut, redo, reopen tab, zoom, tab switching…) and *Caps Lock as Escape*. Save your own list as a template too.
 - **Add, edit, delete, duplicate, switch off** any shortcut. Record keys by just pressing them, or fine-tune Left/Right/Either side by hand.
 - **Four actions:** press other keys, open an app / file / folder / link, type a piece of text, or block a key.
 - **Per app:** *Everywhere*, *Only in…* (e.g. Chrome) or *Everywhere except…*. App-only shortcuts win over everywhere ones.
@@ -45,6 +47,9 @@ If the window doesn't appear, Cat Key may already be running in the tray (the li
 | Change one | Click its card |
 | Turn one off | Its switch |
 | Delete / duplicate | The ⋯ menu on the card (Undo is in the toast) |
+| Swap what you press and what it does | Hover the card and click its arrow (it turns into ⇄), or ⋯ → *Swap*, or **Swap** in the editor |
+| Add a whole set | **Templates** tab → *Add all* (turn on *Reverse* first to add it flipped) |
+| Keep a copy of your list | **Templates** → *Save my shortcuts as a template* |
 | Pause everything | The **Awake** switch, the tray menu, or your pause hotkey (Settings) |
 | Make it per app | In the editor, *Where* → *Only in…* → *Add app* |
 
