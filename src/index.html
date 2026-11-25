@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cat Key</title>
+  <link rel="icon" href="assets/favicon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="ck dark mochi">
+    <header class="titlebar" data-tauri-drag-region>
+      <div class="brand" data-tauri-drag-region>
+        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="2.5" width="22" height="20" rx="6" fill="var(--ac)"/><rect x="3" y="3.5" width="18" height="15" rx="4.5" fill="#fff" opacity=".22"/><path d="M6.8 16.2 7.4 8.6 10.2 11.3Q12 10.5 13.8 11.3L16.6 8.6 17.2 16.2Q12 19.6 6.8 16.2Z" fill="var(--aci)"/><circle cx="10" cy="14.2" r="1" fill="var(--ac)"/><circle cx="14" cy="14.2" r="1" fill="var(--ac)"/></svg>
+        <span>Cat Key</span>
+      </div>
+      <span id="admin-badge" class="admin-badge" hidden>Admin</span>
+      <div class="drag" data-tauri-drag-region></div>
+      <button id="btn-settings" class="tbtn" aria-label="Settings" title="Settings"></button>
+      <button id="btn-min" class="tbtn" aria-label="Minimize" title="Minimize"></button>
+      <button id="btn-close" class="tbtn close" aria-label="Hide to tray. Cat Key keeps working" title="Hide to tray (Cat Key keeps working)"></button>
+    </header>
+
+    <div class="scroll" id="scroll">
+      <main>
+        <section class="hero">
+          <button class="cushion" id="cushion" aria-label="Pet the cat"></button>
+          <div class="hero-text">
+            <div class="bubble" id="bubble" aria-live="polite"></div>
+            <p class="sub" id="sub"></p>
+            <div class="hero-row">
+              <button class="master" id="master" role="switch" aria-checked="true">
+                <span class="switch" aria-checked="true"><span class="knob"></span></span>
+                <span id="master-label">Awake</span>
+              </button>
+              <span class="chip soft" id="chip-today"></span>
+              <span class="chip line" id="chip-on"></span>
+            </div>
+          </div>
+        </section>
+
+        <div id="banners"></div>
+
+        <div class="toolbar">
+          <label class="search">
+            <span id="ico-search"></span>
+            <span class="sr">Search shortcuts</span>
+            <input id="search" type="search" placeholder="Search keys, actions or apps" autocomplete="off" spellcheck="false">
+            <kbd>Ctrl F</kbd>
+          </label>
+          <div class="seg" role="group" aria-label="Show" id="filters"></div>
+          <button class="btn primary" id="btn-new"></button>
+        </div>
+
+        <section class="list" id="list" aria-label="Shortcuts" role="list"></section>
+
+        <section class="suggest" id="suggest" aria-label="Suggestions"></section>
+      </main>
+    </div>
+
+    <div class="scrim" id="scrim"></div>
+    <section class="sheet" id="editor" role="dialog" aria-modal="true" aria-labelledby="ed-title" hidden></section>
+    <aside class="drawer" id="settings" aria-labelledby="st-title" hidden></aside>
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "catkey",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Cat Key - purr-fect keyboard shortcuts for Windows",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "test": "cargo test -p catkey-core",
+    "preview": "node scripts/preview.mjs"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.0"
+  }
+}
