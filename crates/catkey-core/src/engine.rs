@@ -26,14 +26,21 @@ pub struct KeyEvent {
     pub extended: bool,
     /// Milliseconds since boot (same clock as `GetTickCount`).
     pub time: u32,
+    /// Typed by another program (PowerToys, a password manager, a macro tool),
+    /// not by a physical key. Those keys are never remapped.
+    pub injected: bool,
 }
 
 impl KeyEvent {
     pub fn down(vk: u8) -> Self {
-        KeyEvent { vk, scan: 0, down: true, extended: false, time: 0 }
+        KeyEvent { vk, scan: 0, down: true, extended: false, time: 0, injected: false }
     }
     pub fn up(vk: u8) -> Self {
-        KeyEvent { vk, scan: 0, down: false, extended: false, time: 0 }
+        KeyEvent { vk, scan: 0, down: false, extended: false, time: 0, injected: false }
+    }
+    /// The same event, as if another program had typed it.
+    pub fn injected(self) -> Self {
+        KeyEvent { injected: true, ..self }
     }
 }
 
@@ -212,7 +219,13 @@ impl Engine {
         if vk == 0 || vk == VK_PACKET || vk == DUMMY_VK {
             return false;
         }
-        if self.rec.is_some() {
+        // Keys typed by other programs pass untouched: remapping them would fight
+        // other remappers (PowerToys) and break tools that paste or type for you.
+        // Their modifier changes still count, because Windows sees those.
+        if ev.injected && !is_modifier(vk) {
+            return false;
+        }
+        if self.rec.is_some() && !ev.injected {
             if let Some(swallow) = self.handle_record(ev) {
                 return swallow;
             }
@@ -232,7 +245,7 @@ impl Engine {
         if ev.down {
             if !self.phys[vk] {
                 self.phys[vk] = true;
-                if self.enabled {
+                if self.enabled && !ev.injected {
                     if let Some(km) = self.find_remap(ev.vk, env) {
                         return self.start_remap(ev, km);
                     }
@@ -484,21 +497,27 @@ impl Engine {
         }
     }
 
-    /// Release / press modifiers so Windows sees exactly `desired`.
+    /// Press / release modifiers so Windows sees exactly `desired`.
+    ///
+    /// New modifiers go down *before* old ones come up ("make before break"): a key
+    /// pressed while Alt or Win is still held tells every app (Win32 menus, XAML
+    /// access keys, Chromium, the Start menu) that this was not a lone Alt/Win tap.
+    /// The unassigned dummy key is tapped as well, for the case where nothing new
+    /// goes down.
     fn set_os_mods(&mut self, desired: u8) {
         let release = self.os_mods & !desired;
         let press = desired & !self.os_mods;
+        for b in bit::ALL {
+            if press & b != 0 {
+                self.out.push(Out::Key { vk: keys::bit_vk(b), down: true });
+            }
+        }
         if release & bit::ALT_WIN != 0 {
             self.out.push(Out::Dummy);
         }
         for b in bit::ALL {
             if release & b != 0 {
                 self.out.push(Out::Key { vk: keys::bit_vk(b), down: false });
-            }
-        }
-        for b in bit::ALL {
-            if press & b != 0 {
-                self.out.push(Out::Key { vk: keys::bit_vk(b), down: true });
             }
         }
         self.os_mods = desired;

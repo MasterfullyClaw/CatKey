@@ -9,7 +9,7 @@
 - **Four actions:** press other keys, open an app / file / folder / link, type a piece of text, or block a key.
 - **Per app:** *Everywhere*, *Only in…* (e.g. Chrome) or *Everywhere except…*. App-only shortcuts win over everywhere ones.
 - **Key remaps too:** CapsLock → Esc, CapsLock → Ctrl (held like a real Ctrl), Right Alt → Menu…
-- **Overrides conflicts:** Cat Key's hook runs before app and Windows shortcuts, keeps itself first in line, and taps a hidden key so Alt/Win never pop open menus by mistake. It warns you about clashes inside your own list and about PowerToys Keyboard Manager running at the same time.
+- **Overrides conflicts:** Cat Key's hook runs before app and Windows shortcuts and keeps itself first in line. It presses the new modifier *before* letting go of Alt/Win (plus a hidden mask key), so apps never see a lone Alt tap: no menu bar, no access-key letters, no error sound. Keys are sent right after the hook returns, never inside it, so a slow keyboard hook in another program can't make Windows skip Cat Key. Keys typed by other programs (password managers, PowerToys) are never remapped. It warns you about clashes inside your own list and about PowerToys Keyboard Manager running at the same time.
 - **Nap zones:** apps where Cat Key does nothing (games, Remote Desktop…). Plus a pause hotkey and an Awake/Napping switch.
 - **Works in admin apps** when you turn on *Work in admin apps* (runs as administrator, starts with Windows through a logon task).
 - **Cute, but light:** close the window and the UI is gone from memory; only the small keyboard engine stays in the tray. Four cat skins (Mochi, Kuro, Tora, Sora), light / dark / match Windows.
@@ -36,6 +36,8 @@ When something needs you, a **Quick checkup** card appears on the main screen (i
 | Start with Windows isn't set up yet | **Fix it** writes the startup entry again |
 | Admin apps aren't covered yet | **Allow** asks Windows for admin permission once (UAC), so shortcuts also work in Task Manager and admin terminals |
 | PowerToys Keyboard Manager is on | **Open PowerToys** to switch it off, or **Import its shortcuts** |
+
+**Error sound, or a shortcut you have to press twice?** Make sure PowerToys Keyboard Manager is off (the checkup shows it in red when it's on): two remappers on the same keys handle one press twice. Then open **Settings → Try a shortcut**, click the pad and press e.g. Alt + C: you should see *Ctrl + C* once. If *Alt + C* shows up, the press slipped through; check `%APPDATA%\CatKey\catkey.log` for a line about another program's slow keyboard hook.
 
 If the window doesn't appear, Cat Key may already be running in the tray (the little cat by the clock; it can hide behind the **^** arrow). Click it to open the window. Problems are written to `%APPDATA%\CatKey\catkey.log`.
 

@@ -88,7 +88,7 @@ fn alt_c_becomes_ctrl_c() {
     let mut e = engine(default_rules());
     let m = &mut Mock::default();
     assert_eq!(d(&mut e, m, LALT), pass());
-    assert_eq!(d(&mut e, m, b'C'), swallow("· LAlt↑ LCtrl↓ C↓"));
+    assert_eq!(d(&mut e, m, b'C'), swallow("LCtrl↓ · LAlt↑ C↓"));
     assert!(e.effects.iter().any(|x| matches!(x, Effect::Fired { rule: 1 })));
     assert_eq!(u(&mut e, m, b'C'), swallow("C↑"));
     assert_eq!(u(&mut e, m, LALT), through("LCtrl↑"));
@@ -99,7 +99,7 @@ fn chained_copy_paste_keeps_ctrl_down() {
     let mut e = engine(default_rules());
     let m = &mut Mock::default();
     d(&mut e, m, LALT);
-    assert_eq!(d(&mut e, m, b'C'), swallow("· LAlt↑ LCtrl↓ C↓"));
+    assert_eq!(d(&mut e, m, b'C'), swallow("LCtrl↓ · LAlt↑ C↓"));
     assert_eq!(u(&mut e, m, b'C'), swallow("C↑"));
     assert_eq!(d(&mut e, m, b'V'), swallow("V↓"));
     assert_eq!(u(&mut e, m, b'V'), swallow("V↑"));
@@ -113,7 +113,7 @@ fn alt_tab_still_works_after_a_remap() {
     d(&mut e, m, LALT);
     d(&mut e, m, b'C');
     u(&mut e, m, b'C');
-    assert_eq!(d(&mut e, m, TAB), swallow("LCtrl↑ LAlt↓ raw(Tab)↓"));
+    assert_eq!(d(&mut e, m, TAB), swallow("LAlt↓ LCtrl↑ raw(Tab)↓"));
     assert_eq!(u(&mut e, m, TAB), pass());
     assert_eq!(d(&mut e, m, TAB), pass());
     assert_eq!(u(&mut e, m, TAB), pass());
@@ -136,7 +136,7 @@ fn alt_shift_n_is_ctrl_shift_n() {
     let m = &mut Mock::default();
     d(&mut e, m, LALT);
     d(&mut e, m, LSHIFT);
-    assert_eq!(d(&mut e, m, b'N'), swallow("· LAlt↑ LCtrl↓ N↓"));
+    assert_eq!(d(&mut e, m, b'N'), swallow("LCtrl↓ · LAlt↑ N↓"));
     assert_eq!(u(&mut e, m, b'N'), swallow("N↑"));
     assert_eq!(u(&mut e, m, LSHIFT), through("LCtrl↑"));
     assert_eq!(u(&mut e, m, LALT), pass());
@@ -147,7 +147,7 @@ fn alt_n_targets_generic_ctrl_as_left_ctrl() {
     let mut e = engine(default_rules());
     let m = &mut Mock::default();
     d(&mut e, m, LALT);
-    assert_eq!(d(&mut e, m, b'N'), swallow("· LAlt↑ LCtrl↓ N↓"));
+    assert_eq!(d(&mut e, m, b'N'), swallow("LCtrl↓ · LAlt↑ N↓"));
 }
 
 #[test]
@@ -178,7 +178,7 @@ fn holding_repeats_the_target() {
     let mut e = engine(default_rules());
     let m = &mut Mock::default();
     d(&mut e, m, LALT);
-    assert_eq!(d(&mut e, m, b'Z'), swallow("· LAlt↑ LCtrl↓ Z↓"));
+    assert_eq!(d(&mut e, m, b'Z'), swallow("LCtrl↓ · LAlt↑ Z↓"));
     assert_eq!(d(&mut e, m, b'Z'), swallow("Z↓"));
     assert_eq!(d(&mut e, m, b'Z'), swallow("Z↓"));
     // Alt auto-repeats too, but it was swapped out: never press it again.
@@ -203,7 +203,7 @@ fn either_side_rule_matches_right_alt() {
     let mut e = engine(vec![r("Alt+C", "Ctrl+C")]);
     let m = &mut Mock::default();
     d(&mut e, m, RALT);
-    assert_eq!(d(&mut e, m, b'C'), swallow("· RAlt↑ LCtrl↓ C↓"));
+    assert_eq!(d(&mut e, m, b'C'), swallow("LCtrl↓ · RAlt↑ C↓"));
 }
 
 #[test]
@@ -271,12 +271,12 @@ fn per_app_rules_and_priority() {
     d(&mut e, m, LALT);
     assert_eq!(d(&mut e, m, b'L'), pass());
     u(&mut e, m, b'L');
-    assert_eq!(d(&mut e, m, b'F'), swallow("· LAlt↑ LCtrl↓ F↓"));
+    assert_eq!(d(&mut e, m, b'F'), swallow("LCtrl↓ · LAlt↑ F↓"));
     u(&mut e, m, b'F');
     u(&mut e, m, LALT);
     m.exe = "chrome.exe".into();
     d(&mut e, m, LALT);
-    assert_eq!(d(&mut e, m, b'F'), swallow("· LAlt↑ LCtrl↓ L↓"));
+    assert_eq!(d(&mut e, m, b'F'), swallow("LCtrl↓ · LAlt↑ L↓"));
     u(&mut e, m, b'F');
     assert_eq!(d(&mut e, m, b'L'), swallow("L↓"));
 }
@@ -291,7 +291,7 @@ fn except_scope() {
     assert_eq!(d(&mut e, m, b'W'), pass());
     u(&mut e, m, b'W');
     m.exe = "notepad.exe".into();
-    assert_eq!(d(&mut e, m, b'W'), swallow("· LAlt↑ LCtrl↓ W↓"));
+    assert_eq!(d(&mut e, m, b'W'), swallow("LCtrl↓ · LAlt↑ W↓"));
 }
 
 #[test]
@@ -356,7 +356,7 @@ fn pause_hotkey_toggles_everything() {
     assert!(e.effects.contains(&Effect::Toggled { enabled: true }));
     u(&mut e, m, b'P');
     u(&mut e, m, LCTRL);
-    assert_eq!(d(&mut e, m, b'C'), swallow("· LAlt↑ LCtrl↓ C↓"));
+    assert_eq!(d(&mut e, m, b'C'), swallow("LCtrl↓ · LAlt↑ C↓"));
 }
 
 #[test]
@@ -366,7 +366,7 @@ fn pausing_mid_shortcut_puts_windows_back() {
     d(&mut e, m, LALT);
     d(&mut e, m, b'C');
     e.set_enabled(false);
-    assert_eq!(fmt(&e.out), "C↑ LCtrl↑ LAlt↓");
+    assert_eq!(fmt(&e.out), "C↑ LAlt↓ LCtrl↑");
     assert_eq!(u(&mut e, m, b'C'), pass());
     assert_eq!(u(&mut e, m, LALT), pass());
     assert_eq!(d(&mut e, m, LALT), pass());
@@ -383,7 +383,7 @@ fn missed_win_release_is_detected() {
     m.async_down.clear();
     m.async_down.insert(LALT);
     d(&mut e, m, LALT);
-    assert_eq!(d(&mut e, m, b'C'), swallow("· LAlt↑ LCtrl↓ C↓"));
+    assert_eq!(d(&mut e, m, b'C'), swallow("LCtrl↓ · LAlt↑ C↓"));
 }
 
 #[test]
@@ -393,9 +393,9 @@ fn hard_reset_releases_what_we_hold() {
     d(&mut e, m, LALT);
     d(&mut e, m, b'C');
     e.hard_reset();
-    assert_eq!(fmt(&e.out), "C↑ LCtrl↑ LAlt↓ · LAlt↑");
+    assert_eq!(fmt(&e.out), "C↑ LAlt↓ LCtrl↑ · LAlt↑");
     assert_eq!(d(&mut e, m, LALT), pass());
-    assert_eq!(d(&mut e, m, b'C'), swallow("· LAlt↑ LCtrl↓ C↓"));
+    assert_eq!(d(&mut e, m, b'C'), swallow("LCtrl↓ · LAlt↑ C↓"));
 }
 
 #[test]
@@ -414,7 +414,7 @@ fn recording_captures_and_swallows() {
     assert!(e.effects.contains(&Effect::RecordDone { shortcut: Some("LAlt+LShift+K".into()) }));
     assert!(!e.is_recording());
     d(&mut e, m, LALT);
-    assert_eq!(d(&mut e, m, b'C'), swallow("· LAlt↑ LCtrl↓ C↓"));
+    assert_eq!(d(&mut e, m, b'C'), swallow("LCtrl↓ · LAlt↑ C↓"));
 }
 
 #[test]
@@ -448,7 +448,7 @@ fn recording_times_out_if_nothing_pressed() {
     let mut e = engine(default_rules());
     let m = &mut Mock::default();
     e.start_recording(1_000);
-    let s = e.handle(KeyEvent { vk: b'A', scan: 0, down: true, extended: false, time: 1_000 + RECORD_TIMEOUT_MS + 1 }, m);
+    let s = e.handle(KeyEvent { vk: b'A', scan: 0, down: true, extended: false, time: 1_000 + RECORD_TIMEOUT_MS + 1, injected: false }, m);
     assert!(!s);
     assert!(e.effects.contains(&Effect::RecordCancelled));
     assert!(!e.is_recording());
@@ -482,15 +482,80 @@ fn swapped_pair_works_both_ways() {
     let mut e = engine(vec![r("LAlt+W", "LCtrl+W"), r("LCtrl+W", "LAlt+W")]);
     let m = &mut Mock::default();
     d(&mut e, m, LCTRL);
-    assert_eq!(d(&mut e, m, b'W'), swallow("LCtrl↑ LAlt↓ W↓"));
+    assert_eq!(d(&mut e, m, b'W'), swallow("LAlt↓ LCtrl↑ W↓"));
     assert_eq!(u(&mut e, m, b'W'), swallow("W↑"));
     // The tap before Alt goes up keeps the Alt menu closed; nothing is left held.
     assert_eq!(u(&mut e, m, LCTRL).1, "· LAlt↑");
     assert_eq!(e.os_mods, 0);
     // The original direction still works right after.
     d(&mut e, m, LALT);
-    assert_eq!(d(&mut e, m, b'W'), swallow("· LAlt↑ LCtrl↓ W↓"));
+    assert_eq!(d(&mut e, m, b'W'), swallow("LCtrl↓ · LAlt↑ W↓"));
     u(&mut e, m, b'W');
     u(&mut e, m, LALT);
     assert_eq!(e.os_mods, 0);
+}
+
+#[test]
+fn every_remap_presses_before_it_releases_alt() {
+    // A key must go down while Alt is still held, or apps see a lone Alt tap
+    // (menu bar, access-key letters, a "ding" on the next key).
+    for rule in default_rules() {
+        let mut e = engine(default_rules());
+        let m = &mut Mock::default();
+        let t = rule.trigger;
+        let mut held = vec![];
+        for vk in [LALT, LSHIFT] {
+            let bit = crate::keys::mod_bit(vk);
+            if t.mods.to_state() & bit != 0 {
+                d(&mut e, m, vk);
+                held.push(vk);
+            }
+        }
+        let (swallowed, out) = d(&mut e, m, t.key);
+        assert!(swallowed, "{}", rule.name);
+        let first_release = out.find('↑');
+        let first_press = out.find('↓');
+        if let Some(r) = first_release {
+            assert!(first_press.is_some_and(|p| p < r), "{}: {out}", rule.name);
+            assert!(!out.starts_with('·') && !out.starts_with("LAlt↑"), "{}: {out}", rule.name);
+        }
+    }
+}
+
+#[test]
+fn keys_typed_by_other_programs_are_not_remapped() {
+    // Even with a reversed rule, a password manager's / PowerToys' Ctrl+W stays Ctrl+W.
+    let mut e = engine(vec![r("LCtrl+W", "LAlt+W"), r("CapsLock", "Esc")]);
+    let m = &mut Mock::default();
+    let inj = |vk: u8, down: bool| if down { KeyEvent::down(vk).injected() } else { KeyEvent::up(vk).injected() };
+    assert!(!e.handle(inj(LCTRL, true), m));
+    assert!(!e.handle(inj(b'W', true), m));
+    assert!(e.out.is_empty());
+    assert!(!e.handle(inj(b'W', false), m));
+    assert!(!e.handle(inj(LCTRL, false), m));
+    assert!(!e.handle(inj(CAPS, true), m));
+    assert!(e.out.is_empty());
+    assert!(!e.handle(inj(CAPS, false), m));
+    // A real press still works afterwards.
+    d(&mut e, m, LCTRL);
+    assert_eq!(d(&mut e, m, b'W'), swallow("LAlt↓ LCtrl↑ W↓"));
+}
+
+#[test]
+fn powertoys_doing_the_same_remap_adds_nothing() {
+    // PowerToys first in line turns Alt+W into Ctrl+W by itself; Cat Key must only watch.
+    let mut e = engine(default_rules());
+    let m = &mut Mock::default();
+    d(&mut e, m, LALT); // physical
+    for (vk, down) in [(0xFF, true), (0xFF, false), (LALT, false), (LCTRL, true), (b'W', true), (b'W', false)] {
+        let ev = if down { KeyEvent::down(vk) } else { KeyEvent::up(vk) }.injected();
+        assert!(!e.handle(ev, m), "vk {vk:#x}");
+        assert!(e.out.is_empty(), "vk {vk:#x}: {}", fmt(&e.out));
+    }
+    // Physical Alt up, then PowerToys lets go of its Ctrl.
+    let (_, out) = u(&mut e, m, LALT);
+    assert!(!out.contains('↓'), "{out}");
+    e.handle(KeyEvent::up(LCTRL).injected(), m);
+    assert_eq!(e.os_mods, 0);
+    assert_eq!(e.log_mods, 0);
 }

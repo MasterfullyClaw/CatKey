@@ -388,7 +388,7 @@ function checkupRows() {
     rows.push({ level: 'info', title: 'Admin apps aren’t covered yet', desc: 'Windows keeps apps running as administrator (Task Manager, admin terminals) apart. Allow once and your shortcuts work there too.', actions: [['Allow', () => setAdmin(true)]] });
   }
   if (st.powertoysRunning) {
-    rows.push({ level: s.hidePowertoysTip ? 'info' : 'warn', title: 'PowerToys Keyboard Manager is on', desc: 'Two remappers fight over the same keys. In PowerToys, open Keyboard Manager and switch it off. Your shortcuts already live here.', actions: [
+    rows.push({ level: 'bad', title: 'PowerToys Keyboard Manager is on: switch it off', desc: 'It changes the same keys as Cat Key, so a press can be handled twice: an error sound, or a shortcut you have to press twice. In PowerToys, open Keyboard Manager and turn it off. Your shortcuts already live here.', actions: [
       ['Open PowerToys', () => invoke('open_system_page', { page: 'powertoys' }).catch((e) => toast(String(e), { kind: 'warn' }))],
       ['Import its shortcuts', importPowerToys],
     ] });
@@ -411,6 +411,50 @@ function checkupEl(rows) {
   return list;
 }
 
+// A box that shows exactly what reaches an app when you press a shortcut here.
+function testPadEl() {
+  const seen = [];
+  const log = h('div', { class: 'pad-log' });
+  const keyName = (e) => {
+    const c = e.code || '';
+    if (/^Key[A-Z]$/.test(c)) return c.slice(3);
+    if (/^Digit\d$/.test(c)) return c.slice(5);
+    if (/^F\d{1,2}$/.test(c)) return c;
+    const map = { Escape: 'Esc', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓', ' ': 'Space' };
+    return map[e.key] || e.key;
+  };
+  const show = () => {
+    log.textContent = '';
+    if (!seen.length) { log.append(h('span', { class: 'hint', text: 'Nothing pressed yet.' })); return; }
+    for (const x of seen.slice(-3).reverse()) {
+      log.append(h('div', { class: `pad-row ${x.kind}` }, h('b', { text: x.combo }), h('span', { text: x.note })));
+    }
+  };
+  const pad = h('div', { class: 'pad', tabindex: '0', role: 'textbox', 'aria-label': 'Test pad. Click, then press a shortcut' },
+    h('div', { class: 'pad-hint', html: `${icon('keyboard')}<span>Click here, then press one of your shortcuts, like Alt + C</span>` }), log);
+  pad.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { pad.blur(); return; } // Esc still closes Settings
+    e.preventDefault();
+    e.stopPropagation();
+    if (['Control', 'Alt', 'Shift', 'Meta', 'AltGraph'].includes(e.key)) return;
+    const mods = [e.metaKey && 'Win', e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift'].filter(Boolean);
+    const key = keyName(e);
+    const combo = [...mods, key].join(' + ');
+    const trig = [...mods, key.length === 1 ? key.toUpperCase() : key].join('+');
+    const caught = S.config.enabled && rules().some((r) => r.enabled && K.overlaps(r.trigger, trig));
+    const x = caught
+      ? { kind: 'bad', combo, note: 'slipped through unchanged' }
+      : { kind: mods.length ? 'ok' : 'plain', combo, note: mods.length ? 'reached the app' : '' };
+    if (e.repeat) return;
+    seen.push(x);
+    show();
+  });
+  pad.addEventListener('keyup', (e) => { e.preventDefault(); e.stopPropagation(); });
+  show();
+  return h('div', { class: 'padwrap' }, pad,
+    h('p', { class: 'hint', style: { margin: '0' }, text: 'Press Alt + C here and you should see Ctrl + C, once. Alt + Q closes this window, just like everywhere else.' }));
+}
+
 async function refreshStatusNow() {
   const st = await invoke('get_status').catch(() => null);
   if (!st) return;
@@ -428,7 +472,7 @@ function renderBanners() {
   if (S.checkupDismissed || (!issues.length && !S.status.firstRun)) return;
   const shown = S.status.firstRun ? rows : rows.filter((r) => r.level !== 'ok');
   const head = issues.length
-    ? `${cat()} found ${issues.length === 1 ? 'one thing' : `${issues.length} things`} that need you.`
+    ? `${cat()} found ${issues.length === 1 ? 'one thing that needs' : `${issues.length} things that need`} you.`
     : `All set. ${cat()} checked everything.`;
   box.append(h('section', { class: 'checkup', role: 'status' },
     h('div', { class: 'checkup-head' },
@@ -1575,6 +1619,7 @@ function renderSettings() {
       h('section', {}, h('div', { class: 'row-between' }, h('h2', { text: 'Checkup' }),
         h('button', { class: 'link', type: 'button', text: 'Check again', onclick: () => { refreshStatusNow(); toast(`${cat()} checked everything again.`); } })),
         checkupEl(checkupRows())),
+      h('section', {}, h('h2', { text: 'Try a shortcut' }), testPadEl()),
       h('section', {}, h('h2', { text: 'Your cat' }), skins,
         h('label', { class: 'row-between', style: { fontWeight: '800' } }, "Cat's name", nameInput),
         h('div', { class: 'row-between', style: { fontWeight: '800' } }, 'Theme', theme)),

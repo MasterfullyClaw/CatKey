@@ -180,6 +180,20 @@ select.field { padding: 0 10px; }
 .templates { display: none; flex-direction: column; gap: 14px; }
 .view-templates .templates { display: flex; }
 
+/* test pad (Settings) */
+.padwrap { display: flex; flex-direction: column; gap: 8px; }
+.pad { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 16px; border: 2px dashed var(--line); background: var(--s2); cursor: text; transition: border-color .2s, box-shadow .2s; }
+.pad:focus { border-style: solid; border-color: var(--ac); box-shadow: 0 0 0 3px var(--acs); }
+.pad-hint { display: flex; align-items: center; gap: 8px; color: var(--mu); font-weight: 800; font-size: 13px; }
+.pad:focus .pad-hint { color: var(--act); }
+.pad-log { display: flex; flex-direction: column; gap: 6px; min-height: 24px; }
+.pad-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 13px; animation: rise .25s ease; }
+.pad-row b { font-weight: 800; padding: 2px 8px; border-radius: 8px; background: var(--s1); }
+.pad-row span { color: var(--mu); }
+.pad-row.ok b { background: rgba(127,224,194,.14); color: var(--good); }
+.pad-row.bad b { background: var(--bads); color: var(--bad); }
+.pad-row.bad span { color: var(--bad); }
+
 /* ---------- toolbar ---------- */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 4px; }
 .search { flex: 1 1 260px; display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border-radius: 14px; background: var(--s1); border: 1px solid var(--line); color: var(--mu); transition: border-color .2s, box-shadow .2s; }
