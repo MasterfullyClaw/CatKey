@@ -110,6 +110,11 @@ struct Recorder {
 /// Recording gives up after this long with no key pressed.
 pub const RECORD_TIMEOUT_MS: u32 = 20_000;
 
+/// Longest gap between two auto-repeats of a held key. Windows waits at most one
+/// second before the first repeat (slowest "Repeat delay" setting), then repeats
+/// at least 2.5 times a second; anything slower is a new press.
+pub const REPEAT_GAP_MS: u32 = 1_500;
+
 pub struct Engine {
     compiled: Arc<Compiled>,
     enabled: bool,
@@ -118,6 +123,15 @@ pub struct Engine {
     log_mods: u8,
     os_mods: u8,
     rec: Option<Box<Recorder>>,
+    /// The last key that went down on the keyboard, and when. Windows only
+    /// auto-repeats that key, so a "repeat" of any other held key means we never
+    /// saw its release.
+    last_down: Option<(u8, u32)>,
+    /// The current event is a genuine auto-repeat (if the key is already held).
+    repeat_ok: bool,
+    /// Alt/Win (bits) that went down while another key was already held: keys
+    /// pressed together, the other one landing first.
+    with_key: u8,
     /// Filled by every call; send these in order.
     pub out: Vec<Out>,
     /// Filled by every call.
@@ -134,6 +148,9 @@ impl Engine {
             log_mods: 0,
             os_mods: 0,
             rec: None,
+            last_down: None,
+            repeat_ok: true,
+            with_key: 0,
             out: Vec::with_capacity(16),
             effects: Vec::with_capacity(4),
         }
@@ -209,6 +226,8 @@ impl Engine {
         self.log_mods = 0;
         self.os_mods = 0;
         self.rec = None;
+        self.last_down = None;
+        self.with_key = 0;
     }
 
     /// Process one physical event. Returns `true` to swallow it.
@@ -224,6 +243,11 @@ impl Engine {
         // Their modifier changes still count, because Windows sees those.
         if ev.injected && !is_modifier(vk) {
             return false;
+        }
+        self.repeat_ok = true;
+        if ev.down && !ev.injected && !is_fake(ev) {
+            self.repeat_ok = matches!(self.last_down, Some((k, t)) if k == vk && ev.time.wrapping_sub(t) <= REPEAT_GAP_MS);
+            self.last_down = Some((vk, ev.time));
         }
         if self.rec.is_some() && !ev.injected {
             if let Some(swallow) = self.handle_record(ev) {
@@ -243,6 +267,13 @@ impl Engine {
         let vk = ev.vk as usize;
         let b = mod_bit(ev.vk);
         if ev.down {
+            let mut fixed = false;
+            if self.phys[vk] && !self.repeat_ok {
+                // Pressed again, but we never saw it come up (another program ate the
+                // release, or Windows skipped us): finish the old press first.
+                self.forget_release(ev.vk);
+                fixed = !self.out.is_empty();
+            }
             if !self.phys[vk] {
                 self.phys[vk] = true;
                 if self.enabled && !ev.injected {
@@ -252,6 +283,13 @@ impl Engine {
                 }
                 self.log_mods |= b;
                 self.os_mods |= b;
+                if b & bit::ALT_WIN != 0 && !ev.injected && self.normal_key_held() {
+                    self.with_key |= b;
+                }
+                if fixed {
+                    // The releases we just queued must reach Windows before this press.
+                    return self.resend(ev);
+                }
                 false
             } else {
                 // Auto-repeat of a held modifier.
@@ -287,10 +325,20 @@ impl Engine {
                             }
                         }
                     }
+                    let lone = self.with_key & b != 0 && self.os_mods & b != 0;
+                    self.with_key &= !b;
                     // The original release always goes through (harmless if Windows
                     // already saw it), which keeps other keyboard tools in sync.
                     self.os_mods &= !b;
                     self.release_unneeded(true);
+                    if lone {
+                        // Alt went down just after another key (both "pressed together")
+                        // and nothing followed it. Apps would take this release for a
+                        // lone Alt tap and open their menu, and the next shortcut would
+                        // land in that menu and ding. Mask it first.
+                        self.out.insert(0, Out::Dummy);
+                        return self.resend(ev);
+                    }
                     false
                 }
             }
@@ -302,6 +350,14 @@ impl Engine {
     fn on_key(&mut self, ev: KeyEvent, env: &mut dyn Env) -> bool {
         let vk = ev.vk as usize;
         if ev.down {
+            let mut fixed = false;
+            if self.phys[vk] && !self.repeat_ok {
+                // A new press of a key we think is still held: its release never
+                // reached us. Finish the old press, then treat this one as new
+                // (otherwise it would be swallowed as a "repeat": the press-twice bug).
+                self.forget_release(ev.vk);
+                fixed = !self.out.is_empty();
+            }
             if self.phys[vk] {
                 // Auto-repeat.
                 return match self.active[vk] {
@@ -314,6 +370,46 @@ impl Engine {
                 };
             }
             self.phys[vk] = true;
+            let swallow = self.press_key(ev, env);
+            if !swallow && fixed {
+                // The releases we just queued must reach Windows before this press.
+                return self.resend(ev);
+            }
+            swallow
+        } else {
+            self.phys[vk] = false;
+            match std::mem::replace(&mut self.active[vk], Active::None) {
+                Active::Shortcut { target, .. } | Active::Sub { target } => {
+                    self.out.push(Out::Key { vk: target, down: false });
+                    true
+                }
+                Active::SubMod { .. } => {
+                    self.recompute_log();
+                    self.release_unneeded(false);
+                    true
+                }
+                Active::Swallow => true,
+                Active::None => false,
+            }
+        }
+    }
+
+    /// A normal (non-modifier) key is physically held right now.
+    fn normal_key_held(&self) -> bool {
+        self.phys.iter().enumerate().any(|(i, held)| *held && !is_modifier(i as u8))
+    }
+
+    /// Swallow the event and send it again after what is already queued.
+    fn resend(&mut self, ev: KeyEvent) -> bool {
+        self.out.push(Out::Raw { vk: ev.vk, scan: ev.scan, extended: ev.extended, down: ev.down });
+        true
+    }
+
+    /// A fresh (not repeated) press of a normal key.
+    fn press_key(&mut self, ev: KeyEvent, env: &mut dyn Env) -> bool {
+        let vk = ev.vk as usize;
+        self.with_key = 0;
+        {
             if self.log_mods != 0 {
                 self.drop_stale_mods(env);
             }
@@ -343,20 +439,70 @@ impl Engine {
                 return self.start_remap(ev, km);
             }
             self.sync_and_pass(ev)
+        }
+    }
+
+    /// The keyboard says this key came up, but the hook never saw it (Windows can
+    /// skip a hook, another program can eat the release). Fills `out` with whatever
+    /// puts Windows back in line. Returns false if we didn't think it was held.
+    pub fn missed_release(&mut self, vk: u8) -> bool {
+        self.out.clear();
+        self.effects.clear();
+        if vk == 0 || !self.phys[vk as usize] {
+            return false;
+        }
+        self.forget_release(vk);
+        if matches!(self.last_down, Some((k, _)) if k == vk) {
+            self.last_down = None;
+        }
+        true
+    }
+
+    /// Run the release of a key whose real release we missed. Windows itself may or
+    /// may not have seen it; either way it ends up released in Windows too.
+    fn forget_release(&mut self, vk: u8) {
+        let i = vk as usize;
+        self.phys[i] = false;
+        let was = std::mem::replace(&mut self.active[i], Active::None);
+        if is_modifier(vk) {
+            let b = mod_bit(vk);
+            match was {
+                Active::Sub { target } => self.out.push(Out::Key { vk: target, down: false }),
+                Active::Swallow => {}
+                Active::SubMod { .. } | Active::Shortcut { .. } => {
+                    self.recompute_log();
+                    self.release_unneeded(false);
+                }
+                Active::None => {
+                    self.recompute_log();
+                    for a in self.active.iter_mut() {
+                        if let Active::Shortcut { trig, stale, .. } = a {
+                            if *trig & b != 0 {
+                                *stale = true;
+                            }
+                        }
+                    }
+                    if self.os_mods & b != 0 {
+                        // Release it in Windows too (harmless if Windows saw the release).
+                        if b & bit::ALT_WIN != 0 {
+                            self.out.push(Out::Dummy);
+                        }
+                        self.out.push(Out::Key { vk: keys::bit_vk(b), down: false });
+                        self.os_mods &= !b;
+                    }
+                    self.release_unneeded(true);
+                }
+            }
         } else {
-            self.phys[vk] = false;
-            match std::mem::replace(&mut self.active[vk], Active::None) {
+            match was {
                 Active::Shortcut { target, .. } | Active::Sub { target } => {
                     self.out.push(Out::Key { vk: target, down: false });
-                    true
                 }
                 Active::SubMod { .. } => {
                     self.recompute_log();
                     self.release_unneeded(false);
-                    true
                 }
-                Active::Swallow => true,
-                Active::None => false,
+                Active::Swallow | Active::None => {}
             }
         }
     }
@@ -651,6 +797,13 @@ impl Engine {
             Some(true)
         }
     }
+}
+
+/// Keys Windows makes up alongside a real one: the left Ctrl that comes with AltGr
+/// (scan code 0x21D) and the "fake Shift" some keyboards wrap around arrow keys.
+/// They repeat in step with the real key, so they don't count as the last key.
+fn is_fake(ev: KeyEvent) -> bool {
+    ev.scan & 0x200 != 0 || (matches!(ev.vk, keys::VK_LSHIFT | keys::VK_RSHIFT) && ev.extended)
 }
 
 /// Text for a partially-recorded shortcut ("LAlt+LShift" while only modifiers are down).

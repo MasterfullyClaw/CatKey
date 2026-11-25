@@ -1,6 +1,6 @@
 [package]
 name = "catkey"
-version = "1.0.4"
+version = "1.0.5"
 description = "Cat Key - a purr-fect keyboard shortcut remapper for Windows"
 authors = ["Masterfully"]
 edition = "2021"
@@ -39,6 +39,7 @@ features = [
   "Win32_System_SystemInformation",
   "Win32_System_Threading",
   "Win32_UI_Accessibility",
+  "Win32_UI_Input",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",

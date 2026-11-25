@@ -27,7 +27,7 @@ const TEMPLATES = [
 
 function mockStatus(params) {
   return {
-    version: '1.0.4', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
+    version: '1.0.5', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
     configDir: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', problems: {}, engineRunning: params.get('engine') !== '0',
     startup: params.get('startup') || 'on',
   };
@@ -111,7 +111,7 @@ export function createMock() {
           if (!keylogOn || keylogSent) return { on: keylogOn, lines: [] };
           keylogSent = true;
           return { on: true, lines: [
-            '  0.000s  key log started · Cat Key 1.0.4 · hook on',
+            '  0.000s  key log started · Cat Key 1.0.5 · hook on · watchdog on',
             '  2.114s  LAlt↓  from keyboard  held: -  → passed  [chrome.exe]',
             '  2.201s  W↓  from keyboard  held: LAlt  → swallowed  then send: LCtrl↓ mask LAlt↑ W↓  [chrome.exe]',
             '  2.201s     sent 5/5 in 0 ms',

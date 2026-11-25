@@ -178,13 +178,89 @@ fn holding_repeats_the_target() {
     let mut e = engine(default_rules());
     let m = &mut Mock::default();
     d(&mut e, m, LALT);
+    // Alt alone auto-repeats while it is the last key pressed.
+    assert_eq!(d(&mut e, m, LALT), pass());
     assert_eq!(d(&mut e, m, b'Z'), swallow("LCtrl↓ · LAlt↑ Z↓"));
     assert_eq!(d(&mut e, m, b'Z'), swallow("Z↓"));
     assert_eq!(d(&mut e, m, b'Z'), swallow("Z↓"));
-    // Alt auto-repeats too, but it was swapped out: never press it again.
-    assert_eq!(d(&mut e, m, LALT), swallow(""));
     assert_eq!(u(&mut e, m, b'Z'), swallow("Z↑"));
     assert_eq!(u(&mut e, m, LALT), through("LCtrl↑"));
+}
+
+fn at(e: &mut Engine, env: &mut Mock, vk: u8, down: bool, time: u32) -> (bool, String) {
+    let s = e.handle(KeyEvent { vk, scan: 0, down, extended: false, time, injected: false }, env);
+    (s, fmt(&e.out))
+}
+
+/// The press-twice bug: when a key's release never reaches Cat Key (Windows skipped
+/// the hook for a moment, or another program ate it), the next press of that key
+/// used to look like a "repeat" and was swallowed. It must work first time.
+#[test]
+fn a_missed_release_does_not_eat_the_next_press() {
+    let mut e = engine(default_rules());
+    let m = &mut Mock::default();
+    d(&mut e, m, LALT);
+    assert_eq!(d(&mut e, m, b'W'), swallow("LCtrl↓ · LAlt↑ W↓"));
+    // W↑ never arrives.
+    assert_eq!(u(&mut e, m, LALT), through("LCtrl↑"));
+    assert_eq!(d(&mut e, m, LALT), pass());
+    assert_eq!(d(&mut e, m, b'W'), swallow("W↑ LCtrl↓ · LAlt↑ W↓"));
+    assert_eq!(u(&mut e, m, b'W'), swallow("W↑"));
+    assert_eq!(u(&mut e, m, LALT), through("LCtrl↑"));
+}
+
+#[test]
+fn a_held_key_only_repeats_while_it_is_the_last_key() {
+    let mut e = engine(default_rules());
+    let m = &mut Mock::default();
+    assert_eq!(at(&mut e, m, LALT, true, 0), pass());
+    assert_eq!(at(&mut e, m, b'Q', true, 40), swallow("F4↓"));
+    assert_eq!(at(&mut e, m, b'Q', true, 540), swallow("F4↓")); // real repeat
+    assert_eq!(at(&mut e, m, b'Q', true, 573), swallow("F4↓"));
+    // Q↑ was missed; three seconds later Q goes down again: a new press, not a repeat.
+    assert_eq!(at(&mut e, m, b'Q', true, 3_600), swallow("F4↑ F4↓"));
+    assert_eq!(at(&mut e, m, b'Q', false, 3_700), swallow("F4↑"));
+}
+
+#[test]
+fn a_new_alt_press_after_a_missed_alt_release_starts_clean() {
+    let mut e = engine(default_rules());
+    let m = &mut Mock::default();
+    d(&mut e, m, LALT);
+    assert_eq!(d(&mut e, m, b'Z'), swallow("LCtrl↓ · LAlt↑ Z↓"));
+    assert_eq!(u(&mut e, m, b'Z'), swallow("Z↑"));
+    // Alt↑ never arrives; Alt goes down again (Z was the last key, so not a repeat).
+    assert_eq!(d(&mut e, m, LALT), swallow("LCtrl↑ raw(LAlt)↓"));
+    assert_eq!(d(&mut e, m, b'Z'), swallow("LCtrl↓ · LAlt↑ Z↓"));
+    assert_eq!(u(&mut e, m, b'Z'), swallow("Z↑"));
+    assert_eq!(u(&mut e, m, LALT), through("LCtrl↑"));
+}
+
+#[test]
+fn a_missed_alt_release_that_windows_never_saw_is_released() {
+    let mut e = engine(default_rules());
+    let m = &mut Mock::default();
+    assert_eq!(d(&mut e, m, LALT), pass());
+    assert_eq!(d(&mut e, m, b'X'), pass());
+    assert_eq!(u(&mut e, m, b'X'), pass());
+    // Alt↑ eaten by another program; Alt goes down again.
+    assert_eq!(d(&mut e, m, LALT), swallow("· LAlt↑ raw(LAlt)↓"));
+    assert_eq!(u(&mut e, m, LALT), pass());
+}
+
+#[test]
+fn the_watchdog_can_report_a_missed_release() {
+    let mut e = engine(default_rules());
+    let m = &mut Mock::default();
+    d(&mut e, m, LALT);
+    assert_eq!(d(&mut e, m, b'Q'), swallow("F4↓"));
+    assert!(e.missed_release(b'Q'));
+    assert_eq!(fmt(&e.out), "F4↑");
+    assert!(!e.missed_release(b'Q'));
+    assert_eq!(u(&mut e, m, b'Q'), pass());
+    assert!(e.missed_release(LALT));
+    assert_eq!(fmt(&e.out), "· LAlt↑");
+    assert_eq!(d(&mut e, m, b'Q'), pass());
 }
 
 #[test]
@@ -558,4 +634,43 @@ fn powertoys_doing_the_same_remap_adds_nothing() {
     e.handle(KeyEvent::up(LCTRL).injected(), m);
     assert_eq!(e.os_mods, 0);
     assert_eq!(e.log_mods, 0);
+}
+
+/// AltGr sends a made-up left Ctrl (scan 0x21D) before every Right Alt, repeats
+/// included. Holding AltGr must not look like missed releases.
+#[test]
+fn altgr_repeats_are_still_repeats() {
+    let mut e = engine(default_rules());
+    let m = &mut Mock::default();
+    let ev = |vk: u8, scan: u16, time: u32| KeyEvent { vk, scan, down: true, extended: vk == RALT, time, injected: false };
+    assert!(!e.handle(ev(LCTRL, 0x21D, 0), m));
+    assert!(!e.handle(ev(RALT, 0x38, 0), m));
+    for t in [500, 533, 566] {
+        assert!(!e.handle(ev(LCTRL, 0x21D, t), m), "fake Ctrl repeat passes");
+        assert!(e.out.is_empty());
+        assert!(!e.handle(ev(RALT, 0x38, t), m), "AltGr repeat passes");
+        assert!(e.out.is_empty());
+    }
+}
+
+/// "Pressed together", W landing a hair before Alt: Windows sees W, then a lone Alt
+/// tap, and opens the app's menu (the next shortcut then dings). Mask that release.
+#[test]
+fn alt_pressed_just_after_a_key_does_not_open_the_menu() {
+    let mut e = engine(default_rules());
+    let m = &mut Mock::default();
+    assert_eq!(d(&mut e, m, b'W'), pass());
+    assert_eq!(d(&mut e, m, LALT), pass());
+    assert_eq!(u(&mut e, m, b'W'), pass());
+    assert_eq!(u(&mut e, m, LALT), swallow("· raw(LAlt)↑"));
+    // A real lone Alt tap still opens menus.
+    assert_eq!(d(&mut e, m, LALT), pass());
+    assert_eq!(u(&mut e, m, LALT), pass());
+    // Holding W, then Alt, then pressing W again: the shortcut works.
+    assert_eq!(d(&mut e, m, b'W'), pass());
+    assert_eq!(d(&mut e, m, LALT), pass());
+    assert_eq!(u(&mut e, m, b'W'), pass());
+    assert_eq!(d(&mut e, m, b'W'), swallow("LCtrl↓ · LAlt↑ W↓"));
+    assert_eq!(u(&mut e, m, b'W'), swallow("W↑"));
+    assert_eq!(u(&mut e, m, LALT), through("LCtrl↑"));
 }

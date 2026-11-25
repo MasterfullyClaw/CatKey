@@ -323,6 +323,12 @@ fn start_dispatcher(app: AppHandle, rx: Receiver<Effect>) {
 
 pub fn run(args: Vec<String>) {
     let autostart = args.iter().any(|a| a == "--autostart");
+    // For automated testing only: keys typed by other programs count as real presses.
+    let beside_exe = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.join("catkey-test-keys")));
+    if args.iter().any(|a| a == "--test-keys") || beside_exe.map(|f| f.exists()).unwrap_or(false) {
+        hook::set_test_keys(true);
+        crate::log("test mode: keys typed by other programs are remapped too");
+    }
     win::opt_out_of_power_throttling_for_process();
     let dir = config_dir();
     let _ = std::fs::create_dir_all(&dir);

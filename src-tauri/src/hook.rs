@@ -1,26 +1,30 @@
 //! The low-level keyboard hook.
 //!
-//! One dedicated, high-priority thread owns the hook and the [`Engine`]. The hook
-//! callback only decides "swallow or pass" and returns at once: it never blocks and
-//! never waits on the UI. The keys to send instead are queued and sent by the same
-//! thread right after the callback returns.
+//! Three parts, so that a slow program elsewhere can never make Cat Key miss a key:
 //!
-//! Why not send inside the callback? `SendInput` runs every other program's keyboard
-//! hook (PowerToys, overlays, macro tools) before it returns. If one of them is slow,
-//! Windows gives up waiting for *our* callback, lets the original key through (Alt+W
-//! reaches the app: the "ding") and may even drop the hook. Sending afterwards keeps
-//! the callback to microseconds.
+//! * The **hook thread** owns the hook and the [`Engine`]. Its callback only decides
+//!   "swallow or pass" and queues the keys to send. It never sends and never waits.
+//!   Windows skips a hook that answers late (the original Alt+W then reaches the app:
+//!   the "ding") and silently removes it if that keeps happening.
+//! * The **sender thread** sends the queued keys. `SendInput` can wait on every other
+//!   program's keyboard hook (overlays, dictation and macro tools); only this thread
+//!   waits, so the hook thread is always free to answer the next key at once.
+//! * A **watchdog** on the hook thread gets every real key straight from the keyboard
+//!   (raw input). If the hook missed a key release, the watchdog finishes that press,
+//!   so the next press works the first time. If the hook stopped getting keys, the
+//!   watchdog installs it again at once (not 20 seconds later).
 
 use catkey_core::engine::{Effect, Engine, Env, KeyEvent, Out};
-use catkey_core::keys::DUMMY_VK;
+use catkey_core::keys::{key_name, DUMMY_VK};
 use catkey_core::Compiled;
 use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::ffi::c_void;
 use std::mem::{size_of, zeroed};
-use std::ptr::null_mut;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::ptr::{null, null_mut};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 
 use windows_sys::Win32::Foundation::{GetLastError, HWND, LPARAM, LRESULT, WPARAM};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -33,25 +37,36 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     GetAsyncKeyState, MapVirtualKeyW, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY,
     KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, MAPVK_VK_TO_VSC_EX,
 };
+use windows_sys::Win32::UI::Input::{
+    GetRawInputData, RegisterRawInputDevices, HRAWINPUT, RAWINPUT, RAWINPUTDEVICE, RAWINPUTHEADER, RIDEV_INPUTSINK,
+    RID_INPUT, RIM_TYPEKEYBOARD,
+};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, DispatchMessageW, GetForegroundWindow, GetMessageW, GetWindowThreadProcessId, PeekMessageW,
-    PostQuitMessage, PostThreadMessageW, SetTimer, SetWindowsHookExW, UnhookWindowsHookEx, EVENT_SYSTEM_DESKTOPSWITCH,
-    HC_ACTION, HHOOK, KBDLLHOOKSTRUCT, LLKHF_EXTENDED, LLKHF_INJECTED, MSG, PM_NOREMOVE, WH_KEYBOARD_LL, WINEVENT_OUTOFCONTEXT, WM_APP,
-    WM_KEYDOWN, WM_SYSKEYDOWN, WM_TIMER, WM_USER,
+    CallNextHookEx, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetForegroundWindow, GetMessageW,
+    GetWindowThreadProcessId, KillTimer, PeekMessageW, PostQuitMessage, PostThreadMessageW, RegisterClassW, SetTimer,
+    SetWindowsHookExW, UnhookWindowsHookEx, EVENT_SYSTEM_DESKTOPSWITCH, HC_ACTION, HHOOK, HWND_MESSAGE, KBDLLHOOKSTRUCT,
+    LLKHF_EXTENDED, LLKHF_INJECTED, MSG, PM_NOREMOVE, RI_KEY_BREAK, RI_KEY_E0, RI_KEY_E1, WH_KEYBOARD_LL,
+    WINEVENT_OUTOFCONTEXT, WM_APP, WM_INPUT, WM_KEYDOWN, WM_SYSKEYDOWN, WM_TIMER, WM_USER, WNDCLASSW,
 };
 
 /// `dwExtraInfo` on every event we inject, so the hook lets them through.
 pub const MARK: usize = 0x0CA7_CA7E;
 
 const WM_CATKEY: u32 = WM_APP + 0x0CA;
-/// Posted to ourselves: send the queued keys now that the callback has returned.
-const WM_CATKEY_SEND: u32 = WM_APP + 0x0CB;
 /// Re-install the hook every so often: keeps us first in line and recovers if
 /// Windows ever drops a hook (for example after the PC was very busy).
 const REFRESH_MS: u32 = 20_000;
+const TIMER_REFRESH: usize = 1;
+const TIMER_WATCH: usize = 2;
+/// How long the hook may take to see a key the keyboard already reported. Windows
+/// waits at most one second for a hook (LowLevelHooksTimeout) before skipping it.
+const WATCH_GRACE_MS: u32 = 1_500;
 /// A send that takes longer than this is written to the log (another program's
 /// keyboard hook is slowing every key down).
 const SLOW_SEND_MS: u32 = 150;
+/// If queued keys haven't gone out after this long, stop holding real keys back
+/// behind them (something is badly stuck; typing must keep working).
+const STUCK_SEND_MS: u32 = 2_000;
 
 pub enum Cmd {
     Config(Arc<Compiled>),
@@ -62,12 +77,23 @@ pub enum Cmd {
 }
 
 static THREAD_ID: AtomicU32 = AtomicU32::new(0);
-static HOOK_OK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static HOOK_OK: AtomicBool = AtomicBool::new(false);
+/// Treat keys typed by other programs as real key presses (only with `--test-keys`,
+/// so automated tests can drive Cat Key).
+static TEST_KEYS: AtomicBool = AtomicBool::new(false);
+/// Keys the watchdog caught that the hook missed, and hook re-installs it caused.
+pub static WATCH_FIXES: AtomicU32 = AtomicU32::new(0);
+pub static WATCH_REINSTALLS: AtomicU32 = AtomicU32::new(0);
+
+pub fn set_test_keys(on: bool) {
+    TEST_KEYS.store(on, Ordering::SeqCst);
+}
+
 // ---------------------------------------------------------------- key log
 // "Settings → Try a shortcut → Key log": every key Cat Key sees, what it decided and
 // what it sent. Off unless the window turns it on; stops by itself after 10 minutes.
 
-static DIAG_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static DIAG_ON: AtomicBool = AtomicBool::new(false);
 static DIAG_T0: AtomicU32 = AtomicU32::new(0);
 static DIAG: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
 const DIAG_MAX_LINES: usize = 3000;
@@ -79,7 +105,12 @@ pub fn diag_set(on: bool) {
             q.clear();
         }
         DIAG_T0.store(unsafe { GetTickCount() }, Ordering::SeqCst);
-        diag_line(format!("key log started · Cat Key {} · hook {}", env!("CARGO_PKG_VERSION"), if engine_running() { "on" } else { "OFF" }));
+        diag_line(format!(
+            "key log started · Cat Key {} · hook {} · watchdog {}",
+            env!("CARGO_PKG_VERSION"),
+            if engine_running() { "on" } else { "OFF" },
+            if WATCH_ON.load(Ordering::SeqCst) { "on" } else { "off" },
+        ));
     } else if DIAG_ON.load(Ordering::SeqCst) {
         diag_line("key log stopped".into());
     }
@@ -115,7 +146,6 @@ fn diag_line(text: String) {
 }
 
 fn fmt_outs(outs: &[Out]) -> String {
-    use catkey_core::keys::key_name;
     let arrow = |d: bool| if d { "↓" } else { "↑" };
     outs.iter()
         .map(|o| match *o {
@@ -144,51 +174,216 @@ fn held_now() -> String {
     if held.is_empty() { "-".into() } else { held.join("+") }
 }
 
-/// A WM_CATKEY_SEND is already on its way.
-static SEND_POSTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
-/// `SendInput` is running right now (our callback can run again meanwhile).
-static SENDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+// ---------------------------------------------------------------- sender thread
+
+static OUTBOX: Mutex<Vec<Out>> = Mutex::new(Vec::new());
+static OUTBOX_READY: Condvar = Condvar::new();
+/// Keys queued that haven't gone out yet. Until then Windows' own key state lags
+/// behind ours, and a real key must wait its turn behind them.
+static OUTSTANDING: AtomicUsize = AtomicUsize::new(0);
+/// When the queue last went from empty to busy.
+static BUSY_SINCE: AtomicU32 = AtomicU32::new(0);
 static LAST_SLOW_LOG: AtomicU32 = AtomicU32::new(0);
+static STUCK_LOGGED: AtomicBool = AtomicBool::new(false);
+
+fn enqueue(outs: &[Out]) {
+    if outs.is_empty() {
+        return;
+    }
+    if OUTSTANDING.fetch_add(outs.len(), Ordering::SeqCst) == 0 {
+        BUSY_SINCE.store(unsafe { GetTickCount() }, Ordering::SeqCst);
+    }
+    match OUTBOX.lock() {
+        Ok(mut q) => q.extend_from_slice(outs),
+        Err(p) => p.into_inner().extend_from_slice(outs),
+    }
+    OUTBOX_READY.notify_one();
+}
+
+/// Our keys are still on their way (and not hopelessly stuck).
+fn sending() -> bool {
+    if OUTSTANDING.load(Ordering::SeqCst) == 0 {
+        return false;
+    }
+    let busy = unsafe { GetTickCount() }.wrapping_sub(BUSY_SINCE.load(Ordering::SeqCst));
+    if busy > STUCK_SEND_MS {
+        if !STUCK_LOGGED.swap(true, Ordering::SeqCst) {
+            crate::log("sending keys is stuck (another program's keyboard hook isn't answering)");
+        }
+        return false;
+    }
+    true
+}
+
+/// Wait (briefly) until everything queued has gone out.
+fn wait_sent(max_ms: u32) {
+    let start = unsafe { GetTickCount() };
+    while OUTSTANDING.load(Ordering::SeqCst) > 0 && unsafe { GetTickCount() }.wrapping_sub(start) < max_ms {
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+}
+
+fn start_sender() {
+    std::thread::Builder::new()
+        .name("catkey-sender".into())
+        .spawn(|| unsafe { sender_loop() })
+        .expect("start key sender thread");
+}
+
+unsafe fn sender_loop() {
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+    crate::win::opt_out_of_power_throttling_for_thread();
+    loop {
+        let batch: Vec<Out> = {
+            let mut q = match OUTBOX.lock() {
+                Ok(q) => q,
+                Err(p) => p.into_inner(),
+            };
+            while q.is_empty() {
+                q = match OUTBOX_READY.wait(q) {
+                    Ok(q) => q,
+                    Err(p) => p.into_inner(),
+                };
+            }
+            std::mem::take(&mut *q)
+        };
+        let started = GetTickCount();
+        let result = std::panic::catch_unwind(|| send_outputs(&batch));
+        // Count them as gone whatever happened, or real keys would wait forever.
+        OUTSTANDING.fetch_sub(batch.len(), Ordering::SeqCst);
+        STUCK_LOGGED.store(false, Ordering::SeqCst);
+        let Ok((asked, sent, err)) = result else { continue };
+        let took = GetTickCount().wrapping_sub(started);
+        if sent < asked {
+            let last = LAST_SLOW_LOG.load(Ordering::Relaxed);
+            if last == 0 || started.wrapping_sub(last) > 60_000 {
+                LAST_SLOW_LOG.store(started, Ordering::Relaxed);
+                crate::log(&format!("Windows accepted only {sent} of {asked} keys (error {err}); an app running as administrator?"));
+            }
+        }
+        if diag_on() {
+            diag_line(format!(
+                "   sent {sent}/{asked} in {took} ms{}",
+                if sent < asked { format!("  ← Windows refused the rest (error {err})") } else { String::new() }
+            ));
+        }
+        if took > SLOW_SEND_MS {
+            let last = LAST_SLOW_LOG.load(Ordering::Relaxed);
+            if last == 0 || started.wrapping_sub(last) > 60_000 {
+                LAST_SLOW_LOG.store(started, Ordering::Relaxed);
+                crate::log(&format!("sending {} keys took {took} ms (another program's keyboard hook is slow)", batch.len()));
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- hook thread state
 
 /// True while the keyboard hook is installed and its thread is running.
 pub fn engine_running() -> bool {
     HOOK_OK.load(Ordering::SeqCst) && THREAD_ID.load(Ordering::SeqCst) != 0
 }
 static PENDING: Mutex<Vec<Cmd>> = Mutex::new(Vec::new());
+static WATCH_ON: AtomicBool = AtomicBool::new(false);
 
 struct Ctx {
     engine: Engine,
     env: WinEnv,
     hook: HHOOK,
     effects: Sender<Effect>,
-    /// Keys to send once the hook callback has returned (in order).
-    pending: Vec<Out>,
     /// (time, vk, flags, scan) of the last event, to ignore an exact duplicate.
     last: (u32, u32, u32, u32),
+    watch: Watch,
 }
 
 impl Ctx {
-    /// Queue what the engine just asked for and make sure a send is on its way.
+    /// Queue what the engine just asked for.
     fn queue_out(&mut self) {
-        if self.engine.out.is_empty() {
-            return;
-        }
-        self.pending.extend_from_slice(&self.engine.out);
+        enqueue(&self.engine.out);
         self.engine.out.clear();
-        self.post_send();
     }
 
-    fn post_send(&self) {
-        if !SEND_POSTED.swap(true, Ordering::SeqCst) {
-            unsafe {
-                PostThreadMessageW(GetCurrentThreadId(), WM_CATKEY_SEND, 0, 0);
+    fn reinstall(&mut self) -> bool {
+        let fresh = unsafe { install() };
+        if fresh.is_null() {
+            return false;
+        }
+        if !self.hook.is_null() {
+            unsafe { UnhookWindowsHookEx(self.hook) };
+        }
+        self.hook = fresh;
+        HOOK_OK.store(true, Ordering::SeqCst);
+        true
+    }
+}
+
+/// One key event as both the hook and the keyboard (raw input) describe it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct Phys {
+    scan: u16,
+    ext: bool,
+    down: bool,
+}
+
+/// What the raw-input watchdog knows.
+#[derive(Default)]
+struct Watch {
+    hwnd: usize,
+    /// When the hook last saw a real key.
+    hook_seen: u32,
+    /// Keys the hook saw go down and hasn't seen come up: (scan, ext, vk).
+    held: Vec<(u16, bool, u8)>,
+    /// Reported by the keyboard, not seen by the hook yet (with when).
+    waiting: Vec<(Phys, u32)>,
+    /// Seen by the hook, not reported by the keyboard yet (with when).
+    recent: VecDeque<(Phys, u32)>,
+    last_reinstall: u32,
+    timer_on: bool,
+}
+
+impl Watch {
+    fn reset(&mut self) {
+        self.held.clear();
+        self.waiting.clear();
+        self.recent.clear();
+    }
+
+    /// The hook saw a real key.
+    fn hook(&mut self, p: Phys, vk: u8, now: u32) {
+        self.hook_seen = now;
+        if let Some(i) = self.waiting.iter().position(|w| w.0 == p) {
+            self.waiting.remove(i);
+        } else {
+            if self.recent.len() >= 64 {
+                self.recent.pop_front();
             }
+            self.recent.push_back((p, now));
+        }
+        let at = self.held.iter().position(|h| h.0 == p.scan && h.1 == p.ext);
+        match (p.down, at) {
+            (true, None) => self.held.push((p.scan, p.ext, vk)),
+            (false, Some(i)) => {
+                self.held.remove(i);
+            }
+            _ => {}
         }
     }
 
-    /// Keys we queued haven't all gone out yet.
-    fn sending(&self) -> bool {
-        !self.pending.is_empty() || SENDING.load(Ordering::SeqCst)
+    /// The keyboard reported a key. True if we now wait to see it in the hook.
+    fn raw(&mut self, p: Phys, now: u32) -> bool {
+        if let Some(i) = self.recent.iter().position(|r| r.0 == p && now.wrapping_sub(r.1) < WATCH_GRACE_MS) {
+            self.recent.remove(i);
+            return false;
+        }
+        // Presses tell us whether the hook is alive; releases matter for keys it holds.
+        if p.down || self.held.iter().any(|h| h.0 == p.scan && h.1 == p.ext) {
+            if self.waiting.len() >= 64 {
+                self.waiting.remove(0);
+            }
+            self.waiting.push((p, now));
+            return true;
+        }
+        false
     }
 }
 
@@ -219,6 +414,11 @@ impl Env for WinEnv {
     }
 
     fn key_down_async(&mut self, vk: u8) -> bool {
+        // While our keys are still on their way, Windows' answer is out of date
+        // (a held-back Alt hasn't reached it yet): trust our own record instead.
+        if OUTSTANDING.load(Ordering::SeqCst) > 0 {
+            return true;
+        }
         unsafe { (GetAsyncKeyState(vk as i32) as u16) & 0x8000 != 0 }
     }
 }
@@ -237,6 +437,7 @@ pub fn send(cmd: Cmd) {
 }
 
 pub fn start(compiled: Arc<Compiled>, enabled: bool, effects: Sender<Effect>) {
+    start_sender();
     std::thread::Builder::new()
         .name("catkey-keyboard".into())
         .spawn(move || unsafe { run(compiled, enabled, effects) })
@@ -259,14 +460,15 @@ unsafe fn run(compiled: Arc<Compiled>, enabled: bool, effects: Sender<Effect>) {
         crate::log("could not install the keyboard hook");
     }
     HOOK_OK.store(!hook.is_null(), Ordering::SeqCst);
+    let hwnd = create_watch_window();
     CTX.with(|c| {
         *c.borrow_mut() = Some(Ctx {
             engine: Engine::new(compiled, enabled),
             env: WinEnv::default(),
             hook,
             effects,
-            pending: Vec::with_capacity(32),
             last: (0, 0, 0, 0),
+            watch: Watch { hwnd: hwnd as usize, ..Watch::default() },
         })
     });
     THREAD_ID.store(GetCurrentThreadId(), Ordering::SeqCst);
@@ -279,7 +481,9 @@ unsafe fn run(compiled: Arc<Compiled>, enabled: bool, effects: Sender<Effect>) {
         0,
         WINEVENT_OUTOFCONTEXT,
     );
-    SetTimer(null_mut(), 0, REFRESH_MS, None);
+    if hwnd.is_null() {
+        SetTimer(null_mut(), 0, REFRESH_MS, None); // thread timer: WM_TIMER with no window
+    }
     drain_commands();
 
     loop {
@@ -287,16 +491,15 @@ unsafe fn run(compiled: Arc<Compiled>, enabled: bool, effects: Sender<Effect>) {
         if r == 0 || r == -1 {
             break;
         }
-        match msg.message {
-            WM_CATKEY_SEND => flush(),
-            WM_CATKEY => drain_commands(),
-            WM_TIMER => refresh_hook(),
-            _ => {
-                DispatchMessageW(&msg);
-            }
+        if msg.message == WM_CATKEY {
+            drain_commands();
+        } else if msg.message == WM_TIMER && msg.hwnd.is_null() {
+            refresh_hook();
+        } else {
+            DispatchMessageW(&msg);
         }
     }
-    flush();
+    wait_sent(500);
     CTX.with(|c| {
         if let Some(ctx) = c.borrow_mut().as_mut() {
             if !ctx.hook.is_null() {
@@ -313,66 +516,12 @@ unsafe fn refresh_hook() {
     CTX.with(|c| {
         if let Ok(mut g) = c.try_borrow_mut() {
             if let Some(ctx) = g.as_mut() {
-                let fresh = install();
-                if !fresh.is_null() {
-                    if !ctx.hook.is_null() {
-                        UnhookWindowsHookEx(ctx.hook);
-                    }
-                    ctx.hook = fresh;
-                    HOOK_OK.store(true, Ordering::SeqCst);
-                } else if diag_on() {
+                if !ctx.reinstall() && diag_on() {
                     diag_line(format!("could not re-install the keyboard hook (error {})", GetLastError()));
                 }
             }
         }
     });
-}
-
-/// Send the queued keys. Never called inside the hook callback, and never while
-/// `CTX` is borrowed: `SendInput` can run our own callback again for new key presses.
-unsafe fn flush() {
-    let outs = CTX.with(|c| match c.try_borrow_mut() {
-        Ok(mut g) => match g.as_mut() {
-            Some(ctx) => {
-                SEND_POSTED.store(false, Ordering::SeqCst);
-                std::mem::replace(&mut ctx.pending, Vec::with_capacity(32))
-            }
-            None => Vec::new(),
-        },
-        // Busy right now (shouldn't happen here): try again in a moment.
-        Err(_) => {
-            PostThreadMessageW(GetCurrentThreadId(), WM_CATKEY_SEND, 0, 0);
-            Vec::new()
-        }
-    });
-    if outs.is_empty() {
-        return;
-    }
-    let started = GetTickCount();
-    SENDING.store(true, Ordering::SeqCst);
-    let (asked, sent, err) = send_outputs(&outs);
-    SENDING.store(false, Ordering::SeqCst);
-    let took = GetTickCount().wrapping_sub(started);
-    if sent < asked {
-        let last = LAST_SLOW_LOG.load(Ordering::Relaxed);
-        if last == 0 || started.wrapping_sub(last) > 60_000 {
-            LAST_SLOW_LOG.store(started, Ordering::Relaxed);
-            crate::log(&format!("Windows accepted only {sent} of {asked} keys (error {err}); an app running as administrator?"));
-        }
-    }
-    if diag_on() {
-        diag_line(format!(
-            "   sent {sent}/{asked} in {took} ms{}",
-            if sent < asked { format!("  ← Windows refused the rest (error {err})") } else { String::new() }
-        ));
-    }
-    if took > SLOW_SEND_MS {
-        let last = LAST_SLOW_LOG.load(Ordering::Relaxed);
-        if last == 0 || started.wrapping_sub(last) > 60_000 {
-            LAST_SLOW_LOG.store(started, Ordering::Relaxed);
-            crate::log(&format!("sending {} keys took {took} ms (another program's keyboard hook is slow)", outs.len()));
-        }
-    }
 }
 
 unsafe fn drain_commands() {
@@ -405,7 +554,7 @@ unsafe fn drain_commands() {
         }
     });
     if quit {
-        flush(); // let go of anything we hold before the thread ends
+        wait_sent(300); // let go of anything we hold before the thread ends
         PostQuitMessage(0);
     }
 }
@@ -426,6 +575,7 @@ unsafe extern "system" fn on_desktop_switch(
             if let Some(ctx) = g.as_mut() {
                 ctx.engine.hard_reset();
                 ctx.queue_out();
+                ctx.watch.reset();
             }
         }
     });
@@ -437,7 +587,7 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
         let kb = &*(lparam as *const KBDLLHOOKSTRUCT);
         if kb.dwExtraInfo == MARK && diag_on() {
             let down = wparam as u32 == WM_KEYDOWN || wparam as u32 == WM_SYSKEYDOWN;
-            diag_line(format!("      ↳ ours: {}{}", catkey_core::keys::key_name(kb.vkCode as u8), if down { "↓" } else { "↑" }));
+            diag_line(format!("      ↳ ours: {}{}", key_name(kb.vkCode as u8), if down { "↓" } else { "↑" }));
         }
         if kb.dwExtraInfo != MARK && kb.vkCode < 256 {
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handle(kb, wparam)));
@@ -461,37 +611,47 @@ unsafe fn handle(kb: &KBDLLHOOKSTRUCT, wparam: WPARAM) -> bool {
         }
         ctx.last = key;
         let down = wparam as u32 == WM_KEYDOWN || wparam as u32 == WM_SYSKEYDOWN;
+        let really_injected = kb.flags & LLKHF_INJECTED != 0;
         let ev = KeyEvent {
             vk: kb.vkCode as u8,
             scan: kb.scanCode as u16,
             down,
             extended: kb.flags & LLKHF_EXTENDED != 0,
             time: kb.time,
-            injected: kb.flags & LLKHF_INJECTED != 0,
+            injected: really_injected && !TEST_KEYS.load(Ordering::Relaxed),
         };
+        if !really_injected && kb.scanCode & 0x200 == 0 && kb.scanCode != 0 {
+            let p = Phys { scan: (kb.scanCode & 0xFF) as u16, ext: ev.extended, down };
+            ctx.watch.hook(p, ev.vk, GetTickCount());
+        }
         let logging = diag_on();
         let held = if logging { held_now() } else { String::new() };
-        let queued_before = ctx.pending.len();
         let mut swallow = ctx.engine.handle(ev, &mut ctx.env);
         let mut deferred = false;
-        if !swallow && !ev.injected && ctx.sending() {
+        let mut sends: Vec<Out> = Vec::new();
+        if !swallow && !ev.injected && sending() {
             deferred = true;
             // A real key arrived while our keys are still on their way: send it after
             // them, so it can't overtake (e.g. land before the Ctrl we are releasing).
             // Keys from other programs keep their own markers, so those always pass.
-            ctx.pending.push(Out::Raw { vk: ev.vk, scan: ev.scan, extended: ev.extended, down: ev.down });
-            ctx.post_send();
+            sends.push(Out::Raw { vk: ev.vk, scan: ev.scan, extended: ev.extended, down: ev.down });
             swallow = true;
         }
-        ctx.queue_out();
+        sends.extend_from_slice(&ctx.engine.out);
+        ctx.engine.out.clear();
+        enqueue(&sends);
         if logging {
-            let src = if ev.injected { format!("typed by another program (tag {:#x})", kb.dwExtraInfo) } else { "keyboard".to_string() };
+            let src = if really_injected {
+                format!("typed by another program (tag {:#x}){}", kb.dwExtraInfo, if ev.injected { "" } else { " · test mode" })
+            } else {
+                "keyboard".to_string()
+            };
             let app = ctx.env.foreground_exe().to_string();
             let what = if deferred { "held back (keys still going out)" } else if swallow { "swallowed" } else { "passed" };
-            let sends = fmt_outs(&ctx.pending[queued_before.min(ctx.pending.len())..]);
+            let sends = fmt_outs(&sends[if deferred { 1 } else { 0 }..]);
             diag_line(format!(
                 "{}{}  from {}  held: {}  → {}{}  [{}]",
-                catkey_core::keys::key_name(ev.vk),
+                key_name(ev.vk),
                 if ev.down { "↓" } else { "↑" },
                 src,
                 held,
@@ -515,10 +675,149 @@ unsafe fn recover() {
             if let Some(ctx) = g.as_mut() {
                 ctx.engine.hard_reset();
                 ctx.queue_out();
+                ctx.watch.reset();
             }
         }
     });
 }
+
+// ---------------------------------------------------------------- watchdog
+
+unsafe fn create_watch_window() -> HWND {
+    let class = crate::win::wide("CatKeyWatchdog");
+    let hinst = GetModuleHandleW(null());
+    let mut wc: WNDCLASSW = zeroed();
+    wc.lpfnWndProc = Some(watch_proc);
+    wc.hInstance = hinst;
+    wc.lpszClassName = class.as_ptr();
+    RegisterClassW(&wc);
+    let hwnd = CreateWindowExW(0, class.as_ptr(), null(), 0, 0, 0, 0, 0, HWND_MESSAGE, null_mut(), hinst, null());
+    if hwnd.is_null() {
+        crate::log(&format!("watchdog window failed (error {})", GetLastError()));
+        return hwnd;
+    }
+    SetTimer(hwnd, TIMER_REFRESH, REFRESH_MS, None);
+    let rid = RAWINPUTDEVICE { usUsagePage: 0x01, usUsage: 0x06, dwFlags: RIDEV_INPUTSINK, hwndTarget: hwnd };
+    if RegisterRawInputDevices(&rid, 1, size_of::<RAWINPUTDEVICE>() as u32) == 0 {
+        crate::log(&format!("watchdog couldn't listen to the keyboard (error {})", GetLastError()));
+    } else {
+        WATCH_ON.store(true, Ordering::SeqCst);
+    }
+    hwnd
+}
+
+unsafe extern "system" fn watch_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    match msg {
+        WM_INPUT => on_raw_input(lparam),
+        WM_TIMER => {
+            match wparam {
+                TIMER_REFRESH => refresh_hook(),
+                TIMER_WATCH => watch_check(),
+                _ => {}
+            }
+            return 0;
+        }
+        _ => {}
+    }
+    DefWindowProcW(hwnd, msg, wparam, lparam)
+}
+
+unsafe fn on_raw_input(lparam: LPARAM) {
+    let mut ri: RAWINPUT = zeroed();
+    let mut size = size_of::<RAWINPUT>() as u32;
+    let got = GetRawInputData(
+        lparam as HRAWINPUT,
+        RID_INPUT,
+        &mut ri as *mut RAWINPUT as *mut c_void,
+        &mut size,
+        size_of::<RAWINPUTHEADER>() as u32,
+    );
+    if got == u32::MAX || got == 0 || ri.header.dwType != RIM_TYPEKEYBOARD {
+        return;
+    }
+    // Keys typed by programs have no keyboard behind them.
+    if ri.header.hDevice.is_null() {
+        return;
+    }
+    let kb = ri.data.keyboard;
+    let flags = kb.Flags as u32;
+    if flags & RI_KEY_E1 != 0 || kb.MakeCode == 0 || kb.MakeCode >= 0x80 || kb.VKey == 0xFF {
+        return;
+    }
+    let ext = flags & RI_KEY_E0 != 0;
+    if ext && (kb.MakeCode == 0x2A || kb.MakeCode == 0x36) {
+        return; // "fake Shift" around arrow keys
+    }
+    let p = Phys { scan: kb.MakeCode, ext, down: flags & RI_KEY_BREAK == 0 };
+    let now = GetTickCount();
+    CTX.with(|c| {
+        let Ok(mut g) = c.try_borrow_mut() else { return };
+        let Some(ctx) = g.as_mut() else { return };
+        if ctx.watch.raw(p, now) && !ctx.watch.timer_on {
+            ctx.watch.timer_on = true;
+            SetTimer(ctx.watch.hwnd as HWND, TIMER_WATCH, 400, None);
+        }
+    });
+}
+
+/// Keys the keyboard reported that the hook still hasn't seen.
+unsafe fn watch_check() {
+    let now = GetTickCount();
+    CTX.with(|c| {
+        let Ok(mut g) = c.try_borrow_mut() else { return };
+        let Some(ctx) = g.as_mut() else { return };
+        let mut missed_press = false;
+        let mut missed_release: Vec<(u8, Phys)> = Vec::new();
+        let hook_seen = ctx.watch.hook_seen;
+        let mut held = std::mem::take(&mut ctx.watch.held);
+        ctx.watch.waiting.retain(|(p, at)| {
+            if now.wrapping_sub(*at) < WATCH_GRACE_MS {
+                return true;
+            }
+            if p.down {
+                // The hook saw nothing at all since: it is gone, not just slow.
+                if (hook_seen.wrapping_sub(*at) as i32) < -100 {
+                    missed_press = true;
+                }
+            } else if let Some(i) = held.iter().position(|h| h.0 == p.scan && h.1 == p.ext) {
+                missed_release.push((held[i].2, *p));
+                held.remove(i);
+            }
+            false
+        });
+        ctx.watch.held = held;
+        let logging = diag_on();
+        for (vk, _) in &missed_release {
+            if ctx.engine.missed_release(*vk) {
+                WATCH_FIXES.fetch_add(1, Ordering::SeqCst);
+                if logging {
+                    let fix = fmt_outs(&ctx.engine.out);
+                    diag_line(format!(
+                        "watchdog: the keyboard released {} but the hook never saw it → finished that press{}",
+                        key_name(*vk),
+                        if fix.is_empty() { String::new() } else { format!(" (send: {fix})") }
+                    ));
+                }
+                ctx.queue_out();
+            }
+        }
+        if (missed_press || !missed_release.is_empty()) && now.wrapping_sub(ctx.watch.last_reinstall) > 3_000 {
+            ctx.watch.last_reinstall = now;
+            if ctx.reinstall() {
+                WATCH_REINSTALLS.fetch_add(1, Ordering::SeqCst);
+                if logging {
+                    diag_line("watchdog: the hook was missing keys → installed it again".into());
+                }
+            }
+        }
+        if ctx.watch.waiting.is_empty() {
+            ctx.watch.timer_on = false;
+            KillTimer(ctx.watch.hwnd as HWND, TIMER_WATCH);
+        }
+    });
+}
+
+// ---------------------------------------------------------------- sending
 
 fn is_extended(vk: u8) -> bool {
     matches!(
