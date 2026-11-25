@@ -194,6 +194,16 @@ select.field { padding: 0 10px; }
 .pad-row.bad b { background: var(--bads); color: var(--bad); }
 .pad-row.bad span { color: var(--bad); }
 
+/* key log (Settings) */
+.keylog { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 16px; background: var(--s2); }
+.keylog-title { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.keylog-btns { display: flex; gap: 6px; }
+.keylog-lines { margin: 0; height: 180px; overflow: auto; padding: 10px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line);
+  font: 500 11.5px/1.55 ui-monospace, Consolas, 'Cascadia Mono', monospace; color: var(--tx); white-space: pre; user-select: text; -webkit-user-select: text; }
+.keylog > .btn { align-self: flex-start; }
+.rec-dot { width: 10px; height: 10px; border-radius: 5px; background: var(--line); }
+.rec-dot.on { background: #ff4d6d; animation: blink 1s ease-in-out infinite; }
+
 /* ---------- toolbar ---------- */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding-top: 4px; }
 .search { flex: 1 1 260px; display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border-radius: 14px; background: var(--s1); border: 1px solid var(--line); color: var(--mu); transition: border-color .2s, box-shadow .2s; }

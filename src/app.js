@@ -455,6 +455,68 @@ function testPadEl() {
     h('p', { class: 'hint', style: { margin: '0' }, text: 'Press Alt + C here and you should see Ctrl + C, once. Alt + Q closes this window, just like everywhere else.' }));
 }
 
+// Key log: what Cat Key sees and sends, to understand a shortcut that misbehaves.
+const KEYLOG = { on: false, lines: [], timer: null, synced: false };
+
+function keyLogPaint() {
+  const pre = $('#keylog-lines');
+  if (pre) {
+    pre.textContent = KEYLOG.lines.length ? KEYLOG.lines.join('\n') : 'Nothing logged yet.';
+    pre.scrollTop = pre.scrollHeight;
+  }
+  const btn = $('#keylog-toggle');
+  if (btn) {
+    btn.innerHTML = KEYLOG.on ? `${icon('block')}<span>Stop key log</span>` : `${icon('keyboard')}<span>Start key log</span>`;
+    btn.classList.toggle('strong', !KEYLOG.on);
+  }
+  $('#keylog-dot')?.classList.toggle('on', KEYLOG.on);
+}
+
+async function keyLogPoll() {
+  const r = await invoke('key_log_take').catch(() => null);
+  if (!r) return;
+  if (r.lines?.length) {
+    KEYLOG.lines.push(...r.lines);
+    if (KEYLOG.lines.length > 3000) KEYLOG.lines.splice(0, KEYLOG.lines.length - 3000);
+  }
+  if (KEYLOG.on !== r.on) KEYLOG.on = r.on;
+  if (!KEYLOG.on && KEYLOG.timer) { clearInterval(KEYLOG.timer); KEYLOG.timer = null; }
+  keyLogPaint();
+}
+
+async function keyLogToggle() {
+  const on = !KEYLOG.on;
+  if (on) KEYLOG.lines = [];
+  await invoke('key_log', { on }).catch(() => {});
+  KEYLOG.on = on;
+  if (on && !KEYLOG.timer) KEYLOG.timer = setInterval(keyLogPoll, 300);
+  await keyLogPoll();
+  if (on) toast('Key log is on. Use the shortcut that misbehaves, then come back and save the log.', { ms: 6000 });
+}
+
+function keyLogEl() {
+  if (!KEYLOG.synced) {
+    KEYLOG.synced = true;
+    keyLogPoll().then(() => { if (KEYLOG.on && !KEYLOG.timer) KEYLOG.timer = setInterval(keyLogPoll, 300); });
+  }
+  const el = h('div', { class: 'keylog' },
+    h('div', { class: 'row-between' },
+      h('div', { class: 'keylog-title' }, h('span', { id: 'keylog-dot', class: `rec-dot${KEYLOG.on ? ' on' : ''}` }), h('b', { text: 'Key log' })),
+      h('div', { class: 'keylog-btns' },
+        h('button', { class: 'btn small', type: 'button', text: 'Copy', onclick: async () => {
+          try { await navigator.clipboard.writeText(KEYLOG.lines.join('\n')); toast('Copied the key log.'); } catch { toast('Couldn’t copy. Use Save instead.', { kind: 'warn' }); }
+        } }),
+        h('button', { class: 'btn small', type: 'button', text: 'Save…', onclick: async () => {
+          try { if (await invoke('save_text', { name: 'CatKey key log.txt', text: KEYLOG.lines.join('\r\n') })) toast('Saved.'); } catch (e) { toast(String(e), { kind: 'err' }); }
+        } }),
+        h('button', { class: 'btn small ghost', type: 'button', text: 'Clear', onclick: () => { KEYLOG.lines = []; keyLogPaint(); } }))),
+    h('pre', { id: 'keylog-lines', class: 'keylog-lines' }),
+    h('button', { id: 'keylog-toggle', class: 'btn small', type: 'button', onclick: keyLogToggle }),
+    h('p', { class: 'hint', style: { margin: '0' }, text: 'Shows every key Cat Key sees, what it did and what it sent. Turn it on, use the shortcut that misbehaves in the app where it happens, then come back and save. It records everything you type while it’s on (so don’t type passwords) and stops by itself after 10 minutes.' }));
+  requestAnimationFrame(keyLogPaint);
+  return el;
+}
+
 async function refreshStatusNow() {
   const st = await invoke('get_status').catch(() => null);
   if (!st) return;
@@ -1619,7 +1681,7 @@ function renderSettings() {
       h('section', {}, h('div', { class: 'row-between' }, h('h2', { text: 'Checkup' }),
         h('button', { class: 'link', type: 'button', text: 'Check again', onclick: () => { refreshStatusNow(); toast(`${cat()} checked everything again.`); } })),
         checkupEl(checkupRows())),
-      h('section', {}, h('h2', { text: 'Try a shortcut' }), testPadEl()),
+      h('section', {}, h('h2', { text: 'Try a shortcut' }), testPadEl(), keyLogEl()),
       h('section', {}, h('h2', { text: 'Your cat' }), skins,
         h('label', { class: 'row-between', style: { fontWeight: '800' } }, "Cat's name", nameInput),
         h('div', { class: 'row-between', style: { fontWeight: '800' } }, 'Theme', theme)),

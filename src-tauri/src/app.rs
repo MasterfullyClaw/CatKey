@@ -399,6 +399,9 @@ pub fn run(args: Vec<String>) {
             crate::commands::open_system_page,
             crate::commands::repair_startup,
             crate::commands::restart_app,
+            crate::commands::key_log,
+            crate::commands::key_log_take,
+            crate::commands::save_text,
         ])
         .setup(move |app| {
             if second {

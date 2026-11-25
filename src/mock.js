@@ -27,7 +27,7 @@ const TEMPLATES = [
 
 function mockStatus(params) {
   return {
-    version: '1.0.3', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
+    version: '1.0.4', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
     configDir: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', problems: {}, engineRunning: params.get('engine') !== '0',
     startup: params.get('startup') || 'on',
   };
@@ -36,6 +36,8 @@ function mockStatus(params) {
 export function createMock() {
   const params = new URLSearchParams(location.search);
   let upgraded = params.get('upgraded') === '1';
+  let keylogOn = false;
+  let keylogSent = false;
   let config = {
     version: 2,
     enabled: params.get('nap') !== '1',
@@ -101,6 +103,23 @@ export function createMock() {
           return structuredClone(config);
         case 'import_powertoys':
           return { found: 11, added: 0, config: structuredClone(config) };
+        case 'key_log':
+          keylogOn = !!args.on;
+          keylogSent = false;
+          return null;
+        case 'key_log_take': {
+          if (!keylogOn || keylogSent) return { on: keylogOn, lines: [] };
+          keylogSent = true;
+          return { on: true, lines: [
+            '  0.000s  key log started · Cat Key 1.0.4 · hook on',
+            '  2.114s  LAlt↓  from keyboard  held: -  → passed  [chrome.exe]',
+            '  2.201s  W↓  from keyboard  held: LAlt  → swallowed  then send: LCtrl↓ mask LAlt↑ W↓  [chrome.exe]',
+            '  2.201s     sent 5/5 in 0 ms',
+            '  2.289s  W↑  from keyboard  held: LCtrl  → swallowed  then send: W↑  [chrome.exe]',
+            '  2.290s     sent 1/1 in 0 ms',
+            '  2.340s  LAlt↑  from keyboard  held: LCtrl  → passed  then send: LCtrl↑  [chrome.exe]',
+          ] };
+        }
         case 'set_admin_mode':
           throw 'cancelled';
         case 'start_recording':

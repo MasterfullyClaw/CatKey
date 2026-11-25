@@ -386,6 +386,36 @@ pub fn restart_app(app: AppHandle) {
     app.exit(0);
 }
 
+#[derive(Serialize)]
+pub struct KeyLog {
+    on: bool,
+    lines: Vec<String>,
+}
+
+/// Turn the key log on or off ("Settings → Try a shortcut").
+#[tauri::command]
+pub fn key_log(on: bool) {
+    hook::diag_set(on);
+}
+
+/// Key log lines since the last call.
+#[tauri::command]
+pub fn key_log_take() -> KeyLog {
+    let (on, lines) = hook::diag_take();
+    KeyLog { on, lines }
+}
+
+/// Save text the window made (the key log) where the user picks.
+#[tauri::command]
+pub async fn save_text(app: AppHandle, name: String, text: String) -> Result<bool, String> {
+    let Some(file) = app.dialog().file().set_title("Save").set_file_name(&name).add_filter("Text", &["txt"]).blocking_save_file() else {
+        return Ok(false);
+    };
+    let path = file.into_path().map_err(|e| e.to_string())?;
+    std::fs::write(path, text).map_err(|e| e.to_string())?;
+    Ok(true)
+}
+
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     app.exit(0);

@@ -15,13 +15,14 @@ use catkey_core::engine::{Effect, Engine, Env, KeyEvent, Out};
 use catkey_core::keys::DUMMY_VK;
 use catkey_core::Compiled;
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::mem::{size_of, zeroed};
 use std::ptr::null_mut;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
-use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+use windows_sys::Win32::Foundation::{GetLastError, HWND, LPARAM, LRESULT, WPARAM};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::System::SystemInformation::GetTickCount;
 use windows_sys::Win32::System::Threading::{
@@ -62,6 +63,87 @@ pub enum Cmd {
 
 static THREAD_ID: AtomicU32 = AtomicU32::new(0);
 static HOOK_OK: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+// ---------------------------------------------------------------- key log
+// "Settings → Try a shortcut → Key log": every key Cat Key sees, what it decided and
+// what it sent. Off unless the window turns it on; stops by itself after 10 minutes.
+
+static DIAG_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static DIAG_T0: AtomicU32 = AtomicU32::new(0);
+static DIAG: Mutex<VecDeque<String>> = Mutex::new(VecDeque::new());
+const DIAG_MAX_LINES: usize = 3000;
+const DIAG_MAX_MS: u32 = 10 * 60 * 1000;
+
+pub fn diag_set(on: bool) {
+    if on {
+        if let Ok(mut q) = DIAG.lock() {
+            q.clear();
+        }
+        DIAG_T0.store(unsafe { GetTickCount() }, Ordering::SeqCst);
+        diag_line(format!("key log started · Cat Key {} · hook {}", env!("CARGO_PKG_VERSION"), if engine_running() { "on" } else { "OFF" }));
+    } else if DIAG_ON.load(Ordering::SeqCst) {
+        diag_line("key log stopped".into());
+    }
+    DIAG_ON.store(on, Ordering::SeqCst);
+}
+
+/// Lines logged since the last call.
+pub fn diag_take() -> (bool, Vec<String>) {
+    let lines = DIAG.lock().map(|mut q| q.drain(..).collect()).unwrap_or_default();
+    (DIAG_ON.load(Ordering::SeqCst), lines)
+}
+
+fn diag_on() -> bool {
+    if !DIAG_ON.load(Ordering::Relaxed) {
+        return false;
+    }
+    let age = unsafe { GetTickCount() }.wrapping_sub(DIAG_T0.load(Ordering::Relaxed));
+    if age > DIAG_MAX_MS {
+        diag_set(false);
+        return false;
+    }
+    true
+}
+
+fn diag_line(text: String) {
+    let t = unsafe { GetTickCount() }.wrapping_sub(DIAG_T0.load(Ordering::Relaxed));
+    if let Ok(mut q) = DIAG.lock() {
+        if q.len() >= DIAG_MAX_LINES {
+            q.pop_front();
+        }
+        q.push_back(format!("{:>7.3}s  {}", t as f64 / 1000.0, text));
+    }
+}
+
+fn fmt_outs(outs: &[Out]) -> String {
+    use catkey_core::keys::key_name;
+    let arrow = |d: bool| if d { "↓" } else { "↑" };
+    outs.iter()
+        .map(|o| match *o {
+            Out::Key { vk, down } => format!("{}{}", key_name(vk), arrow(down)),
+            Out::Raw { vk, down, .. } => format!("{}{}(again)", key_name(vk), arrow(down)),
+            Out::Unicode { down: true, .. } => "text".to_string(),
+            Out::Unicode { .. } => String::new(),
+            Out::Dummy => "mask".to_string(),
+        })
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The modifiers Windows reports as held right now.
+fn held_now() -> String {
+    const MODS: [(u8, &str); 8] = [
+        (0xA2, "LCtrl"), (0xA3, "RCtrl"), (0xA0, "LShift"), (0xA1, "RShift"),
+        (0xA4, "LAlt"), (0xA5, "RAlt"), (0x5B, "LWin"), (0x5C, "RWin"),
+    ];
+    let held: Vec<&str> = MODS
+        .iter()
+        .filter(|(vk, _)| unsafe { (GetAsyncKeyState(*vk as i32) as u16) & 0x8000 != 0 })
+        .map(|(_, n)| *n)
+        .collect();
+    if held.is_empty() { "-".into() } else { held.join("+") }
+}
+
 /// A WM_CATKEY_SEND is already on its way.
 static SEND_POSTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `SendInput` is running right now (our callback can run again meanwhile).
@@ -238,6 +320,8 @@ unsafe fn refresh_hook() {
                     }
                     ctx.hook = fresh;
                     HOOK_OK.store(true, Ordering::SeqCst);
+                } else if diag_on() {
+                    diag_line(format!("could not re-install the keyboard hook (error {})", GetLastError()));
                 }
             }
         }
@@ -266,9 +350,22 @@ unsafe fn flush() {
     }
     let started = GetTickCount();
     SENDING.store(true, Ordering::SeqCst);
-    send_outputs(&outs);
+    let (asked, sent, err) = send_outputs(&outs);
     SENDING.store(false, Ordering::SeqCst);
     let took = GetTickCount().wrapping_sub(started);
+    if sent < asked {
+        let last = LAST_SLOW_LOG.load(Ordering::Relaxed);
+        if last == 0 || started.wrapping_sub(last) > 60_000 {
+            LAST_SLOW_LOG.store(started, Ordering::Relaxed);
+            crate::log(&format!("Windows accepted only {sent} of {asked} keys (error {err}); an app running as administrator?"));
+        }
+    }
+    if diag_on() {
+        diag_line(format!(
+            "   sent {sent}/{asked} in {took} ms{}",
+            if sent < asked { format!("  ← Windows refused the rest (error {err})") } else { String::new() }
+        ));
+    }
     if took > SLOW_SEND_MS {
         let last = LAST_SLOW_LOG.load(Ordering::Relaxed);
         if last == 0 || started.wrapping_sub(last) > 60_000 {
@@ -338,6 +435,10 @@ unsafe extern "system" fn on_desktop_switch(
 unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code == HC_ACTION as i32 && lparam != 0 {
         let kb = &*(lparam as *const KBDLLHOOKSTRUCT);
+        if kb.dwExtraInfo == MARK && diag_on() {
+            let down = wparam as u32 == WM_KEYDOWN || wparam as u32 == WM_SYSKEYDOWN;
+            diag_line(format!("      ↳ ours: {}{}", catkey_core::keys::key_name(kb.vkCode as u8), if down { "↓" } else { "↑" }));
+        }
         if kb.dwExtraInfo != MARK && kb.vkCode < 256 {
             let r = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| handle(kb, wparam)));
             match r {
@@ -368,8 +469,13 @@ unsafe fn handle(kb: &KBDLLHOOKSTRUCT, wparam: WPARAM) -> bool {
             time: kb.time,
             injected: kb.flags & LLKHF_INJECTED != 0,
         };
+        let logging = diag_on();
+        let held = if logging { held_now() } else { String::new() };
+        let queued_before = ctx.pending.len();
         let mut swallow = ctx.engine.handle(ev, &mut ctx.env);
+        let mut deferred = false;
         if !swallow && !ev.injected && ctx.sending() {
+            deferred = true;
             // A real key arrived while our keys are still on their way: send it after
             // them, so it can't overtake (e.g. land before the Ctrl we are releasing).
             // Keys from other programs keep their own markers, so those always pass.
@@ -378,6 +484,22 @@ unsafe fn handle(kb: &KBDLLHOOKSTRUCT, wparam: WPARAM) -> bool {
             swallow = true;
         }
         ctx.queue_out();
+        if logging {
+            let src = if ev.injected { format!("typed by another program (tag {:#x})", kb.dwExtraInfo) } else { "keyboard".to_string() };
+            let app = ctx.env.foreground_exe().to_string();
+            let what = if deferred { "held back (keys still going out)" } else if swallow { "swallowed" } else { "passed" };
+            let sends = fmt_outs(&ctx.pending[queued_before.min(ctx.pending.len())..]);
+            diag_line(format!(
+                "{}{}  from {}  held: {}  → {}{}  [{}]",
+                catkey_core::keys::key_name(ev.vk),
+                if ev.down { "↓" } else { "↑" },
+                src,
+                held,
+                what,
+                if sends.is_empty() { String::new() } else { format!("  then send: {sends}") },
+                if app.is_empty() { "?" } else { app.as_str() },
+            ));
+        }
         for e in ctx.engine.effects.drain(..) {
             let _ = ctx.effects.send(e);
         }
@@ -420,9 +542,10 @@ unsafe fn key_input(vk: u8, scan: Option<u16>, extended: Option<bool>, down: boo
     }
 }
 
-unsafe fn send_outputs(outs: &[Out]) {
+/// Returns (events asked, events Windows accepted, last error).
+unsafe fn send_outputs(outs: &[Out]) -> (u32, u32, u32) {
     if outs.is_empty() {
-        return;
+        return (0, 0, 0);
     }
     let mut buf: Vec<INPUT> = Vec::with_capacity(outs.len() + 2);
     for o in outs {
@@ -447,5 +570,8 @@ unsafe fn send_outputs(outs: &[Out]) {
             }
         }
     }
-    SendInput(buf.len() as u32, buf.as_ptr(), size_of::<INPUT>() as i32);
+    let asked = buf.len() as u32;
+    let sent = SendInput(asked, buf.as_ptr(), size_of::<INPUT>() as i32);
+    let err = if sent < asked { GetLastError() } else { 0 };
+    (asked, sent, err)
 }
