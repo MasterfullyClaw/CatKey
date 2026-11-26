@@ -2,8 +2,10 @@
 //! Cat Key: a purr-fect keyboard shortcut remapper for Windows.
 
 mod app;
+mod coach;
 mod commands;
 mod hook;
+mod purr;
 mod tray;
 mod win;
 

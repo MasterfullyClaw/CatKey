@@ -135,6 +135,13 @@ pub fn apply_config(app: &AppHandle, cfg: Config) -> Result<Config, String> {
         std::mem::replace(&mut *g, cfg.clone())
     };
     save_config_file(&state.dir, &cfg)?;
+    crate::coach::set_settings(&cfg.settings);
+    if old.settings.purr_volume != cfg.settings.purr_volume {
+        crate::purr::set_volume_only(cfg.settings.purr_volume);
+        if crate::purr::is_on() {
+            crate::purr::set(true, None);
+        }
+    }
     if old.settings.launch_at_startup != cfg.settings.launch_at_startup
         || old.settings.admin_mode != cfg.settings.admin_mode
     {
@@ -360,6 +367,8 @@ pub fn run(args: Vec<String>) {
     }
 
     let settings = cfg.settings.clone();
+    let coach_settings = cfg.settings.clone();
+    crate::purr::set_volume_only(cfg.settings.purr_volume);
     let state = AppState {
         stats: Mutex::new(load_stats(&dir)),
         dir,
@@ -415,6 +424,13 @@ pub fn run(args: Vec<String>) {
             crate::commands::focus_window,
             crate::commands::set_tracked,
             crate::commands::tracked_counts,
+            crate::commands::coach_stats,
+            crate::commands::set_coach_dict,
+            crate::commands::coach_demo,
+            crate::commands::coach_last,
+            crate::commands::coach_forget,
+            crate::commands::purr_set,
+            crate::commands::purr_state,
         ])
         .setup(move |app| {
             if second {
@@ -423,6 +439,7 @@ pub fn run(args: Vec<String>) {
             let handle = app.handle().clone();
             tray::create(&handle)?;
             start_dispatcher(handle.clone(), rx);
+            crate::coach::start(handle.clone(), handle.state::<AppState>().dir.clone(), &coach_settings);
             let saver = handle.clone();
             std::thread::spawn(move || loop {
                 std::thread::sleep(Duration::from_secs(120));
@@ -451,6 +468,8 @@ pub fn run(args: Vec<String>) {
         RunEvent::Exit => {
             hook::send(hook::Cmd::Quit);
             save_stats(app);
+            crate::coach::flush(true);
+            crate::purr::set(false, None);
             std::thread::sleep(Duration::from_millis(60));
         }
         _ => {}

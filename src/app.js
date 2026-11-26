@@ -2,8 +2,8 @@
 // keyboard does happens in Rust, so this window can be closed at any time.
 
 import * as K from './keys.js';
-import { Mascot, SKINS, skinName } from './mascot.js';
-import { sounds, setSoundsEnabled, trainSounds, setTrainSounds } from './sound.js';
+import { Mascot, SKINS, CATS, GEAR, RANKS, rankFor, gearById, skinName } from './mascot.js';
+import { sounds, setSoundsEnabled, trainSounds, setTrainSounds, clickSound } from './sound.js';
 
 const backend = window.__TAURI__
   ? { invoke: window.__TAURI__.core.invoke, listen: window.__TAURI__.event.listen }
@@ -48,6 +48,7 @@ const I = {
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
   select: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m8 12 3 3 5-6"/>',
+  purr: '<path d="M4.5 10.5 4 4l4.5 3.2h7L20 4l-.5 6.5"/><path d="M4.5 10.5C4.5 16 7.8 19 12 19s7.5-3 7.5-8.5"/><path d="M9.5 12.5h.01M14.5 12.5h.01M11 15.2q1 .8 2 0"/>',
 };
 const FILLED = new Set(['paw', 'more', 'sparkle', 'star']);
 const icon = (name, extra = '') =>
@@ -99,7 +100,7 @@ let hero = null; // hero Mascot
 let REC = null; // active recording target
 let E = null; // editor state
 
-const cat = () => S.config?.settings?.catName || skinName(S.config?.settings?.skin);
+const cat = () => S.config?.settings?.catName || myCat().name;
 const rules = () => S.config.rules;
 
 const SUGGESTIONS = [
@@ -234,6 +235,7 @@ async function boot() {
   if (newTab) markFresh(newTab.id);
 
   $('#btn-settings').innerHTML = icon('gear');
+  $('#btn-purr').innerHTML = `${icon('purr')}<span class="waves" aria-hidden="true"></span>`;
   $('#btn-min').innerHTML = icon('minus');
   $('#btn-close').innerHTML = icon('x');
   $('#ico-search').outerHTML = icon('search');
@@ -241,7 +243,7 @@ async function boot() {
   $('#btn-select').innerHTML = `${icon('select')}<span>Select</span>`;
   $('.master .knob').innerHTML = icon('paw');
 
-  hero = new Mascot($('#cushion'), { skin: S.config.settings.skin, size: 148, track: true, name: cat() });
+  hero = new Mascot($('#cushion'), { size: 148, track: true, name: cat(), keyboard: true, look: myLook() });
   applyLook();
   renderAll();
   wire();
@@ -256,7 +258,11 @@ async function boot() {
   if (S.status.configReset) {
     toast('Your settings file was damaged, so Cat Key started fresh (a copy was kept).', { kind: 'warn', ms: 8000 });
   }
-  setTimeout(() => libData().then(() => { renderTabs(); if (S.view === 'library') renderLibrary(); }).catch(() => {}), 400);
+  setTimeout(() => libData().then(() => { renderTabs(); if (S.view === 'library') renderLibrary(); syncCoachDict(); }).catch(() => {}), 400);
+  PURR.on = await invoke('purr_state').catch(() => false);
+  paintPurr();
+  coachStats().then(() => { checkRankUp(); if (S.view === 'warrior') renderWarrior(); });
+  setInterval(() => { if (!document.hidden) coachStats(true).then(() => { checkRankUp(); if (S.view === 'warrior' && !document.activeElement?.closest?.('#warrior input')) renderWarrior(); }); }, 30000);
   setInterval(refreshStatus, 6000);
   setInterval(async () => {
     if (document.hidden) return;
@@ -290,10 +296,11 @@ function applyLook() {
   const app = $('#app');
   app.classList.toggle('dark', dark);
   app.classList.toggle('light', !dark);
-  for (const k of SKINS) app.classList.toggle(k.id, k.id === s.skin);
-  hero?.setSkin(s.skin);
+  const theme = myCat().theme || 'mochi';
+  for (const k of SKINS) app.classList.toggle(k.id, k.id === theme);
+  hero?.setLook(myLook());
   hero?.setName(cat());
-  E?.mini?.setSkin(s.skin);
+  E?.mini?.setLook(myLook());
 }
 
 function renderAll() {
@@ -315,20 +322,21 @@ function renderTabs() {
   box.textContent = '';
   const libN = L.data ? libPacks().filter((p) => p._origin !== 'community').length : null;
   for (const [id, label, n, ic] of [['shortcuts', 'Your shortcuts', rules().length, 'keyboard'], ['library', 'Library', libN, 'book'],
-    ['templates', 'Templates', allTemplates().length, 'layers'], ['train', 'Train yourself', null, 'target'], ['ai', 'Cat Builder', null, 'wand']]) {
+    ['templates', 'Templates', allTemplates().length, 'layers'], ['train', 'Train yourself', null, 'target'], ['warrior', 'Cat Warrior', null, 'star'], ['ai', 'Cat Builder', null, 'wand']]) {
     box.append(h('button', { class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(S.view === id), onclick: () => setView(id) },
       h('span', { class: 'ic', html: icon(ic) }), h('span', { text: label }), n == null ? null : h('span', { class: 'count', text: String(n) })));
   }
 }
 
-const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train' };
+const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train', warrior: '#warrior' };
 function applyView() {
   for (const v of Object.keys(VIEW_BOX)) $('#app').classList.toggle(`view-${v}`, S.view === v);
   if (S.view !== 'shortcuts' && SEL.on) setSelecting(false);
   if (S.view === 'library') renderLibrary();
   if (S.view === 'ai') { if (!L.data) libData().then(renderAI); renderAI(); }
   if (S.view === 'train') renderTrain();
-  if (S.view !== 'train') trainStop();
+  if (S.view !== 'train') { trainStop(); typingStop(); }
+  if (S.view === 'warrior') renderWarrior();
 }
 
 function setView(v) {
@@ -668,7 +676,7 @@ function renderList() {
     const empty = h('div', { class: 'empty' });
     const m = h('div', { class: 'mascot-mini' });
     empty.append(m);
-    new Mascot(m, { skin: S.config.settings.skin, size: 84 }).setMood(rules().length ? 'awake' : 'nap');
+    new Mascot(m, { size: 84, look: myLook() }).setMood(rules().length ? 'awake' : 'nap');
     empty.append(h('div', { text: rules().length ? `No shortcut matches “${S.query}”. ${cat()} looked everywhere.` : `No shortcuts yet. Press New shortcut to teach ${cat()} one.` }));
     box.append(empty);
   }
@@ -842,6 +850,12 @@ function onFired(id) {
 
 function wire() {
   $('#btn-settings').onclick = openSettings;
+  $('#btn-purr').onclick = () => setPurr(!PURR.on);
+  $('#btn-purr').oncontextmenu = (e) => { e.preventDefault(); purrMenu(e.currentTarget); };
+  backend.listen('ck://purr', (e) => { PURR.on = !!e.payload; paintPurr(); });
+  backend.listen('ck://coach-tip', () => { coachStats(true).then(() => { if (S.view === 'warrior') renderWarrior(); }); });
+  // Every click gets a soft paw tap (and now and then a little mew).
+  document.addEventListener('click', (e) => { if (e.target.closest?.('button, [role="button"], summary, label')) clickSound(); }, true);
   $('#btn-min').onclick = () => invoke('window_minimize');
   $('#btn-close').onclick = () => invoke('window_close');
   $('#btn-new').onclick = () => openEditor(null);
@@ -852,9 +866,10 @@ function wire() {
       setMaster(true);
       return;
     }
-    hero.react(1500);
-    sounds.mew();
-    const lines = ['Mrrp?', 'Purr…', 'Hehe, that tickles!', `Need a new trick? Press New shortcut.`, '*happy tail wiggle*', 'Nya~'];
+    hero.knead(1800);
+    sounds.knead();
+    floatHearts($('#cushion'));
+    const lines = ['Making biscuits… 🐾', 'Purrrrr…', 'Mrrp!', 'Hehe, that tickles!', '*knead knead knead*', 'Nya~', 'More pets, please.', `${cat()} approves.`];
     const bubble = $('#bubble');
     bubble.textContent = lines[Math.floor(Math.random() * lines.length)];
     bubble.classList.remove('swap');
@@ -1020,7 +1035,7 @@ function openEditor(rule, { isNew = !rule } = {}) {
       h('span', { class: 'spacer' }),
       h('button', { class: 'btn ghost', text: 'Cancel', onclick: closeEditor }),
       h('button', { class: 'btn primary', id: 'ed-save', html: `${icon('check')}<span>Save shortcut</span>`, onclick: saveEditor })));
-  E.mini = new Mascot(mini, { skin: S.config.settings.skin, size: 76 });
+  E.mini = new Mascot(mini, { size: 76, look: myLook() });
   renderRecorderSection('trigger');
   renderModes();
   renderPanel();
@@ -1398,7 +1413,12 @@ function templateCard(t) {
         h('div', { class: 't2', text: t.description || `${t.rules.length} shortcut${t.rules.length === 1 ? '' : 's'}` })),
       t.builtin ? null : h('button', { class: 'more', type: 'button', 'aria-label': `More for ${t.name}`, html: icon('more'), onclick: (e) => templateMenu(e.currentTarget, t) })),
     rows, more,
-    h('div', { class: 'tpl-foot' }, reverse, h('span', { class: 'spacer' }), remove, primary));
+    h('div', { class: 'tpl-foot' }, reverse,
+      list.some((x) => x.action.type === 'keys') ? h('button', { class: 'chipbtn', type: 'button', title: 'Practise this set in Train yourself', onclick: () => {
+        const p = selfPacks().find((x) => x.id === `tpl-${t.id}`);
+        if (p) { setView('train'); startTrain(p); } else toast('This set has too few key shortcuts to train on.', { kind: 'warn' });
+      } }, h('span', { html: icon('target'), style: { display: 'inline-flex' } }), 'Train') : null,
+      h('span', { class: 'spacer' }), remove, primary));
 }
 
 function renderTemplates() {
@@ -1408,7 +1428,10 @@ function renderTemplates() {
     h('div', { class: 'txt' },
       h('h2', { class: 'display', text: 'Templates' }),
       h('p', { class: 'hint', text: `Ready-made sets of shortcuts. Add a whole set in one click, or flip it with Reverse first. The built-in ones are always here, ${cat()} won’t let them be deleted.` })),
-    h('button', { class: 'btn', type: 'button', html: `${icon('layers')}<span>Save my shortcuts as a template</span>`, onclick: saveAsTemplate })));
+    h('div', { class: 'lib-actions' },
+      h('button', { class: 'btn strong', type: 'button', html: `${icon('wand')}<span>Make your own with AI</span>`, onclick: () => makeWithAI('remap') }),
+      h('button', { class: 'btn', type: 'button', html: `${icon('layers')}<span>Save my shortcuts as a template</span>`, onclick: saveAsTemplate }))));
+  box.append(youDontNeed());
   const grid = h('div', { class: 'tpl-grid' });
   for (const t of allTemplates()) grid.append(templateCard(t));
   box.append(grid);
@@ -1678,21 +1701,16 @@ function renderSettings() {
   d.textContent = '';
   const s = S.config.settings;
 
-  const skins = h('div', { class: 'skins', role: 'radiogroup', 'aria-label': 'Cat skin' });
-  for (const k of SKINS) {
-    const holder = h('span', {});
-    const btn = h('button', { class: 'skin', type: 'button', role: 'radio', 'aria-checked': String(s.skin === k.id), onclick: () => {
-      const oldDefault = skinName(s.skin);
-      const patch = { skin: k.id };
-      if (!s.catName || s.catName === oldDefault) patch.catName = k.name;
-      sounds.mew();
-      commitSettings(patch).then(() => { hero.react(1000); renderHero(); renderSuggestions(); });
-    } }, holder, h('b', { text: k.name }), h('span', { text: k.fur }));
-    skins.append(btn);
-    settingMinis.push(new Mascot(holder, { skin: k.id, size: 74 }));
-  }
-  const nameInput = h('input', { class: 'field', type: 'text', maxlength: '24', value: s.catName || skinName(s.skin), 'aria-label': "Cat's name", style: { width: '180px', height: '40px' },
-    onchange: (e) => { commitSettings({ catName: e.target.value.trim() || skinName(s.skin) }).then(() => { renderHero(); renderSuggestions(); }); } });
+  const me = myCat();
+  const holder = h('span', {});
+  const skins = h('div', { class: 'cat-now' }, holder,
+    h('div', { class: 'txt' }, h('b', { text: me.full || me.name }), h('span', { class: 'hint', text: `${rankFor(xpBreakdown().total).name} · ${xpBreakdown().total.toLocaleString()} XP` })),
+    h('button', { class: 'btn small', type: 'button', html: `${icon('star')}<span>Change cat or outfit</span>`, onclick: () => { closeSettings(); setView('warrior'); } }));
+  settingMinis.push(new Mascot(holder, { size: 74, look: myLook() }));
+  const nameInput = h('input', { class: 'field', type: 'text', maxlength: '24', value: cat(), 'aria-label': "Cat's name", style: { width: '180px', height: '40px' },
+    onchange: (e) => { commitSettings({ catName: e.target.value.trim() || myCat().name }).then(() => { renderHero(); renderSuggestions(); }); } });
+  const purrVol = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(s.purrVolume ?? 45), 'aria-label': 'Purr volume', class: 'range',
+    onchange: (e) => commitSettings({ purrVolume: Number(e.target.value) }) });
   const theme = h('div', { class: 'seg soft', role: 'group', 'aria-label': 'Theme' },
     ...[['auto', 'Match Windows'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => h('button', { type: 'button', 'aria-pressed': String(s.theme === v), text: l, onclick: () => commitSettings({ theme: v }) })));
 
@@ -1726,8 +1744,17 @@ function renderSettings() {
       h('section', { style: { gap: '0' } }, h('h2', { text: 'How it behaves', style: { marginBottom: '4px' } }),
         settingRow('Start with Windows', 'Wakes up quietly in the tray when you sign in.', switchEl(s.launchAtStartup, 'Start with Windows', () => commitSettings({ launchAtStartup: !s.launchAtStartup }).then(() => setTimeout(refreshStatusNow, 900)))),
         settingRow('Work in admin apps', adminDesc, switchEl(s.adminMode, 'Work in admin apps', () => setAdmin(!s.adminMode))),
-        settingRow('Cute sounds', 'Soft little blips when you flip a switch.', switchEl(s.sounds, 'Cute sounds', () => { commitSettings({ sounds: !s.sounds }); setSoundsEnabled(!s.sounds); sounds.on(); })),
+        settingRow('Cat sounds', 'A soft paw tap on every click, a little mew now and then, and a purr when you pet the cat.', switchEl(s.sounds, 'Cat sounds', () => { commitSettings({ sounds: !s.sounds }); setSoundsEnabled(!s.sounds); sounds.on(); })),
+        settingRow('Purr volume', 'For the background purr (the paw button at the top, or the tray menu).', purrVol),
         settingRow('Pause hotkey', 'One shortcut that pauses every remap. Handy for games.', pauseCtl)),
+      h('section', { style: { gap: '0' } }, h('h2', { text: 'Shortcut coach', style: { marginBottom: '4px' } }),
+        settingRow('Tips when you do it the long way', `When you click something that has a shortcut, ${cat()} shows its keys in a small note that fades away. Nothing is recorded: only the name of what you clicked is read, the way screen readers do.`,
+          switchEl(s.coach, 'Shortcut coach', () => commitSettings({ coach: !s.coach }))),
+        settingRow('Also in Chrome-based apps', 'Chrome, Edge, VS Code, Slack and Discord do a little extra work each time they’re asked what’s under the pointer, so they’re left out unless you want them.',
+          switchEl(s.coachChromium, 'Coach in Chrome-based apps', () => commitSettings({ coachChromium: !s.coachChromium }))),
+        h('div', { class: 'row-between', style: { paddingTop: '10px' } },
+          h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Show me a tip</span>`, onclick: () => invoke('coach_demo').catch((e) => toast(String(e), { kind: 'warn' })) }),
+          (s.coachMuted || []).length ? h('button', { class: 'link', type: 'button', text: `Turn ${s.coachMuted.length} muted tip${s.coachMuted.length === 1 ? '' : 's'} back on`, onclick: () => commitSettings({ coachMuted: [] }) }) : null)),
       h('section', {}, h('h2', { text: 'Nap zones' }),
         h('p', { class: 'hint', style: { margin: '0', fontSize: '13px' }, text: `${cat()} naps while these apps are in front, so every key works as normal there.` }), nap),
       h('section', {}, h('h2', { text: 'Your shortcuts' }),
@@ -1895,7 +1922,8 @@ function libMatches(p, q) {
 function libTile(p, cls = 'lib-ico') {
   const exe = packApps(p)[0];
   if (exe && PLAT() === 'windows' && p.category !== 'switch') return appIcon(exe, cls);
-  const ic = p.category === 'switch' ? 'swap' : p._origin === 'mine' ? 'paw' : p.kind === 'cheatsheet' ? 'keyboard' : 'sparkle';
+  const ic = p._origin === 'self' ? 'keyboard' : p._origin === 'template' ? 'layers' : p._origin === 'coach' ? 'target'
+    : p.category === 'switch' ? 'swap' : p._origin === 'mine' ? 'paw' : p.kind === 'cheatsheet' ? 'keyboard' : 'sparkle';
   return h('span', { class: `${cls} glyph`, html: icon(ic) });
 }
 
@@ -1912,12 +1940,17 @@ function libCard(p) {
     h('div', { class: 'lib-top' }, libTile(p),
       h('div', { class: 'lib-badges' },
         badge(isRemap(p) ? 'Remap' : 'Cheat sheet', isRemap(p) ? 'remap' : ''),
-        p._origin === 'mine' ? badge('Yours', 'mine') : p._origin === 'community' ? badge('Community', 'comm') : null,
+        p._origin === 'mine' ? badge('Yours', 'mine') : p._origin === 'community' ? badge('Community', 'comm') : badge('Comes with Cat Key', 'builtin'),
         p.platform === 'mac' ? badge('Mac') : p.platform === 'windows' ? badge('Windows') : null)),
     h('div', { class: 'lib-name display', text: p.name }),
     h('div', { class: 'lib-desc', text: p.description || '' }),
     h('div', { class: 'lib-meta' }, h('span', { text: meta.join(' · ') }),
-      have ? h('span', { class: 'lib-have', html: `${icon('check')}<span>${have} in your list</span>` }) : null));
+      have ? h('span', { class: 'lib-have', html: `${icon('check')}<span>${have} in your list</span>` }) : null),
+    p._origin === 'community' ? h('div', { class: 'lib-by' },
+      h('span', { text: p.author ? `by @${p.author}` : 'shared by the community' }),
+      h('button', { class: 'heart', type: 'button', title: 'Love it on GitHub (opens the pack’s page)', 'aria-label': `Love ${p.name}`,
+        onclick: (e) => { e.stopPropagation(); if (p.issue) invoke('open_link', { url: `https://github.com/${REPO}/issues/${p.issue}` }).catch(() => {}); } },
+        h('span', { text: '♥' }), h('b', { text: String(p.likes || 0) }))) : null);
 }
 
 function renderLibrary() {
@@ -1936,8 +1969,10 @@ function renderLibrary() {
       h('h2', { class: 'display', text: 'Library' }),
       h('p', { class: 'hint', text: `Ready-made shortcuts for the apps you use and for switching between Mac and Windows. Open one, tick what you want, add it. ${cat()} keeps every app’s own shortcuts as they are, and only adds yours on top.` })),
     h('div', { class: 'lib-actions' },
+      h('button', { class: 'btn strong', type: 'button', html: `${icon('wand')}<span>Make your own with AI</span>`, onclick: () => makeWithAI('cheatsheet') }),
       h('button', { class: 'btn', type: 'button', html: `${icon('folder')}<span>Import…</span>`, onclick: importFile }),
       h('button', { class: 'btn', type: 'button', html: `${icon('link')}<span>Paste a share code</span>`, onclick: pasteShareCode }))));
+  box.append(youDontNeed());
   const search = h('input', { id: 'lib-search', class: 'field', type: 'search', placeholder: 'Search apps, packs or actions (e.g. “ripple”, “Figma”)', value: L.q, autocomplete: 'off', spellcheck: 'false',
     oninput: (e) => { L.q = e.target.value; renderLibGrid(); } });
   const cats = h('div', { class: 'cats', role: 'group', 'aria-label': 'Categories' });
@@ -1978,14 +2013,14 @@ function communityCard() {
   const text = st === 'loading' ? 'Fetching packs shared by other people…'
     : st === 'error' ? 'Couldn’t reach the community library. Check your connection and try again.'
     : st === 'done' ? (L.community?.length ? `${L.community.length} pack${L.community.length === 1 ? '' : 's'} shared by people like you.` : 'No community packs yet. Yours could be the first!')
-    : 'Packs shared by other Cat Key users, checked before they’re listed.';
+    : 'Packs shared by other Cat Key users, checked before they’re listed. Each shows who made it and how many ♥ it has.';
   return h('div', { class: 'lib-card comm-card' },
     h('div', { class: 'lib-top' }, h('span', { class: 'lib-ico glyph', html: icon('globe') })),
     h('div', { class: 'lib-name display', text: 'Community library' }),
     h('div', { class: 'lib-desc', text }),
     h('div', { class: 'lib-meta row' },
       st !== 'done' ? h('button', { class: 'btn small', type: 'button', text: st === 'loading' ? 'Loading…' : st === 'error' ? 'Try again' : 'Show them', onclick: loadCommunity }) : null,
-      h('button', { class: 'btn small ghost', type: 'button', html: `${icon('up')}<span>Share yours</span>`, onclick: () => invoke('open_link', { url: SHARE_PACK_URL }).catch((e) => toast(String(e), { kind: 'warn' })) })));
+      h('button', { class: 'btn small ghost', type: 'button', html: `${icon('up')}<span>Share yours</span>`, onclick: () => { L.cat = 'mine'; renderLibrary(); toast('Open one of your packs and press “Post to the store”.'); } })));
 }
 
 async function loadCommunity() {
@@ -1996,7 +2031,9 @@ async function loadCommunity() {
     const res = await fetch(COMMUNITY_INDEX, { cache: 'no-store' });
     if (!res.ok) throw new Error(res.status);
     const idx = await res.json();
-    L.community = (idx.packs || []).filter((p) => p && p.id && p.name && p.file).map((p) => ({ ...p, _summary: true, id: `community-${p.id}` }));
+    L.community = (idx.packs || []).filter((p) => p && p.id && p.name && p.file)
+      .map((p) => ({ ...p, likes: Math.max(0, Number(p.likes) || 0), issue: Number(p.issue) || 0, author: /^[A-Za-z0-9-]{1,39}$/.test(p.author || '') ? p.author : '', _summary: true, id: `community-${p.id}` }))
+      .sort((a, b) => b.likes - a.likes || String(b.created || '').localeCompare(String(a.created || '')));
     L.communityState = 'done';
   } catch {
     L.communityState = 'error';
@@ -2172,6 +2209,8 @@ function renderPack(keepScroll = false) {
     h('button', { class: 'btn ghost', type: 'button', html: `${icon('up')}<span>Export</span>`, onclick: () => exportPack(pack) }),
     origin !== 'builtin' && !saved ? h('button', { class: 'btn ghost', type: 'button', html: `${icon('down')}<span>Keep in my Library</span>`, onclick: () => savePack(pack) }) : null,
     saved ? h('button', { class: 'btn ghost danger', type: 'button', html: `${icon('trash')}<span>Remove from Library</span>`, onclick: () => deletePack(pack) }) : null,
+    origin === 'mine' || origin === 'new' ? h('button', { class: 'btn ghost', type: 'button', title: 'Share it with everyone: it shows with your GitHub name', html: `${icon('globe')}<span>Post to the store</span>`, onclick: () => postPack(pack) }) : null,
+    trainItems(pack).length ? h('button', { class: 'btn ghost', type: 'button', html: `${icon('target')}<span>Train</span>`, onclick: () => { closePack(); setView('train'); startTrain(pack); } }) : null,
     h('span', { class: 'spacer' }),
     remap && have.length ? h('button', { class: 'btn ghost', type: 'button', text: `Remove ${have.length} from my list`, onclick: () => removePackRules(pack) }) : null,
     remap
@@ -2355,6 +2394,7 @@ function checkPack(raw) {
       if (it.fav) x.fav = true;
       if (it.off) x.off = true;
       if (it.note) x.note = String(it.note).slice(0, 140);
+      if (typeof it.demo === 'string' && it.demo.length <= 20000 && /<svg[\s>]/i.test(it.demo)) x.demo = it.demo;
       if (it.platform && ['windows', 'mac', 'both'].includes(it.platform)) x.platform = it.platform;
       items.push(x);
     }
@@ -2395,6 +2435,7 @@ async function importText(text, from = 'file') {
   let data;
   try { data = await parseAnything(text); } catch (e) { toast(e.message || String(e), { kind: 'warn', ms: 7000 }); return false; }
   if (data && (data.format === 'catkey-profile' || (Array.isArray(data.rules) && !data.sections))) return importProfile(data);
+  if (data && (data.format === 'catkey-cat' || (data.colors && !data.sections && !data.rules))) return importCat(data);
   if (data && (data.remapKeys || data.remapShortcuts || data.properties?.remapKeys || data.properties?.remapShortcuts)) {
     try { return mergeRules(await invoke('powertoys_rules', { text: JSON.stringify(data) }), 'PowerToys'); } catch (e) { toast(String(e), { kind: 'warn' }); return false; }
   }
@@ -2534,7 +2575,33 @@ const AI_IDEAS = [
   ['Figma shortcuts I should know', 'cheatsheet', 'Figma'],
 ];
 
+function catPrompt() {
+  const want = AI.want.trim() || 'Surprise me: a cute, original cat.';
+  const gear = GEAR.map((g) => `${g.id} (${g.name})`).join(', ');
+  return [
+    'You are designing a custom cat mascot for Cat Key, a keyboard-shortcut app whose mascot is a cute chibi cat. Cat Key imports the JSON you write and dresses the cat in it.',
+    '',
+    '## The cat I want',
+    want,
+    '',
+    '## How to do it well',
+    '1. Pick colours that work together and look good on both a dark and a light background. Fur and chest need contrast, and the eyes should pop.',
+    '2. "stripes": true adds tabby stripes in a darker shade of the fur. "muzzle": true gives a muzzle in the chest colour. "ears": "fold" gives folded (Scottish Fold) ears.',
+    `3. Optional "gear" (at most 3 pieces, one per body part), only from this list: ${gear}.`,
+    '4. Optional extra colours in "colors" (hex): line (outline), ear (inside of the ears), blush, nose, stripe, tip (tail tip), whisker.',
+    '5. "theme" sets the app\u2019s accent colour: "mochi" (pink), "kuro" (purple), "tora" (orange) or "sora" (blue).',
+    '',
+    '## Output',
+    'Reply with exactly one JSON code block and nothing after it:',
+    '```json',
+    JSON.stringify({ format: 'catkey-cat', version: 1, name: 'Pixel', full: 'Pixel the Brave', tag: 'Your cat', theme: 'tora',
+      colors: { fur: '#F6B26B', belly: '#FFF6EC', eye: '#4CAF50', collar: '#C0392B' }, stripes: true, muzzle: true, ears: 'normal', gear: ['band-red'] }, null, 2),
+    '```',
+  ].join('\n');
+}
+
 function aiPrompt() {
+  if (AI.kind === 'cat') return catPrompt();
   const plat = AI.plat || PLAT();
   const platText = plat === 'both' ? 'both Windows and macOS' : plat === 'mac' ? 'macOS' : 'Windows';
   const want = AI.want.trim() || (AI.kind === 'remap' ? 'Useful shortcuts for this app.' : 'The shortcuts professionals use most.');
@@ -2555,7 +2622,8 @@ function aiPrompt() {
       ? '2. Each entry says what I press ("press") and which of the app’s REAL default shortcuts Cat Key should send ("does"). Cat Key can only trigger actions that already have a default shortcut, so every "does" must be a real default. Choose "press" keys that are easy to reach and don’t replace something important in the app. Single letters are fine for tools (Cat Key pauses them while I type in a text box).'
       : '2. List the app’s real default shortcuts ("keys"), grouped into clear sections (tools, editing, view…), about 25–60 entries: the ones professionals really use, not every menu item. Mark the 10–15 most valuable with "fav": true.',
     '3. Names are short and plain, like a menu item: "Split clip at playhead". Add a "note" only when it helps (under 12 words).',
-    '4. Cite your sources in "sources".',
+    '4. Do your due diligence: check every shortcut against the official documentation for the current version, drop anything you can\u2019t confirm, and cite your sources in "sources".',
+    '5. Demos: for the 8\u201312 entries marked "fav", add "demo": a tiny animated SVG showing what the action does in this app (a clip on a timeline splitting in two, a vertex of a 3D cube being copied, a layer being duplicated\u2026). It\u2019s a symbol of the action, not a picture of the app. Rules: viewBox="0 0 240 120", under 1,800 characters, simple shapes, animated with SMIL (<animate>, <animateTransform>, repeatCount="indefinite"), single quotes inside the SVG so the JSON stays valid; no scripts, no images, no links, no CSS, and at most two short words of text.',
     '',
     '## Output',
     'Reply with exactly one JSON code block and nothing after it. Use this format:',
@@ -2567,7 +2635,7 @@ function aiPrompt() {
       sources: [{ title: 'Official keyboard shortcuts', url: 'https://example.com/shortcuts' }],
       sections: [{ name: 'Editing', items: remap
         ? [{ name: 'Split clip at playhead', press: 'Mod+K', does: 'Mod+B', fav: true }, { name: 'Ripple delete', press: 'Shift+Delete', does: 'Shift+Backspace', note: 'Closes the gap' }]
-        : [{ name: 'Split clip at playhead', keys: 'Mod+B', fav: true }, { name: 'Ripple delete', keys: 'Shift+Delete', mac: 'Shift+Backspace' }] }],
+        : [{ name: 'Split clip at playhead', keys: 'Mod+B', fav: true, demo: "<svg viewBox='0 0 240 120' xmlns='http://www.w3.org/2000/svg'><rect x='20' y='45' width='200' height='30' rx='6' fill='#7C6CF0'/><line x1='120' y1='30' x2='120' y2='90' stroke='#FF6FAE' stroke-width='4'><animate attributeName='y2' values='30;90;90' dur='1.6s' repeatCount='indefinite'/></line></svg>" }, { name: 'Ripple delete', keys: 'Shift+Delete', mac: 'Shift+Backspace' }] }],
     }, null, 2),
     '```',
     '',
@@ -2597,6 +2665,8 @@ const AI_SITES = [
 ];
 
 async function openInAI([name, link, home]) {
+  const ok = await confirmBox(`Open ${name}?`, `${cat()} copies your request and opens ${name} in your browser${link ? ' with it filled in' : ''}. Send it there, then click Copy on the answer: ${cat()} brings it back and installs it by itself.`, `Open ${name}`);
+  if (!ok) return;
   const q = aiPrompt();
   const url = link ? link(q) : '';
   try { await navigator.clipboard.writeText(q); } catch { /* the link carries it anyway */ }
@@ -2627,7 +2697,7 @@ async function bridgeTick() {
   if (!seq || seq === AI.seq) return;
   AI.seq = seq;
   const text = await invoke('read_clipboard').catch(() => null);
-  if (!text || !/catkey-pack|CK1:|"sections"\s*:/.test(text)) return;
+  if (!text || !/catkey-pack|catkey-cat|CK1:|"sections"\s*:/.test(text)) return;
   bridgeStop();
   await invoke('focus_window').catch(() => {});
   sounds.saved();
@@ -2653,9 +2723,9 @@ function renderAI() {
   const ideas = h('div', { class: 'ai-ideas' }, ...AI_IDEAS.map(([t, kind, appName]) => h('button', { class: 'cat', type: 'button', text: t,
     onclick: () => { AI.want = t; AI.kind = kind; AI.app = appName; renderAI(); } })));
   box.append(h('section', { class: 'ai-step' },
-    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '1' }), 'What do you want?'),
+    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '1' }), 'What do you want? Write it in your own words'),
     h('div', { class: 'ai-row' }, app, apps),
-    seg([['cheatsheet', 'Learn an app (pro shortcuts + training)'], ['remap', 'Remap my keys']], AI.kind, (v) => { AI.kind = v; }),
+    seg([['cheatsheet', 'Learn an app (pro shortcuts + training)'], ['remap', 'Remap my keys'], ['cat', 'Design my cat']], AI.kind, (v) => { AI.kind = v; }),
     want, ideas,
     h('div', { class: 'ai-row' },
       seg([['windows', 'Windows'], ['mac', 'Mac'], ['both', 'Both']], AI.plat, (v) => { AI.plat = v; }),
@@ -2795,10 +2865,10 @@ setTrainSounds(TR.sound);
 function trainItems(p) {
   return packItems(p).map((x) => {
     const keys = isRemap(p) ? combo(x.it.press) : itemKeys(x.it);
-    return keys ? { id: `${x.it.name}|${keys}`, name: x.it.name, keys, section: x.s.name, fav: !!x.it.fav, does: isRemap(p) && x.it.does ? combo(x.it.does) : '', scope: itemScope(p, x.it) } : null;
+    return keys ? { id: `${x.it.name}|${keys}`, name: x.it.name, keys, section: x.s.name, fav: !!x.it.fav, does: isRemap(p) && x.it.does ? combo(x.it.does) : '', scope: itemScope(p, x.it), demo: x.it.demo || '' } : null;
   }).filter(Boolean);
 }
-const trainable = () => libPacks().filter((p) => !p._summary && trainItems(p).length >= 4);
+const trainable = () => [...selfPacks(), ...libPacks()].filter((p) => !p._summary && trainItems(p).length >= (p._origin === 'self' || p._origin === 'template' ? 2 : 4));
 function packTrainStats(p, db = trainDb()) {
   const items = trainItems(p);
   const st = db.items[p.id] || {};
@@ -2833,6 +2903,7 @@ function renderTrain() {
   if (!box) return;
   if (!L.data) { box.textContent = ''; box.append(h('p', { class: 'hint', text: 'Opening the library…' })); libData().then(() => S.view === 'train' && renderTrain()); return; }
   if (TR.on) return renderTrainSession();
+  if (TY.on) return renderTyping(true);
   const db = trainDb();
   box.textContent = '';
   box.append(h('div', { class: 'tpl-intro' },
@@ -2840,6 +2911,7 @@ function renderTrain() {
       h('h2', { class: 'display', text: 'Train yourself' }),
       h('p', { class: 'hint', text: `Pick an app. ${cat()} names an action, you press its keys. Keys pressed here never reach an app, so nothing closes by accident. Each shortcut comes back right before you'd forget it, until it's automatic.` })),
     h('div', { class: 'lib-actions' },
+      h('button', { class: 'btn strong', type: 'button', html: `${icon('wand')}<span>Make your own with AI</span>`, onclick: () => makeWithAI('cheatsheet') }),
       h('button', { class: `chipbtn${TR.sound ? ' on' : ''}`, type: 'button', 'aria-pressed': String(TR.sound), html: `${icon('paw')}<span>Sounds ${TR.sound ? 'on' : 'off'}</span>`,
         onclick: () => { TR.sound = !TR.sound; setTrainSounds(TR.sound); try { localStorage.setItem('catkey.train.sound', TR.sound ? '1' : '0'); } catch { /* fine */ } renderTrain(); } }))));
   // the progress dashboard
@@ -2871,6 +2943,14 @@ function renderTrain() {
     h('span', { class: 'hint', text: 'Practice' }), seg([['smart', 'Smart (due + new)'], ['fav', 'Pro picks'], ['all', 'Everything'], ['weak', 'My misses']], TR.mode, (v) => { TR.mode = v; }),
     h('span', { class: 'hint', text: 'Round' }), seg([[10, '10'], [20, '20'], [0, 'Endless']], TR.len, (v) => { TR.len = v; })));
   const grid = h('div', { class: 'lib-grid' });
+  const ty = tyDb();
+  grid.append(h('article', { class: 'lib-card train-card typing', tabindex: '0', role: 'button', 'aria-label': 'Touch typing',
+    onclick: startTyping, onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startTyping(); } } },
+    h('div', { class: 'lib-top' }, h('span', { class: 'lib-ico glyph', html: icon('keyboard') }), h('div', { class: 'lib-badges' }, h('span', { class: 'lib-badge', text: 'Typing' }))),
+    h('div', { class: 'lib-name display', text: 'Touch typing' }),
+    h('div', { class: 'mastery' }, h('span', { class: 'bar' }, h('span', { style: { width: `${Math.round((100 * ty.open) / TY_ORDER.length)}%` } })),
+      h('span', { text: `${ty.open} of ${TY_ORDER.length} keys${ty.best ? ` · best ${ty.best} wpm` : ''}` })),
+    h('div', { class: 'lib-meta', text: 'Fingers home, eyes on the text. It drills the keys you miss.' })));
   for (const p of trainable()) {
     const st = packTrainStats(p, db);
     grid.append(h('article', { class: `lib-card train-card${st.due && st.started ? ' due' : ''}`, tabindex: '0', role: 'button', 'aria-label': `Train ${p.name}`,
@@ -3011,6 +3091,7 @@ function trainJudge(sc) {
     trainSounds.meow();
   }
   trainSave(db);
+  if (good) checkRankUp();
   TR.phase = good ? 'right' : 'wrong';
   renderTrainSession();
   clearTimeout(TR.timer);
@@ -3116,7 +3197,7 @@ function renderTrainSession(fresh = false) {
           h('div', { id: 'tr-answer', class: 'tr-answer' }))),
       h('div', { id: 'tr-foot', class: 'tr-foot' })));
     TR.mascot?.destroy?.();
-    TR.mascot = new Mascot(mini, { skin: S.config.settings.skin, size: 96 });
+    TR.mascot = new Mascot(mini, { size: 96, look: myLook() });
   }
   const cur = TR.cur;
   $('#tr-points').textContent = `${TR.score.toLocaleString()} pts`;
@@ -3129,10 +3210,24 @@ function renderTrainSession(fresh = false) {
   stage.classList.remove('right', 'wrong', 'paused', 'end', 'learn');
   if (['right', 'wrong', 'paused', 'end'].includes(TR.phase)) stage.classList.add(TR.phase);
   if (TR.learn && TR.phase === 'ask') stage.classList.add('learn');
-  const kind = cur ? cueFor(cur.name) : 'spark';
+  const demo = cur?.demo ? `demo:${cur.id}` : '';
+  const kind = demo || (cur ? cueFor(cur.name) : 'spark');
   const cue = $('#tr-cue');
-  if (cue.dataset.kind !== kind || TR.phase === 'ask') { cue.innerHTML = cueSvg(kind); cue.dataset.kind = kind; }
-  cue.className = `tr-cue cue-${kind}`;
+  if (demo) {
+    if (cue.dataset.kind !== kind) {
+      const svg = cleanDemo(cur.demo);
+      cue.textContent = '';
+      if (svg) cue.append(svg); else cue.innerHTML = cueSvg(cueFor(cur.name));
+      cue.dataset.kind = kind;
+    } else if (TR.phase === 'right') {
+      const svg = cue.querySelector('svg');
+      try { svg?.setCurrentTime?.(0); svg?.unpauseAnimations?.(); } catch { /* not animated */ }
+    }
+    cue.className = 'tr-cue cue-demo';
+  } else {
+    if (cue.dataset.kind !== kind || TR.phase === 'ask') { cue.innerHTML = cueSvg(kind); cue.dataset.kind = kind; }
+    cue.className = `tr-cue cue-${kind}`;
+  }
   const learnBox = $('#tr-learn');
   learnBox.textContent = '';
   const foot = $('#tr-foot');
@@ -3206,3 +3301,854 @@ async function pullTracked() {
 }
 setTimeout(syncTracked, 1500);
 setInterval(pullTracked, 15000);
+
+// ------------------------------------------------------------------ make your own, post to the store
+
+function makeWithAI(kind = 'cheatsheet') {
+  AI.kind = kind;
+  setView('ai');
+  setTimeout(() => $('#ai-want')?.focus(), 350);
+}
+
+function youDontNeed() {
+  return h('div', { class: 'own-banner' }, h('span', { class: 'ic', html: icon('wand') }),
+    h('div', { class: 'txt' }, h('b', { text: 'You don’t have to use these.' }),
+      h('span', { class: 'hint', text: ` Make your own for any app in a minute: say what you want, ${cat()} writes the request, ChatGPT or Claude does the research, and the answer installs itself.` })),
+    h('button', { class: 'btn small strong', type: 'button', text: 'Make my own', onclick: () => makeWithAI(S.view === 'templates' ? 'remap' : 'cheatsheet') }));
+}
+
+async function importCat(data) {
+  const c = checkCat(data);
+  if (!c) { toast('That cat needs a name and a fur colour.', { kind: 'warn' }); return false; }
+  await saveLook({ custom: [...(LOOK().custom || []).filter((x) => x.name !== c.name), c], cat: c.id }, { catName: c.name });
+  setView('warrior');
+  sounds.mew();
+  toast(`Say hi to ${c.name}!`);
+  return true;
+}
+
+async function postPack(pack) {
+  const ok = await confirmBox('Post this pack to the store?', 'GitHub opens in your browser with the pack filled in. Post it there: it shows with your GitHub name, and people can ♥ it. Cat Key never sees your login.', 'Open GitHub');
+  if (!ok) return;
+  const code = await shareCodeFor(stripPack(pack));
+  try { await navigator.clipboard.writeText(code); } catch { /* the link carries it */ }
+  const full = issueUrl('share-a-pack.yml', { title: `Pack: ${pack.name}`, app: packAppName(pack) || '', what: pack.description || '', pack: code });
+  const url = full.length < 7900 ? full : issueUrl('share-a-pack.yml', { title: `Pack: ${pack.name}`, app: packAppName(pack) || '', what: pack.description || '' });
+  invoke('open_link', { url }).catch((e) => toast(String(e), { kind: 'warn' }));
+  if (url !== full) toast('The pack is big, so its code is on your clipboard: paste it into the form.', { ms: 9000 });
+}
+
+// ------------------------------------------------------------------ your cat: profiles, outfits, custom cats
+
+const LOOK = () => S.config?.settings?.catLook || {};
+const HEX = /^#[0-9a-f]{6}$/i;
+const COLOR_KEYS = ['fur', 'belly', 'line', 'ear', 'eye', 'eyed', 'blush', 'nose', 'collar', 'gold', 'stripe', 'tip', 'whisker', 'muzzle', 'accent', 'zz'];
+
+function mix(hex, to, t) {
+  const p = (x, i) => parseInt(x.slice(1 + i * 2, 3 + i * 2), 16);
+  const c = [0, 1, 2].map((i) => Math.round(p(hex, i) + (p(to, i) - p(hex, i)) * t));
+  return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** A full set of fur colours from the few a person picks (or an AI suggests). */
+function catColors({ fur = '#FFF7F0', belly = '#FFFFFF', eye = '#9B6BFF', collar = '#FF6FAE', stripes = false, muzzle = false } = {}, extra = {}) {
+  const c = {
+    fur, belly, line: mix(fur, '#1a0f1f', 0.62), ear: '#FFB8D2', eye, eyed: mix(eye, '#000000', 0.72), blush: '#FF9EC4', nose: '#FF7FAF',
+    collar, gold: '#FFD24D', stripe: mix(fur, '#000000', 0.28), stripeOp: stripes ? 1 : 0, tip: stripes ? mix(fur, '#000000', 0.28) : mix(fur, '#000000', 0.08),
+    whisker: mix(fur, '#000000', 0.45), muzzle: belly, muzzleOp: muzzle ? 1 : 0, accent: collar, zz: mix(eye, '#ffffff', 0.35),
+  };
+  for (const k of COLOR_KEYS) if (HEX.test(extra[k] || '')) c[k] = extra[k];
+  return c;
+}
+
+/** Check a cat made by hand or by an AI: only colours, a name, ears and known outfit pieces survive. */
+function checkCat(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const src = raw.cat && typeof raw.cat === 'object' ? raw.cat : raw;
+  const name = String(src.name || '').trim().slice(0, 24);
+  const col = src.colors || src.colours || {};
+  if (!name || !HEX.test(col.fur || '')) return null;
+  return {
+    id: /^c[a-z0-9]{4,20}$/.test(src.id || '') ? src.id : `c${Math.random().toString(36).slice(2, 10)}`,
+    name,
+    full: String(src.full || src.fullName || name).trim().slice(0, 60),
+    tag: String(src.tag || 'Your cat').slice(0, 20),
+    custom: true,
+    theme: SKINS.some((k) => k.id === src.theme) ? src.theme : 'mochi',
+    ears: src.ears === 'fold' ? 'fold' : 'normal',
+    gear: [].concat(src.gear || []).filter((g) => gearById(g)).slice(0, 6),
+    colors: catColors({ fur: col.fur, belly: HEX.test(col.belly || '') ? col.belly : '#FFFFFF', eye: HEX.test(col.eye || '') ? col.eye : '#9B6BFF',
+      collar: HEX.test(col.collar || '') ? col.collar : '#FF6FAE', stripes: !!(src.stripes ?? col.stripes), muzzle: !!(src.muzzle ?? col.muzzle) }, col),
+  };
+}
+
+const customCats = () => (LOOK().custom || []).map(checkCat).filter(Boolean);
+const allCats = () => [...CATS, ...customCats()];
+function myCat() {
+  const s = S.config?.settings || {};
+  const id = LOOK().cat || s.skin || 'mochi';
+  return allCats().find((c) => c.id === id) || CATS.find((c) => c.id === s.skin) || CATS[0];
+}
+function gearOk(id, c = myCat()) {
+  const g = gearById(id);
+  return !!g && (g.rank <= rankFor(xpBreakdown().total).index || (c.gear || []).includes(id));
+}
+function myLook(c = myCat()) {
+  const worn = LOOK().wear?.[c.id] ?? c.gear ?? [];
+  return { skin: c.skin, colors: c.colors, ears: c.ears, gear: worn.filter((g) => gearOk(g, c)) };
+}
+function saveLook(patch, extra = {}) {
+  return commitSettings({ catLook: { ...LOOK(), ...patch }, ...extra }).then(() => { applyLook(); renderHero(); if (S.view === 'warrior') renderWarrior(); });
+}
+function chooseCat(c) {
+  const s = S.config.settings;
+  const extra = {};
+  if (!s.catName || s.catName === myCat().name || s.catName === skinName(s.skin)) extra.catName = c.name;
+  if (c.skin) extra.skin = c.skin;
+  sounds.mew();
+  hero?.knead(1200);
+  return saveLook({ cat: c.id }, extra);
+}
+function wear(id) {
+  const c = myCat();
+  const g = gearById(id);
+  const now = myLook(c).gear;
+  const on = now.includes(id);
+  const next = on ? now.filter((x) => x !== id) : [...now.filter((x) => gearById(x)?.slot !== g.slot), id];
+  clickSound();
+  return saveLook({ wear: { ...(LOOK().wear || {}), [c.id]: next } });
+}
+
+function floatHearts(el) {
+  if (!el || reduced()) return;
+  const r = el.getBoundingClientRect();
+  for (let i = 0; i < 6; i++) {
+    const d = h('span', { class: 'heart-pop', text: ['♥', '🐾', '♥', '✦'][i % 4] });
+    d.style.left = `${r.left + r.width * (0.2 + Math.random() * 0.6)}px`;
+    d.style.top = `${r.top + r.height * 0.45}px`;
+    d.style.animationDelay = `${i * 90}ms`;
+    layer().append(d);
+    setTimeout(() => d.remove(), 1700);
+  }
+}
+
+// ------------------------------------------------------------------ Cat Warrior: XP, ranks, time saved
+
+const COACH = { stats: null, at: 0, loading: null };
+async function coachStats(force = false) {
+  if (!force && COACH.stats && Date.now() - COACH.at < 15000) return COACH.stats;
+  COACH.loading ||= invoke('coach_stats').then((x) => { COACH.stats = x; COACH.at = Date.now(); return x; }).catch(() => COACH.stats).finally(() => { COACH.loading = null; });
+  return COACH.loading;
+}
+
+function learnedCount(db = trainDb()) {
+  let n = 0;
+  for (const p of Object.values(db.items)) for (const s of Object.values(p)) if ((s.box || 0) >= 4) n++;
+  return n;
+}
+
+/**
+ * XP, all from things already counted (so it can't drift): 10 per right answer,
+ * 25 per day you practised, 50 per shortcut learned, 3 per real use of one you're
+ * learning, 1 per shortcut you use anywhere (up to 400 a day) and 1 per 10 letters
+ * typed right in the typing trainer (up to 600 a day).
+ */
+function xpBreakdown(db = trainDb(), cs = COACH.stats) {
+  const x = { train: 0, practice: 0, learned: 50 * learnedCount(db), real: 0, used: 0, typed: 0 };
+  for (const d of Object.values(db.days)) {
+    x.train += 10 * (d.ok || 0);
+    if (d.answers || d.typed) x.practice += 25;
+    x.real += 3 * (d.real || 0);
+    x.typed += Math.min(600, Math.floor((d.typed || 0) / 10));
+  }
+  for (const apps of Object.values(cs?.days || {})) {
+    let n = 0;
+    for (const a of Object.values(apps)) n += a.used || 0;
+    x.used += Math.min(400, n);
+  }
+  x.total = x.train + x.practice + x.learned + x.real + x.used + x.typed;
+  return x;
+}
+
+function checkRankUp() {
+  const r = rankFor(xpBreakdown().total);
+  let seen = null;
+  try { seen = localStorage.getItem('catkey.rank'); localStorage.setItem('catkey.rank', String(r.index)); } catch { return; }
+  if (seen == null || r.index <= Number(seen)) return;
+  const gear = GEAR.filter((g) => g.rank === r.index).map((g) => g.name);
+  hero?.knead(2200);
+  trainSounds.done();
+  const c = $('#cushion')?.getBoundingClientRect();
+  if (c) confetti(c.left + c.width / 2, c.top + c.height / 3);
+  toast(`Rank up! ${cat()} is now a ${r.name}.${gear.length ? ` New gear: ${gear.join(', ')}.` : ''}`, { ms: 9000, action: { label: 'Dress up', fn: () => setView('warrior') } });
+}
+
+const dayKeys = (n) => Array.from({ length: n }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - i); return d.toLocaleDateString('en-CA'); });
+
+/** Shortcut use and mouse trips per app, over the last 7 days. */
+function timeStats(cs = COACH.stats) {
+  const week = new Set(dayKeys(7));
+  const per = new Map();
+  const t = { used: 0, caught: 0, lostMs: 0, usedToday: 0 };
+  for (const [day, apps] of Object.entries(cs?.days || {})) {
+    for (const [exe, a] of Object.entries(apps)) {
+      if (day === today()) t.usedToday += a.used || 0;
+      if (!week.has(day)) continue;
+      const p = per.get(exe) || { exe, used: 0, caught: 0, lostMs: 0 };
+      p.used += a.used || 0;
+      p.caught += a.caught || 0;
+      p.lostMs += a.lostMs || 0;
+      per.set(exe, p);
+      t.used += a.used || 0;
+      t.caught += a.caught || 0;
+      t.lostMs += a.lostMs || 0;
+    }
+  }
+  t.perShortcut = cs?.savedPerShortcutMs || 1600;
+  t.savedMs = t.used * t.perShortcut;
+  t.apps = [...per.values()].sort((a, b) => b.used + b.caught - (a.used + a.caught));
+  return t;
+}
+
+const kcaps = (keys) => h('span', { class: 'keys-inline' }, ...String(keys).split('+').map((k) => h('span', { class: 'kc', text: k.trim() })));
+
+/** "Alt+Left Arrow" (as an app writes it) → "Alt+Left" (as Cat Key writes it). */
+function coachCombo(keys) {
+  const map = { 'left arrow': 'Left', 'right arrow': 'Right', 'up arrow': 'Up', 'down arrow': 'Down', 'page up': 'PageUp', 'page down': 'PageDown', pgup: 'PageUp', pgdn: 'PageDown',
+    plus: 'Equals', minus: 'Minus', del: 'Delete', ins: 'Insert', esc: 'Esc', escape: 'Esc', return: 'Enter', backspace: 'Backspace', spacebar: 'Space' };
+  const parts = String(keys).split('+').map((p) => p.trim()).filter(Boolean).map((p) => map[p.toLowerCase()] || p);
+  const t = tidyCombo(parts.join('+'));
+  return t.error ? null : t.value;
+}
+
+function coachTips() {
+  return Object.entries(COACH.stats?.tips || {}).map(([id, t]) => ({ id, ...t })).sort((a, b) => b.n - a.n || b.last - a.last);
+}
+
+/** The things you did the long way, as a pack to practise. */
+function coachPack(tips = coachTips()) {
+  const items = [];
+  for (const t of tips) {
+    const keys = coachCombo(t.keys);
+    if (!keys || items.some((i) => i.name === t.name && i.keys === keys)) continue;
+    items.push({ name: t.name, keys, ...(t.app && !t.id.startsWith('*|') ? { only: [t.app] } : {}), note: `${t.n}× the long way` });
+  }
+  return { id: 'coach-misses', name: 'Caught by the coach', kind: 'cheatsheet', platform: 'both', description: 'Things you did with the mouse that have a shortcut.', sections: [{ name: 'Done the long way', items: items.slice(0, 40) }], _origin: 'coach' };
+}
+
+async function renderWarrior() {
+  const box = $('#warrior');
+  if (!box) return;
+  if (!COACH.stats && !COACH.loading) coachStats().then(() => { if (S.view === 'warrior') renderWarrior(); });
+  for (const m of W.minis) m.destroy();
+  W.minis = [];
+  const keepScroll = $('#scroll').scrollTop;
+  box.textContent = '';
+  const xp = xpBreakdown();
+  const r = rankFor(xp.total);
+  const me = myCat();
+  const t = timeStats();
+  const db = trainDb();
+
+  // ---- the cat and its rank
+  const holder = h('div', { class: 'wr-cat', title: 'Pet me', onclick: () => { W.minis[0]?.knead(1500); sounds.knead(); floatHearts(holder); } });
+  const unlocks = r.next ? GEAR.filter((g) => g.rank === r.index + 1).map((g) => g.name) : [];
+  box.append(h('div', { class: 'wr-hero' }, holder,
+    h('div', { class: 'wr-rank' },
+      h('span', { class: 'hint', text: [me.full !== cat() ? me.full : '', me.tag].filter(Boolean).join(' · ') || ' ' }),
+      h('h2', { class: 'display', text: `${cat()} · ${r.name}` }),
+      h('div', { class: 'xpbar', role: 'progressbar', 'aria-label': 'XP to the next rank', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(r.pct) }, h('span', { style: { width: `${r.pct}%` } })),
+      h('div', { class: 'hint', text: r.next
+        ? `${xp.total.toLocaleString()} XP · ${(r.next.xp - xp.total).toLocaleString()} more to ${r.next.name}${unlocks.length ? `, which unlocks ${unlocks.join(', ')}` : ''}.`
+        : `${xp.total.toLocaleString()} XP. The highest rank there is.` }),
+      h('div', { class: 'wr-ranks' }, ...RANKS.map((x, i) => h('span', { class: `wr-step${i <= r.index ? ' on' : ''}${i === r.index ? ' now' : ''}`, title: `${x.name}: ${x.xp.toLocaleString()} XP` }))),
+      h('div', { class: 'row wr-actions' },
+        h('button', { class: 'btn small strong', type: 'button', html: `${icon('copy')}<span>Copy my Cat Card</span>`, onclick: copyCardPicture }),
+        h('button', { class: 'btn small', type: 'button', html: `${icon('link')}<span>Copy card code</span>`, onclick: copyCardCode }),
+        h('button', { class: 'btn small', type: 'button', html: `${icon('up')}<span>Post to the leaderboard</span>`, onclick: postCard })))));
+  W.minis.push(new Mascot(holder, { size: 168, look: myLook(), name: cat(), keyboard: true }));
+
+  // ---- the numbers
+  const stat = (big, small, cls = '') => h('div', { class: `tstat ${cls}` }, h('b', { class: 'display', text: big }), h('span', { text: small }));
+  box.append(h('div', { class: 'tdash wr-stats' },
+    stat(fmtTime(t.savedMs), 'saved by shortcuts this week', 'good'),
+    stat(fmtTime(t.lostMs), 'lost to the mouse this week', t.lostMs ? 'bad' : ''),
+    stat(fmtCount(t.usedToday), 'shortcuts used today'),
+    stat(String(learnedCount(db)), 'shortcuts learned'),
+    stat(`${dayStreak(db)}🔥`, 'day streak', 'fire')));
+
+  // ---- where the time goes, app by app
+  if (t.apps.length) {
+    const rows = t.apps.slice(0, 8).map((a) => h('div', { class: 'wr-app' },
+      h('span', { class: 'nm' }, appIcon(a.exe), h('span', { text: appName(a.exe) })),
+      h('span', { class: 'n', text: fmtCount(a.used) }),
+      h('span', { class: 'n good', text: fmtTime(a.used * t.perShortcut) }),
+      h('span', { class: 'n', text: fmtCount(a.caught) }),
+      h('span', { class: `n${a.lostMs ? ' bad' : ''}`, text: fmtTime(a.lostMs) })));
+    box.append(h('section', { class: 'wr-card' }, h('h3', { text: 'App by app, this week' }),
+      h('div', { class: 'wr-app head' }, h('span', { text: 'App' }), h('span', { class: 'n', text: 'Shortcuts' }), h('span', { class: 'n', text: 'Saved' }), h('span', { class: 'n', text: 'Mouse trips' }), h('span', { class: 'n', text: 'Lost' })),
+      ...rows));
+  }
+
+  // ---- caught by the coach
+  const tips = coachTips();
+  const coachOn = S.config.settings.coach !== false;
+  const caught = h('section', { class: 'wr-card' },
+    h('div', { class: 'row-between' }, h('h3', { text: 'Caught doing it the long way' }),
+      tips.length ? h('button', { class: 'btn small strong', type: 'button', html: `${icon('target')}<span>Train these</span>`, onclick: () => { const p = coachPack(); if (p.sections[0].items.length) { setView('train'); startTrain(p, trainItems(p)); } else toast('Nothing to practise yet.', { kind: 'warn' }); } }) : null));
+  if (!tips.length) {
+    caught.append(h('p', { class: 'hint', text: coachOn
+      ? `When you click something that has a shortcut, ${cat()} shows the keys in a little note at the bottom right and lists it here. Nothing yet: either you're already a warrior, or it's early days.`
+      : 'The shortcut coach is off. Turn it on in Settings to see what you still do with the mouse.' }),
+    h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Show me a tip</span>`, onclick: () => invoke('coach_demo').catch(() => {}) }));
+  }
+  for (const tip of tips.slice(0, 10)) {
+    const muted = (S.config.settings.coachMuted || []).includes(tip.id.toLowerCase());
+    caught.append(h('div', { class: 'wr-tip' },
+      h('span', { class: 'what' }, h('b', { text: tip.name }), h('span', { class: 'hint', text: `${tip.id.startsWith('*|') ? 'Any app' : appName(tip.app)} · ${tip.n}×` })),
+      kcaps(tip.keys),
+      h('button', { class: 'link', type: 'button', text: muted ? 'Remind me again' : 'Don’t remind me', onclick: () => {
+        const list = new Set(S.config.settings.coachMuted || []);
+        if (muted) list.delete(tip.id.toLowerCase()); else list.add(tip.id.toLowerCase());
+        commitSettings({ coachMuted: [...list] }).then(renderWarrior);
+      } }),
+      h('button', { class: 'tbtn', type: 'button', 'aria-label': `Forget ${tip.name}`, title: 'Forget', html: icon('x'), onclick: async () => {
+        await invoke('coach_forget', { id: tip.id }).catch(() => {});
+        await coachStats(true);
+        renderWarrior();
+      } })));
+  }
+  box.append(caught);
+
+  // ---- choose your cat
+  const picker = h('div', { class: 'cat-grid' });
+  for (const c of allCats()) {
+    const mini = h('span', { class: 'mini' });
+    picker.append(h('button', { class: `cat-pick${c.id === me.id ? ' on' : ''}`, type: 'button', 'aria-pressed': String(c.id === me.id), title: c.full, onclick: () => chooseCat(c) },
+      mini, h('b', { text: c.name }), h('span', { class: 'tag', text: c.tag || '' })));
+    W.minis.push(new Mascot(mini, { size: 70, look: myLook(c) }));
+  }
+  picker.append(h('button', { class: 'cat-pick make', type: 'button', onclick: () => { W.editor = !W.editor; renderWarrior(); } },
+    h('span', { class: 'plus', html: icon('plus') }), h('b', { text: 'Make one' }), h('span', { class: 'tag', text: 'Colours or AI' })));
+  box.append(h('section', { class: 'wr-card' }, h('h3', { text: 'Choose your cat' }),
+    h('p', { class: 'hint', text: 'The house cats, the warriors of the meme, and any cat you make yourself.' }), picker, W.editor ? catEditor() : null));
+
+  // ---- the wardrobe
+  const worn = new Set(myLook().gear);
+  const slots = [['head', 'Head'], ['face', 'Face'], ['back', 'Back'], ['belt', 'Belt'], ['hand', 'Paw'], ['aura', 'Glow']];
+  const wardrobe = h('div', { class: 'wardrobe' });
+  for (const [slot, label] of slots) {
+    const items = GEAR.filter((g) => g.slot === slot);
+    wardrobe.append(h('div', { class: 'ward-row' }, h('span', { class: 'slot', text: label }),
+      h('div', { class: 'ward-items' }, ...items.map((g) => {
+        const ok = gearOk(g.id, me);
+        return h('button', { class: `gear${worn.has(g.id) ? ' on' : ''}${ok ? '' : ' locked'}`, type: 'button', disabled: !ok, 'aria-pressed': String(worn.has(g.id)),
+          title: ok ? g.name : `${g.name}: unlocks at ${RANKS[g.rank].name}`, onclick: () => wear(g.id) },
+          g.color ? h('span', { class: 'swatch', style: { background: g.color } }) : null,
+          h('span', { text: g.name }), ok ? null : h('span', { class: 'lock', html: icon('lock') }));
+      }))));
+  }
+  box.append(h('section', { class: 'wr-card' }, h('h3', { text: 'Wardrobe' }),
+    h('p', { class: 'hint', text: 'Every rank unlocks new gear. Each warrior cat also keeps its own.' }), wardrobe));
+
+  // ---- boards
+  box.append(boardsEl());
+
+  // ---- how it's counted
+  box.append(h('details', { class: 'wr-how' }, h('summary', { text: 'How the time and XP are counted' }),
+    h('p', { text: `Time comes from the Keystroke-Level Model (Card, Moran and Newell), the classic way to time computer tasks: reaching for the mouse takes about 0.4 s each way, pointing about 1.1 s and a click 0.2 s, while a shortcut is two or three key presses at about 0.2 s each. So every shortcut you use counts as ${(t.perShortcut / 1000).toFixed(1)} s saved (as if it replaced one button: the cautious end), and every trip the coach catches counts what it cost: about 1.6 s for a button, 2.9 s for a menu.` }),
+    h('p', { text: 'Only shortcuts with Ctrl, Alt or Win are counted (not typing), and only the count per app is kept: never which keys, never any text.' }),
+    h('p', { text: `XP: 10 per right answer in training, 25 for each day you practise, 50 per shortcut learned, 3 each time you use one you're learning, 1 per shortcut you use anywhere (up to 400 a day) and 1 per 10 letters typed right in the typing trainer.` })));
+  $('#scroll').scrollTop = keepScroll;
+}
+
+function catEditor() {
+  const d = W.draft ||= { name: '', fur: '#F6B26B', belly: '#FFFFFF', eye: '#4CAF50', collar: '#E91E63', stripes: true, muzzle: true, fold: false };
+  const preview = h('span', { class: 'mini' });
+  const draw = () => {
+    const c = { id: 'preview', name: d.name || 'New cat', colors: catColors(d), ears: d.fold ? 'fold' : 'normal', gear: [] };
+    W.preview?.destroy();
+    W.preview = new Mascot(preview, { size: 96, look: myLook(c) });
+  };
+  const color = (k, label) => h('label', { class: 'ce-color' }, h('input', { type: 'color', value: d[k], oninput: (e) => { d[k] = e.target.value; draw(); } }), h('span', { text: label }));
+  const check = (k, label) => h('label', { class: 'ai-check' }, h('input', { type: 'checkbox', class: 'cb', checked: d[k], onchange: (e) => { d[k] = e.target.checked; draw(); } }), h('span', { text: label }));
+  const el = h('div', { class: 'cat-editor' }, preview,
+    h('div', { class: 'ce-fields' },
+      h('input', { class: 'field', type: 'text', maxlength: '24', placeholder: 'Name your cat', value: d.name, oninput: (e) => { d.name = e.target.value; } }),
+      h('div', { class: 'ce-row' }, color('fur', 'Fur'), color('belly', 'Chest'), color('eye', 'Eyes'), color('collar', 'Collar')),
+      h('div', { class: 'ce-row' }, check('stripes', 'Stripes'), check('muzzle', 'White muzzle'), check('fold', 'Folded ears')),
+      h('div', { class: 'ce-row' },
+        h('button', { class: 'btn small strong', type: 'button', html: `${icon('check')}<span>Save my cat</span>`, onclick: () => {
+          const c = checkCat({ name: d.name.trim() || 'My cat', colors: { fur: d.fur, belly: d.belly, eye: d.eye, collar: d.collar }, stripes: d.stripes, muzzle: d.muzzle, ears: d.fold ? 'fold' : 'normal' });
+          if (!c) return;
+          W.editor = false;
+          W.draft = null;
+          saveLook({ custom: [...(LOOK().custom || []), c], cat: c.id }, { catName: c.name }).then(() => toast(`Say hi to ${c.name}!`));
+        } }),
+        h('button', { class: 'btn small', type: 'button', html: `${icon('wand')}<span>Design one with AI</span>`, onclick: () => { AI.kind = 'cat'; AI.want = d.name ? `A cat called ${d.name}` : ''; setView('ai'); } }),
+        LOOK().custom?.length ? h('button', { class: 'btn small ghost danger', type: 'button', text: 'Remove my own cats', onclick: async () => {
+          if (await confirmBox('Remove your own cats?', 'The cats you made are deleted. The house cats and warriors stay.', 'Remove', true)) saveLook({ custom: [], cat: CATS.some((c) => c.id === LOOK().cat) ? LOOK().cat : 'mochi' });
+        } }) : null)));
+  requestAnimationFrame(draw);
+  return el;
+}
+
+// ------------------------------------------------------------------ Cat Card, friends and the leaderboard
+
+const W = { minis: [], editor: false, draft: null, preview: null, board: null, boardState: 'idle' };
+const LEADERBOARD = `https://raw.githubusercontent.com/${REPO}/main/leaderboard/index.json`;
+const FRIENDS_KEY = 'catkey.friends';
+
+function cardData() {
+  const xp = xpBreakdown();
+  const t = timeStats();
+  const c = myCat();
+  return { format: 'catkey-card', v: 1, name: cat(), cat: c.id, catName: c.name, ...(c.custom ? { colors: c.colors, ears: c.ears } : {}), gear: myLook().gear,
+    rank: rankFor(xp.total).name, xp: xp.total, learned: learnedCount(), savedMin: Math.round(t.savedMs / 60000), streak: dayStreak(trainDb()), at: today() };
+}
+async function cardCode() {
+  return `CKC1:${(await shareCodeFor(cardData())).replace(/^CK1:/, '')}`;
+}
+async function readCard(code) {
+  const m = String(code || '').match(/CKC1:([A-Za-z0-9_-]{8,})/);
+  if (!m) return null;
+  const raw = await parseAnything(`CK1:${m[1]}`);
+  if (!raw || raw.format !== 'catkey-card' || typeof raw.name !== 'string') return null;
+  const num = (x) => (Number.isFinite(+x) ? Math.max(0, Math.round(+x)) : 0);
+  return { name: raw.name.slice(0, 24), cat: String(raw.cat || 'mochi').slice(0, 24), rank: String(raw.rank || '').slice(0, 30), xp: num(raw.xp), learned: num(raw.learned), savedMin: num(raw.savedMin), streak: num(raw.streak), at: String(raw.at || '').slice(0, 10) };
+}
+async function copyCardCode() {
+  try { await navigator.clipboard.writeText(await cardCode()); toast('Card code copied. Friends paste it on their Cat Warrior page.'); } catch (e) { toast(String(e), { kind: 'warn' }); }
+}
+function issueUrl(template, fields) {
+  const q = new URLSearchParams({ template, ...fields });
+  return `https://github.com/${REPO}/issues/new?${q}`;
+}
+async function postCard() {
+  const code = await cardCode();
+  const ok = await confirmBox('Post to the leaderboard?', 'GitHub opens in your browser with your card filled in. Post it there: your GitHub name shows on the board. Cat Key never sees your login.', 'Open GitHub');
+  if (!ok) return;
+  try { await navigator.clipboard.writeText(code); } catch { /* it's in the link too */ }
+  invoke('open_link', { url: issueUrl('cat-card.yml', { title: `Cat Card: ${cat()} (${rankFor(xpBreakdown().total).name})`, card: code }) }).catch((e) => toast(String(e), { kind: 'warn' }));
+}
+
+function friends() {
+  try { return JSON.parse(localStorage.getItem(FRIENDS_KEY) || '[]').filter((f) => f && f.name); } catch { return []; }
+}
+async function addFriend() {
+  const code = await promptBox('Add a friend', 'Paste the Cat Card code your friend copied (it starts with CKC1:).', '', 'Add');
+  if (!code) return;
+  const card = await readCard(code).catch(() => null);
+  if (!card) { toast('That isn’t a Cat Card code.', { kind: 'warn' }); return; }
+  const list = friends().filter((f) => f.name !== card.name);
+  list.push(card);
+  try { localStorage.setItem(FRIENDS_KEY, JSON.stringify(list.slice(-50))); } catch { /* fine */ }
+  toast(`${card.name} joined your board.`);
+  renderWarrior();
+}
+async function loadBoard() {
+  W.boardState = 'loading';
+  renderWarrior();
+  try {
+    const res = await fetch(LEADERBOARD, { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status);
+    const idx = await res.json();
+    W.board = (idx.players || []).filter((p) => p && p.login).slice(0, 100);
+    W.boardState = 'done';
+  } catch {
+    W.boardState = 'error';
+  }
+  if (S.view === 'warrior') renderWarrior();
+}
+function boardsEl() {
+  const me = { name: cat(), rank: rankFor(xpBreakdown().total).name, xp: xpBreakdown().total, savedMin: Math.round(timeStats().savedMs / 60000), streak: dayStreak(trainDb()), you: true };
+  const list = [me, ...friends()].sort((a, b) => b.xp - a.xp);
+  const row = (p, i) => h('div', { class: `wr-row${p.you ? ' you' : ''}` },
+    h('span', { class: 'pos', text: String(i + 1) }),
+    h('span', { class: 'who' }, h('b', { text: p.login ? `@${p.login}` : p.name }), h('span', { class: 'hint', text: [p.login && p.name ? p.name : '', p.rank].filter(Boolean).join(' · ') })),
+    h('span', { class: 'n', text: `${(p.xp || 0).toLocaleString()} XP` }),
+    h('span', { class: 'n hint', text: `${fmtTime((p.savedMin || 0) * 60000)} saved` }));
+  const friendsBox = h('div', { class: 'wr-board' }, ...list.map(row));
+  const globalBox = h('div', { class: 'wr-board' });
+  if (W.boardState === 'done') {
+    if (W.board.length) globalBox.append(...W.board.slice(0, 20).map(row));
+    else globalBox.append(h('p', { class: 'hint', text: 'Nobody has posted yet. Be the first name on the board!' }));
+  } else {
+    globalBox.append(h('p', { class: 'hint', text: W.boardState === 'loading' ? 'Fetching the board…' : W.boardState === 'error' ? 'Couldn’t reach the leaderboard. Check your connection.' : 'Everyone who posted their Cat Card, ranked by XP.' }),
+      W.boardState !== 'loading' ? h('button', { class: 'btn small', type: 'button', text: W.boardState === 'error' ? 'Try again' : 'Show the leaderboard', onclick: loadBoard }) : null);
+  }
+  return h('section', { class: 'wr-card wr-boards' },
+    h('div', {}, h('div', { class: 'row-between' }, h('h3', { text: 'You and your friends' }),
+      h('button', { class: 'btn small', type: 'button', html: `${icon('plus')}<span>Add a friend</span>`, onclick: addFriend })), friendsBox),
+    h('div', {}, h('div', { class: 'row-between' }, h('h3', { text: 'Leaderboard' }),
+      h('button', { class: 'link', type: 'button', text: 'Post my card', onclick: postCard })), globalBox));
+}
+
+/** The cat as a picture: copy the drawn SVG with its colours written in, so it looks the same anywhere. */
+function catSvgText(svgEl) {
+  const clone = svgEl.cloneNode(true);
+  const src = [svgEl, ...svgEl.querySelectorAll('*')];
+  const dst = [clone, ...clone.querySelectorAll('*')];
+  src.forEach((el, i) => {
+    const cs = getComputedStyle(el);
+    const d = dst[i];
+    if (cs.display === 'none') { d.setAttribute('display', 'none'); return; }
+    for (const p of ['fill', 'stroke', 'opacity', 'stroke-width', 'fill-opacity']) {
+      const v = cs.getPropertyValue(p);
+      if (v && v !== 'normal') d.setAttribute(p, v);
+    }
+    d.removeAttribute('class');
+    d.style.cssText = '';
+  });
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.removeAttribute('style');
+  return new XMLSerializer().serializeToString(clone);
+}
+
+async function copyCardPicture() {
+  const svgEl = W.minis[0]?.svg || hero?.svg;
+  if (!svgEl) return;
+  const data = cardData();
+  const cv = document.createElement('canvas');
+  cv.width = 1200;
+  cv.height = 630;
+  const g = cv.getContext('2d');
+  const bg = g.createLinearGradient(0, 0, 1200, 630);
+  bg.addColorStop(0, '#2A2235');
+  bg.addColorStop(1, '#16121D');
+  g.fillStyle = bg;
+  g.fillRect(0, 0, 1200, 630);
+  g.fillStyle = 'rgba(255,111,174,.18)';
+  for (let i = 0; i < 14; i++) { g.beginPath(); g.arc(80 + (i * 97) % 1100, 60 + ((i * 173) % 520), 10 + (i % 3) * 6, 0, Math.PI * 2); g.fill(); }
+  const img = new Image();
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(catSvgText(svgEl))}`;
+  await img.decode().catch(() => {});
+  g.drawImage(img, 70, 120, 420, 400);
+  await document.fonts.ready;
+  g.fillStyle = '#F7F0FB';
+  g.font = '700 30px Fredoka, Nunito, sans-serif';
+  g.fillText('CAT KEY · CAT CARD', 540, 150);
+  g.font = '700 76px Fredoka, Nunito, sans-serif';
+  g.fillText(data.name, 540, 245);
+  g.fillStyle = '#FFB8D2';
+  g.font = '800 44px Nunito, sans-serif';
+  g.fillText(data.rank, 540, 310);
+  g.fillStyle = '#B7AAC8';
+  g.font = '800 30px Nunito, sans-serif';
+  [`${data.xp.toLocaleString()} XP`, `${fmtTime(data.savedMin * 60000)} saved by shortcuts`, `${data.learned} shortcuts learned · ${data.streak}-day streak`].forEach((line, i) => g.fillText(line, 540, 380 + i * 48));
+  g.fillStyle = '#FF6FAE';
+  g.font = '800 24px Nunito, sans-serif';
+  g.fillText('github.com/MasterfullyClaw/CatKey', 540, 560);
+  try {
+    const blob = await new Promise((res) => cv.toBlob(res, 'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    toast('Your Cat Card picture is copied. Paste it anywhere (Ctrl+V).');
+    sounds.saved();
+  } catch {
+    toast('Couldn’t copy the picture here. The card code still works.', { kind: 'warn' });
+  }
+}
+
+// ------------------------------------------------------------------ background purr
+
+const PURR = { on: false };
+function paintPurr() {
+  const b = $('#btn-purr');
+  if (!b) return;
+  b.classList.toggle('on', PURR.on);
+  b.setAttribute('aria-pressed', String(PURR.on));
+  b.title = PURR.on ? 'Stop purring (right-click for volume)' : 'Purr in the background (right-click for volume)';
+}
+async function setPurr(on) {
+  PURR.on = await invoke('purr_set', { on }).catch(() => false);
+  paintPurr();
+  if (on && PURR.on) { hero?.knead(1400); toast(`${cat()} is purring. It keeps going with the window closed; stop it here or from the tray.`, { ms: 5000 }); }
+}
+function purrMenu(anchor) {
+  const s = S.config.settings;
+  const vol = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(s.purrVolume ?? 45), class: 'range', 'aria-label': 'Purr volume',
+    onchange: (e) => commitSettings({ purrVolume: Number(e.target.value) }) });
+  showPop(anchor, h('div', { class: 'pop purr-pop' },
+    h('b', { text: 'Background purr' }),
+    h('p', { class: 'hint', text: 'A warm purr loop while you work. It keeps going when the window is closed.' }),
+    h('label', { class: 'row-between' }, h('span', { text: 'Volume' }), vol),
+    h('button', { class: 'btn small strong', type: 'button', text: PURR.on ? 'Stop purring' : 'Start purring', onclick: () => { closePop(); setPurr(!PURR.on); } })));
+}
+
+// ------------------------------------------------------------------ the coach learns the apps' own words from the packs
+
+let coachDictSent = '';
+async function syncCoachDict() {
+  if (!L.data) await libData().catch(() => null);
+  if (!L.data) return;
+  const dict = {};
+  for (const p of libPacks()) {
+    if (isRemap(p) || p._summary) continue;
+    const apps = packApps(p);
+    if (!apps.length) continue;
+    for (const x of packItems(p)) {
+      const keys = itemKeys(x.it);
+      if (!keys || !x.it.name) continue;
+      const pretty = K.plain(keys).replace(/ /g, '+');
+      for (const exe of apps) (dict[exe] ||= []).push([x.it.name, pretty]);
+    }
+  }
+  const sig = JSON.stringify(Object.keys(dict).map((k) => [k, dict[k].length]));
+  if (sig === coachDictSent) return;
+  coachDictSent = sig;
+  invoke('set_coach_dict', { dict }).catch(() => {});
+}
+
+// ------------------------------------------------------------------ train any set: your shortcuts and every template
+
+function selfPacks() {
+  const out = [];
+  const toPack = (id, name, list, origin) => ({ id, name, kind: 'remap', platform: 'both', _origin: origin, sections: [{ name, items: list.filter((r) => r.action.type === 'keys').map(ruleToItem) }] });
+  const mine = toPack('self-shortcuts', 'Your shortcuts', rules().filter((r) => r.enabled), 'self');
+  if (mine.sections[0].items.length >= 2) out.push(mine);
+  for (const t of allTemplates()) {
+    const p = toPack(`tpl-${t.id}`, t.name, tplRules(t), 'template');
+    if (p.sections[0].items.length >= 2) out.push(p);
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ demos the AI draws (safe SVG animations)
+
+const SVG_TAGS = new Set(['svg', 'g', 'defs', 'title', 'desc', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'path', 'text', 'tspan', 'linearGradient', 'radialGradient', 'stop',
+  'clipPath', 'mask', 'use', 'symbol', 'marker', 'pattern', 'animate', 'animateTransform', 'animateMotion', 'set', 'mpath']);
+const SVG_ATTRS = new Set(['id', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'width', 'height', 'd', 'points', 'fill', 'stroke', 'stroke-width', 'stroke-linecap',
+  'stroke-linejoin', 'stroke-dasharray', 'stroke-dashoffset', 'stroke-opacity', 'fill-opacity', 'fill-rule', 'clip-rule', 'opacity', 'transform', 'viewBox', 'preserveAspectRatio',
+  'font-size', 'font-family', 'font-weight', 'text-anchor', 'dominant-baseline', 'letter-spacing', 'offset', 'stop-color', 'stop-opacity', 'gradientUnits', 'gradientTransform',
+  'spreadMethod', 'fx', 'fy', 'clip-path', 'mask', 'marker-start', 'marker-mid', 'marker-end', 'markerWidth', 'markerHeight', 'refX', 'refY', 'orient', 'patternUnits',
+  'attributeName', 'attributeType', 'from', 'to', 'by', 'values', 'keyTimes', 'keySplines', 'calcMode', 'dur', 'begin', 'end', 'repeatCount', 'repeatDur', 'additive',
+  'accumulate', 'type', 'rotate', 'path', 'keyPoints', 'visibility', 'display', 'xmlns', 'version']);
+
+/** An AI-made demo, kept only if it's plain drawing and animation: no scripts, links, pictures or styles. */
+function cleanDemo(str) {
+  if (typeof str !== 'string' || str.length > 20000 || !/<svg[\s>]/i.test(str)) return null;
+  const doc = new DOMParser().parseFromString(str, 'image/svg+xml');
+  const root = doc.documentElement;
+  if (!root || root.nodeName !== 'svg' || doc.getElementsByTagName('parsererror').length) return null;
+  const clean = (el) => {
+    for (const a of [...el.attributes]) {
+      const n = a.name;
+      const local = (n === 'href' || n === 'xlink:href') && /^#[\w-]+$/.test(a.value);
+      if ((!SVG_ATTRS.has(n) && !local) || /^on/i.test(n) || /url\((?!\s*['"]?#)/i.test(a.value) || /javascript:|data:/i.test(a.value)) el.removeAttribute(n);
+    }
+    if (/^(animate|set)$/.test(el.nodeName) && /href|^on/i.test(el.getAttribute('attributeName') || '')) { el.remove(); return; }
+    for (const kid of [...el.children]) {
+      if (!SVG_TAGS.has(kid.nodeName)) kid.remove();
+      else clean(kid);
+    }
+  };
+  clean(root);
+  const out = document.importNode(root, true);
+  out.removeAttribute('width');
+  out.removeAttribute('height');
+  if (!out.getAttribute('viewBox')) out.setAttribute('viewBox', '0 0 240 120');
+  out.setAttribute('class', 'demo-svg');
+  out.setAttribute('aria-hidden', 'true');
+  return out;
+}
+
+// ------------------------------------------------------------------ touch typing: fingers home, eyes up, speed comes by itself
+//
+// How it trains:
+// * a few keys at a time, home row first (f j d k s l a), a new key only when every
+//   key you have is accurate (95%) and quick (about 28 words a minute);
+// * a mistake isn't skipped: you type the right key before moving on, so the
+//   finger learns the right move, not the wrong one;
+// * the lines lean on your weakest key (the slowest or most missed), so practice
+//   goes where it's needed;
+// * "no peeking": the cat lies on the keyboard picture, so your eyes stay on the text;
+// * short rounds, sound on every key, a streak: the brain likes small wins.
+
+const TY_KEY = 'catkey.typing.v1';
+const TY_ORDER = 'fjdksla eirntouhgcmpwybvxqz,.'.replace(' ', '').split('');
+const TY_START = 7;
+const TY_TARGET_MS = 430; // per key: about 28 words a minute
+const TY_FINGER = { q: 0, a: 0, z: 0, w: 1, s: 1, x: 1, e: 2, d: 2, c: 2, r: 3, f: 3, v: 3, t: 3, g: 3, b: 3, y: 4, h: 4, n: 4, u: 4, j: 4, m: 4, i: 5, k: 5, ',': 5, o: 6, l: 6, '.': 6, p: 7, ';': 7, '/': 7 };
+const TY_FINGERS = ['left pinky', 'left ring finger', 'left middle finger', 'left index finger', 'right index finger', 'right middle finger', 'right ring finger', 'right pinky'];
+const TY_WORDS = ('a as ask add dad fad fall falls flask salad lad lads all alas sad ads jak deal desk side slid kid kids idea ideas said sail life like likes file files fine find kind '
+  + 'line lines dine skin sink link links land lands lake lakes sake jade fade fill skill still till field fields first fresh tide ride rides tried dries fries drift fit '
+  + 'kit list fist dish fish wish this these that there their then than the they them think thin thing things into in it its is if of off on one ones out our ours '
+  + 'are art arts and end ends ran run runs sun fun gun nut nuts tune turn turns hunt hunter under understand true truth tree trees three street strong string '
+  + 'go good goods god dog dogs hog hug huge high hight light lights night nights right rights sight fight eight weight might mighty tonight hello hold holds '
+  + 'cold old gold told come comes came camp map maps make makes made mode model more most much must music magic mouse cat cats chat chats catch match '
+  + 'keys key keyboard short shortcut shortcuts paw paws purr purrs warrior warriors power powers word words work works world write writes wrote type types '
+  + 'speed fast faster quick quickly brown fox jumps over lazy zebra quiz box boxes six mix fix next text vex very ever every never seven even view views '
+  + 'we were wear west wet way ways with without why who what when where which while white whale page pages paper people place plan plans play please price').split(' ');
+
+const TY = { on: false, line: '', pos: 0, wrongAt: -1, lineStart: 0, last: 0, right: 0, wrong: 0, streak: 0, best: 0, peek: true, started: 0, sad: 0, lines: 0 };
+
+function tyDb() {
+  try { const d = JSON.parse(localStorage.getItem(TY_KEY) || '{}'); return { open: Math.max(TY_START, d.open || TY_START), keys: d.keys || {}, best: d.best || 0, peek: d.peek !== false }; } catch { return { open: TY_START, keys: {}, best: 0, peek: true }; }
+}
+function tySave(db) { try { localStorage.setItem(TY_KEY, JSON.stringify(db)); } catch { /* fine */ } }
+const tyLetters = (db = tyDb()) => TY_ORDER.slice(0, db.open);
+
+function tyWeakest(db = tyDb()) {
+  let worst = null;
+  let score = -1;
+  for (const k of tyLetters(db)) {
+    const s = db.keys[k] || { n: 0, miss: 0, ms: 900 };
+    const v = (s.n < 8 ? 2 : 0) + (s.miss / Math.max(1, s.n)) * 6 + (s.ms || 900) / TY_TARGET_MS;
+    if (v > score) { score = v; worst = k; }
+  }
+  return worst;
+}
+
+function tyNewLine() {
+  const db = tyDb();
+  const ok = new Set(tyLetters(db));
+  let words = TY_WORDS.filter((w) => [...w].every((c) => ok.has(c)));
+  if (words.length < 12) {
+    // Too few real words yet: make pronounceable ones from the keys you have.
+    const vowels = [...ok].filter((c) => 'aeiou'.includes(c));
+    const cons = [...ok].filter((c) => !'aeiou,.'.includes(c));
+    const pickc = (xs) => xs[Math.floor(Math.random() * xs.length)];
+    for (let i = 0; i < 30; i++) {
+      let w = '';
+      const len = 2 + Math.floor(Math.random() * 4);
+      for (let j = 0; j < len; j++) w += j % 2 ? pickc(vowels.length ? vowels : cons) : pickc(cons.length ? cons : vowels);
+      words.push(w);
+    }
+  }
+  const weak = tyWeakest(db);
+  const withWeak = words.filter((w) => w.includes(weak));
+  const out = [];
+  while (out.join(' ').length < 44) {
+    const src = withWeak.length && Math.random() < 0.5 ? withWeak : words;
+    out.push(src[Math.floor(Math.random() * src.length)]);
+  }
+  TY.line = out.join(' ');
+  TY.pos = 0;
+  TY.wrongAt = -1;
+  TY.lineStart = 0;
+  TY.last = 0;
+}
+
+function startTyping() {
+  stopRecording();
+  const db = tyDb();
+  Object.assign(TY, { on: true, right: 0, wrong: 0, streak: 0, best: 0, peek: db.peek, started: performance.now(), lines: 0 });
+  tyNewLine();
+  $('#app').classList.add('training');
+  renderTyping(true);
+}
+/** Typed letters count towards today's practice (saved per line, not per key). */
+function tyFlush(extraMs = 0) {
+  if (!TY.pending && !extraMs) return;
+  const db = trainDb();
+  const day = (db.days[today()] ||= { ms: 0, answers: 0, ok: 0, real: 0 });
+  day.typed = (day.typed || 0) + (TY.pending || 0);
+  day.ms += extraMs;
+  TY.pending = 0;
+  trainSave(db);
+  checkRankUp();
+}
+function typingStop() {
+  if (!TY.on) return;
+  TY.on = false;
+  $('#app').classList.remove('training');
+  tyFlush(TY.right ? performance.now() - TY.started : 0);
+}
+
+function tyKey(e) {
+  if (!TY.on || S.view !== 'train') return;
+  if (e.key === 'Escape') { e.preventDefault(); typingStop(); renderTrain(); return; }
+  if (e.key.length !== 1 || e.ctrlKey || e.altKey || e.metaKey) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const want = TY.line[TY.pos];
+  const got = e.key.toLowerCase();
+  const now = performance.now();
+  if (!TY.lineStart) TY.lineStart = now;
+  const db = tyDb();
+  if (got === want) {
+    if (want !== ' ') {
+      const s = (db.keys[want] ||= { n: 0, miss: 0, ms: 900 });
+      s.n++;
+      if (TY.last && TY.wrongAt !== TY.pos) s.ms = Math.round(s.ms * 0.8 + Math.min(3000, now - TY.last) * 0.2);
+    }
+    TY.right++;
+    TY.streak++;
+    TY.best = Math.max(TY.best, TY.streak);
+    TY.pos++;
+    TY.wrongAt = -1;
+    TY.last = now;
+    trainSounds.key();
+    TY.pending = (TY.pending || 0) + 1;
+    if (TY.pos >= TY.line.length) {
+      tyFlush();
+      const secs = (now - TY.lineStart) / 1000;
+      const wpm = secs > 0 ? Math.round((TY.line.length / 5) / (secs / 60)) : 0;
+      db.best = Math.max(db.best, wpm);
+      TY.lines++;
+      TY.lastWpm = wpm;
+      sounds.mew();
+      // a new key when every key so far is accurate and quick
+      const ready = tyLetters(db).every((k) => { const s = db.keys[k]; return s && s.n >= 15 && s.miss / s.n <= 0.06 && s.ms <= TY_TARGET_MS; });
+      if (ready && db.open < TY_ORDER.length) {
+        db.open++;
+        const k = TY_ORDER[db.open - 1];
+        trainSounds.streak(3);
+        toast(`New key: ${k.toUpperCase()}. Use your ${TY_FINGERS[TY_FINGER[k]]}.`, { ms: 6000 });
+      }
+      tySave(db);
+      tyNewLine();
+    } else tySave(db);
+  } else {
+    TY.wrong++;
+    TY.streak = 0;
+    if (TY.wrongAt !== TY.pos && want !== ' ') { const s = (db.keys[want] ||= { n: 0, miss: 0, ms: 900 }); s.miss++; s.n++; tySave(db); }
+    TY.wrongAt = TY.pos;
+    if (now - TY.sad > 700) { TY.sad = now; trainSounds.meow(); }
+  }
+  renderTyping();
+}
+document.addEventListener('keydown', tyKey, true);
+
+function renderTyping(fresh = false) {
+  const box = $('#train');
+  if (!box || !TY.on) return;
+  const db = tyDb();
+  const open = new Set(tyLetters(db));
+  if (fresh || !$('#ty-line')) {
+    box.textContent = '';
+    box.append(h('div', { class: 'tr-session ty' },
+      h('div', { class: 'tr-head' },
+        h('span', { class: 'pk-ico glyph', html: icon('keyboard') }),
+        h('div', { class: 'txt' }, h('b', { class: 'display', text: 'Touch typing' }), h('span', { id: 'ty-sub', class: 'hint' })),
+        h('div', { class: 'tr-score' }, h('b', { id: 'ty-wpm', class: 'display' }), h('span', { id: 'ty-acc', class: 'hint' })),
+        h('span', { id: 'ty-streak', class: 'tr-streak' }),
+        h('button', { class: `chipbtn${TY.peek ? '' : ' on'}`, id: 'ty-peek', type: 'button', html: `${icon('paw')}<span>No peeking</span>`, onclick: () => { TY.peek = !TY.peek; const d = tyDb(); d.peek = TY.peek; tySave(d); renderTyping(true); } }),
+        h('button', { class: 'btn small ghost', type: 'button', html: `${icon('x')}<span>Stop</span>`, onclick: () => { typingStop(); renderTrain(); } })),
+      h('div', { class: 'ty-card' }, h('div', { id: 'ty-line', class: 'ty-line', 'aria-live': 'off' }), h('div', { id: 'ty-hint', class: 'hint ty-hint' })),
+      h('div', { id: 'ty-kb', class: `ty-kb${TY.peek ? '' : ' covered'}` }),
+      h('input', { id: 'ty-input', class: 'sr', type: 'text', 'aria-label': 'Typing area', autocomplete: 'off', spellcheck: 'false' }),
+      h('p', { class: 'hint', text: 'Eyes on the text, fingers on the bumps of F and J. Type the right key to move on. Esc stops.' })));
+  }
+  const line = $('#ty-line');
+  line.textContent = '';
+  [...TY.line].forEach((c, i) => line.append(h('span', { class: `ch${i < TY.pos ? ' done' : ''}${i === TY.pos ? ' cur' : ''}${i === TY.wrongAt ? ' bad' : ''}${c === ' ' ? ' sp' : ''}`, text: c === ' ' ? '·' : c })));
+  const next = TY.line[TY.pos];
+  $('#ty-hint').textContent = next && next !== ' ' ? `${next.toUpperCase()}: ${TY_FINGERS[TY_FINGER[next]]}` : next === ' ' ? 'Space: either thumb' : '';
+  const secs = (performance.now() - TY.started) / 1000;
+  $('#ty-wpm').textContent = `${TY.lastWpm || 0} wpm`;
+  $('#ty-acc').textContent = `${TY.right + TY.wrong ? Math.round((100 * TY.right) / (TY.right + TY.wrong)) : 100}% right · best ${db.best} wpm`;
+  $('#ty-sub').textContent = `${open.size} of ${TY_ORDER.length} keys · weakest: ${(tyWeakest(db) || '').toUpperCase()} · ${clock(secs * 1000)}`;
+  const st = $('#ty-streak');
+  st.textContent = TY.streak >= 10 ? `🔥 ${TY.streak}` : '';
+  const kb = $('#ty-kb');
+  kb.textContent = '';
+  for (const row of ['qwertyuiop', 'asdfghjkl;', 'zxcvbnm,./']) {
+    kb.append(h('div', { class: 'ty-row' }, ...[...row].map((k) => h('span', {
+      class: `ty-k f${TY_FINGER[k] ?? 7}${open.has(k) ? '' : ' shut'}${k === next ? ' next' : ''}${k === 'f' || k === 'j' ? ' bump' : ''}`, text: k.toUpperCase() }))));
+  }
+  kb.append(h('div', { class: 'ty-row' }, h('span', { class: `ty-k space${next === ' ' ? ' next' : ''}`, text: '' })));
+  if (!TY.peek) kb.append(h('div', { class: 'ty-cover' }, h('span', { text: `🐾 No peeking: ${cat()} is lying on it.` })));
+  const inp = $('#ty-input');
+  if (inp && document.activeElement !== inp) inp.focus({ preventScroll: true });
+}

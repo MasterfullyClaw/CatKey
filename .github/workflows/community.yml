@@ -1,0 +1,44 @@
+name: Store and leaderboard
+
+# Packs and Cat Cards are posted as GitHub issues from inside Cat Key (the app opens
+# a filled-in issue form in the browser; it never handles anyone's login). This lists
+# them, and once an hour re-ranks the store by the ❤️ on each pack's issue.
+on:
+  issues:
+    types: [opened, edited]
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: store
+  cancel-in-progress: false
+
+jobs:
+  store:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, 'Pack:') || startsWith(github.event.issue.title, 'Cat Card:')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: List the post / count the hearts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "issues" ]; then
+            python3 tools/community/process.py
+          else
+            python3 tools/community/process.py --refresh
+          fi
+      - name: Save
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add library/community leaderboard
+          if git diff --cached --quiet; then echo "nothing to save"; exit 0; fi
+          git commit -m "Store: update packs and leaderboard"
+          git pull --rebase
+          git push

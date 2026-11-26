@@ -154,6 +154,45 @@ fn count_tracked(ctx: &mut Ctx, ev: &KeyEvent) {
     }
 }
 
+/// For the shortcut coach, on real presses only: count shortcuts used in each app
+/// (Ctrl, Alt or Win with a key), and notice runs of the same editing key
+/// (Backspace ×10 is a word Ctrl+Backspace could delete). A few integer checks:
+/// nothing here waits.
+fn coach_keys(ctx: &mut Ctx, ev: &KeyEvent, fresh: bool) {
+    use catkey_core::keys::bit::*;
+    if !fresh || ev.injected || ctx.engine.is_recording() || catkey_core::keys::is_modifier(ev.vk) {
+        return;
+    }
+    let mods = ctx.engine.held_mods();
+    // Ctrl+Alt is AltGr on many layouts: it types characters, it isn't a shortcut.
+    let altgr = mods & (LCTRL | RCTRL) != 0 && mods & RALT != 0;
+    if mods & (LCTRL | RCTRL | LALT | RALT | LWIN | RWIN) != 0 && !altgr {
+        crate::coach::count_combo(ctx.env.foreground_exe());
+    }
+    let vk = ev.vk;
+    let editing = matches!(vk, 0x08 | 0x2E | 0x25 | 0x26 | 0x27 | 0x28);
+    let h = &mut ctx.habit;
+    if !editing || mods & !(LSHIFT | RSHIFT) != 0 {
+        *h = Habit::default();
+        return;
+    }
+    if h.vk == vk && h.mods == mods && ev.time.wrapping_sub(h.last) < 1_500 {
+        h.n += 1;
+    } else {
+        *h = Habit { vk, mods, n: 1, last: ev.time, told: false };
+    }
+    h.last = ev.time;
+    let need = match vk {
+        0x08 | 0x2E => 10,
+        0x25 | 0x27 => 12,
+        _ => 15,
+    };
+    if h.n >= need && !h.told {
+        h.told = true;
+        crate::coach::habit(vk, mods, h.n);
+    }
+}
+
 pub fn set_test_keys(on: bool) {
     TEST_KEYS.store(on, Ordering::SeqCst);
 }
@@ -365,6 +404,17 @@ struct Ctx {
     watch: Watch,
     /// Real keys held (to count a tracked shortcut once per press, not per repeat).
     track_down: [bool; 256],
+    /// The run of one editing key pressed again and again (for the shortcut coach).
+    habit: Habit,
+}
+
+#[derive(Default, Clone, Copy)]
+struct Habit {
+    vk: u8,
+    mods: u8,
+    n: u32,
+    last: u32,
+    told: bool,
 }
 
 impl Ctx {
@@ -554,6 +604,7 @@ unsafe fn run(compiled: Arc<Compiled>, enabled: bool, effects: Sender<Effect>) {
             last: (0, 0, 0, 0),
             watch: Watch { hwnd: hwnd as usize, ..Watch::default() },
             track_down: [false; 256],
+            habit: Habit::default(),
         })
     });
     THREAD_ID.store(GetCurrentThreadId(), Ordering::SeqCst);
@@ -713,7 +764,9 @@ unsafe fn handle(kb: &KBDLLHOOKSTRUCT, wparam: WPARAM) -> bool {
         let held = if logging { held_now() } else { String::new() };
         let mut swallow = ctx.engine.handle(ev, &mut ctx.env);
         if !really_injected {
+            let fresh = ev.down && !ctx.track_down[ev.vk as usize];
             count_tracked(ctx, &ev);
+            coach_keys(ctx, &ev, fresh);
         }
         let mut deferred = false;
         let mut sends: Vec<Out> = Vec::new();

@@ -10,6 +10,15 @@ const TRAY_ID: &str = "catkey";
 
 pub struct TrayState {
     pause: MenuItem<Wry>,
+    purr: MenuItem<Wry>,
+}
+
+fn purr_text() -> &'static str {
+    if crate::purr::is_on() {
+        "Stop purring"
+    } else {
+        "Purr in the background"
+    }
 }
 
 fn look(app: &AppHandle) -> (Image<'static>, String, &'static str) {
@@ -35,9 +44,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let (icon, tip, pause_text) = look(app);
     let open = MenuItem::with_id(app, "open", "Open Cat Key", true, None::<&str>)?;
     let pause = MenuItem::with_id(app, "pause", pause_text, true, None::<&str>)?;
+    let purr = MenuItem::with_id(app, "purr", purr_text(), true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Cat Key", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&open, &pause, &sep, &quit])?;
+    let menu = Menu::with_items(app, &[&open, &pause, &purr, &sep, &quit])?;
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon)
         .tooltip(tip)
@@ -46,6 +56,11 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, ev| match ev.id().as_ref() {
             "open" => app::show_main(app),
             "pause" => app::toggle_enabled(app),
+            "purr" => {
+                let now = crate::purr::set(!crate::purr::is_on(), None);
+                let _ = tauri::Emitter::emit(app, "ck://purr", now);
+                refresh(app);
+            }
             "quit" => app.exit(0),
             _ => {}
         })
@@ -55,7 +70,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             }
         })
         .build(app)?;
-    app.manage(TrayState { pause });
+    app.manage(TrayState { pause, purr });
     Ok(())
 }
 
@@ -67,5 +82,6 @@ pub fn refresh(app: &AppHandle) {
     }
     if let Some(ts) = app.try_state::<TrayState>() {
         let _ = ts.pause.set_text(pause_text);
+        let _ = ts.purr.set_text(purr_text());
     }
 }

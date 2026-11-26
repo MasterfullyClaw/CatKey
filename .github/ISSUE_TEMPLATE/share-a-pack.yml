@@ -6,7 +6,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for sharing! In Cat Key, open your pack and press **Share code** (or **Export** and attach the file).
+        Thanks for sharing! In Cat Key, open your pack and press **Post to the store**: it fills this in.
+        Your GitHub name shows as the author, and people like packs with ❤️ on this issue: the most loved rise to the top.
   - type: input
     id: app
     attributes:

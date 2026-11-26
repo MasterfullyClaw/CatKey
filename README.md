@@ -4,9 +4,11 @@
 
 # Cat Key
 
-### Every cat walks across a keyboard. This one presses the right keys.
+### The all-in-one shortcut manager. With a cat.
 
-Cat Key sits on your keyboard and turns the keys you press into the shortcuts you mean, in every app or only in the apps you choose. Then it trains you until those shortcuts are second nature.
+Like a password manager, but for shortcuts: every shortcut of every app, on Windows and Mac, in one place. Keep them, change them, share them, borrow other people's, and train until your hands know them by heart. When you do something the long way, the cat tells you the shortcut.
+
+<sub>Every cat walks across a keyboard. This one presses the right keys.</sub>
 
 <br>
 
@@ -27,6 +29,8 @@ Cat Key sits on your keyboard and turns the keys you press into the shortcuts yo
 - **Switching from a Mac?** Keep your ⌘ habits on Windows. Alt sits right where ⌘ was, so Alt+C copies, Alt+W closes the tab and Alt+Q quits, everywhere. Moving to a Mac, the other way round.
 - **Every app wants different keys?** Give the same keys the same job everywhere, or a different job in one app only: Premiere keys inside DaVinci Resolve, Mac keys in Excel, your own keys anywhere.
 - **Learning a pro app?** Pick Premiere Pro, Resolve, Blender, Photoshop or any other app, and **Train yourself** with the shortcuts the pros use, until your fingers do them without thinking.
+- **Still reaching for the mouse?** The **shortcut coach** notices when you click something that has a shortcut and shows you the keys in a little note that fades away. Cat Key adds up the time shortcuts save you, and the time the mouse costs you, app by app.
+- **Want to get fast?** Climb from Kitten to **Keyboard Warrior**: every rank dresses your cat in new gear. Post your Cat Card to the leaderboard, or race your friends.
 
 Each app keeps its own shortcuts. Cat Key only adds yours on top, and you can switch it off (or let the cat nap) any time.
 
@@ -38,8 +42,13 @@ Each app keeps its own shortcuts. Cat Key only adds yours on top, and you can sw
 | 📚 **Library** | 21 ready-made packs, 748 shortcuts: Mac ⇄ Windows switching, Windows power keys, and the pro shortcuts of Premiere Pro, After Effects, DaVinci Resolve, CapCut, Photoshop, Illustrator, Lightroom, Figma, Blender, Cinema 4D, VS Code, Obsidian, browsers and more. Tick what you want, add it. |
 | 🎯 **Train yourself** | A game that teaches an app's shortcuts. Cat Key names an action and you press its keys. A right answer goes *boing*, a miss gets a soft meow, and streaks score more. Each shortcut comes back just before you'd forget it (spaced review). Cat Key also counts the times you use them for real in the app. |
 | 🪄 **Cat Builder** | Shortcuts for *any* app. Cat Builder writes the perfect request for ChatGPT, Claude, Perplexity or Gemini, opens it in one click, and picks up the answer when you copy it. No AI is built in and nothing is sent by Cat Key itself. |
+| 🧑‍🏫 **Shortcut coach** | Click a menu item or button that has a shortcut, and a small note shows its keys (and the time it would save), then fades. It reads only the name apps give screen readers, never the screen. Backspace ×10 in a row? It suggests Ctrl+Backspace. |
+| ⚔️ **Cat Warrior** | Ranks from Kitten to Nine Lives Legend, XP for training and for every shortcut you use, the time saved vs. the time lost to the mouse (Keystroke-Level Model), a wardrobe of hats, capes and belts, Cat Cards and a leaderboard. |
+| ⌨️ **Touch typing** | Home row first, a new key only when you're accurate and quick, lines built around your weakest key, and a *no peeking* mode where the cat lies on the keyboard. |
+| 🐈 **Your cat** | Eleven cats, from Mochi to the warriors of the meme (Ya'qub, Khalid, Khidir, Ismail, Usman, Sumbul) and Jasmine the kitten, each with their outfit. Or make your own, by hand or with an AI. Pet the cat and she makes biscuits on her keyboard. |
+| 🔊 **Cat sounds & purring** | Soft paw taps, mews, chirps and trills on every click. A background purr to work to, from the paw button or the tray. |
 | 🔁 **Swap & templates** | Flip any shortcut (what you press ⇄ what it does) with one click. Save sets as templates; the starter set can't be deleted. |
-| 🔗 **Share** | Share a pack as one line of text (a `CK1:` share code) or a file. Move your whole setup to another PC or Mac; Cat Key translates ⌘ and Ctrl for you. |
+| 🔗 **Share & store** | Post a pack to the store from Cat Key: it shows with your GitHub name, people ❤️ it, and the most loved rise to the top. Or share a pack as one line of text (a `CK1:` code) or a file. Move your whole setup to another PC or Mac; Cat Key translates ⌘ and Ctrl for you. |
 | 🩺 **Checkup** | Finds what gets in the way (PowerToys Keyboard Manager, PowerToys Grab And Move on Alt, missing start-up entry, admin apps) and fixes it, or tells you exactly where to click. |
 
 ## Install
@@ -57,11 +66,12 @@ Cat Key listens to the keyboard with a standard Windows keyboard hook. When you 
 - **It never misses a key.** The hook only decides; a separate thread sends keys, so a slow program elsewhere can't make Windows skip Cat Key. A watchdog reads the keyboard directly and repairs a key release that went missing.
 - **It doesn't fight other tools.** Keys typed by other programs (password managers, macro tools) pass untouched. Alt shortcuts work even with PowerToys Grab And Move holding Alt back.
 - **It stays out of your typing.** Single-letter remaps pause while a text cursor is active, so "V does A" in an editor never turns "Very" into "Aery".
-- **Your keys stay yours.** Cat Key keeps no keystroke log. Train yourself counts presses only for the shortcuts you're learning, and only on your PC. The optional key log (for troubleshooting) runs only while you have it open.
+- **Your keys stay yours.** Cat Key keeps no keystroke log. For your stats it keeps only how many shortcuts you used in each app, never which keys or any text. Train yourself counts presses only for the shortcuts you're learning, on your PC. The optional key log (for troubleshooting) runs only while you have it open.
+- **The coach never looks at your screen.** When you click, it asks Windows what's under the pointer (UI Automation, the way screen readers do) and reads only that item's name and shortcut. Chrome-based apps are left out unless you switch them on, because answering costs them a little work.
 
 ## Make and share packs
 
-Packs are small JSON files. The [library guide](library/README.md) explains the format. Share yours with the [Share a pack form](https://github.com/MasterfullyClaw/CatKey/issues/new?template=share-a-pack.yml) and it can appear in everyone's *Library → Community*.
+Packs are small JSON files. The [library guide](library/README.md) explains the format. To share one, open it in Cat Key and press **Post to the store**: GitHub opens in your browser with the pack filled in (Cat Key never sees your login), and a GitHub Action lists it in everyone's *Library → Community* with your name. ❤️ on a pack's issue is a like; the store re-ranks every hour.
 
 ## Troubleshooting
 

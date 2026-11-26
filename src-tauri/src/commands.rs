@@ -8,7 +8,7 @@ use catkey_core::{builtin_templates, powertoys, Config, Template};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
 
 #[derive(Serialize)]
@@ -513,4 +513,52 @@ pub fn set_tracked(items: Vec<TrackItem>) {
 #[tauri::command]
 pub fn tracked_counts() -> HashMap<String, u32> {
     hook::take_tracked_counts()
+}
+
+// ---------------------------------------------------------------- shortcut coach
+
+/// Shortcuts used, things done the long way, and the time they cost or saved.
+#[tauri::command]
+pub fn coach_stats() -> serde_json::Value {
+    crate::coach::stats_json()
+}
+
+/// What each app calls its commands, from the library packs: app exe ("*" for any) → (name, keys).
+#[tauri::command]
+pub fn set_coach_dict(state: State<AppState>, dict: HashMap<String, Vec<(String, String)>>) {
+    crate::coach::set_dict(&state.dir, dict);
+}
+
+/// Show a sample tip.
+#[tauri::command]
+pub fn coach_demo() {
+    crate::coach::demo();
+}
+
+/// The tip on show (the tip window asks when it has loaded).
+#[tauri::command]
+pub fn coach_last() -> Option<crate::coach::TipPayload> {
+    crate::coach::last_tip()
+}
+
+/// Forget one "done the long way" entry.
+#[tauri::command]
+pub fn coach_forget(id: String) {
+    crate::coach::forget_tip(&id);
+}
+
+// ---------------------------------------------------------------- purring
+
+/// Start or stop the background purr. Returns whether it purrs now.
+#[tauri::command]
+pub fn purr_set(app: AppHandle, on: bool) -> bool {
+    let now = crate::purr::set(on, None);
+    let _ = app.emit("ck://purr", now);
+    crate::tray::refresh(&app);
+    now
+}
+
+#[tauri::command]
+pub fn purr_state() -> bool {
+    crate::purr::is_on()
 }

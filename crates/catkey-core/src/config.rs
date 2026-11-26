@@ -6,7 +6,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 /// 2 = 1.0.2: Alt+T (new tab) joined the starter set; user templates.
-pub const CONFIG_VERSION: u32 = 2;
+/// 3 = 1.2.0: cat sounds are on by default.
+pub const CONFIG_VERSION: u32 = 3;
 
 fn yes() -> bool {
     true
@@ -22,6 +23,9 @@ fn default_skin() -> String {
 }
 fn default_cat_name() -> String {
     "Mochi".into()
+}
+fn default_purr_volume() -> u32 {
+    45
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -78,7 +82,7 @@ pub struct Settings {
     pub skin: String,
     #[serde(default = "default_cat_name")]
     pub cat_name: String,
-    #[serde(default)]
+    #[serde(default = "yes")]
     pub sounds: bool,
     /// Optional global shortcut that pauses/resumes every remap.
     #[serde(default)]
@@ -89,6 +93,21 @@ pub struct Settings {
     /// The PowerToys warning was dismissed.
     #[serde(default)]
     pub hide_powertoys_tip: bool,
+    /// Shortcut coach: a short tip when something with a shortcut was done the long way.
+    #[serde(default = "yes")]
+    pub coach: bool,
+    /// Also coach in Chrome-based apps (asking them what's under the pointer costs them some work).
+    #[serde(default)]
+    pub coach_chromium: bool,
+    /// Tips the user turned off ("app.exe|name", or "app.exe|*" for a whole app).
+    #[serde(default)]
+    pub coach_muted: Vec<String>,
+    /// Background purr volume, 0–100.
+    #[serde(default = "default_purr_volume")]
+    pub purr_volume: u32,
+    /// The cat's look, kept for the window only: custom cats, outfits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cat_look: Option<serde_json::Value>,
 }
 
 impl Default for Settings {
@@ -99,10 +118,15 @@ impl Default for Settings {
             theme: default_theme(),
             skin: default_skin(),
             cat_name: default_cat_name(),
-            sounds: false,
+            sounds: true,
             pause_hotkey: None,
             excluded_apps: Vec::new(),
             hide_powertoys_tip: false,
+            coach: true,
+            coach_chromium: false,
+            coach_muted: Vec::new(),
+            purr_volume: default_purr_volume(),
+            cat_look: None,
         }
     }
 }
@@ -338,6 +362,11 @@ impl Config {
                 self.rules.push(t);
                 changed = true;
             }
+        }
+        if self.version < 3 {
+            // 1.2.0: Cat Key is a cat; its sounds are on unless you turn them off.
+            self.settings.sounds = true;
+            changed = true;
         }
         changed
     }
@@ -665,8 +694,19 @@ mod tests {
             r#"{"version":1,"rules":[{"trigger":"Alt+T","action":{"type":"launch","target":"wt.exe"}}]}"#,
         )
         .unwrap();
+        cfg.migrate();
+        assert_eq!(cfg.rules.len(), 1, "the user's own Alt+T stays, no second Alt+T");
+    }
+
+    #[test]
+    fn cat_sounds_come_on_once_in_1_2() {
+        let mut cfg: Config = serde_json::from_str(r#"{"version":2,"settings":{"sounds":false}}"#).unwrap();
+        assert!(cfg.migrate());
+        assert!(cfg.settings.sounds && cfg.settings.coach);
+        cfg.normalize();
+        cfg.settings.sounds = false; // turned off again later: stays off
         assert!(!cfg.migrate());
-        assert_eq!(cfg.rules.len(), 1);
+        assert!(!cfg.settings.sounds);
     }
 
     #[test]

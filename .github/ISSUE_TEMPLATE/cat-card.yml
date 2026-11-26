@@ -1,0 +1,17 @@
+name: Post my Cat Card
+description: Put your rank on the Cat Key leaderboard.
+title: "Cat Card: "
+labels: ["cat card"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        In Cat Key, open **Cat Warrior** and press **Post to the leaderboard**: it fills this in. Your GitHub name is your name on the board. Post again any time to update it.
+  - type: textarea
+    id: card
+    attributes:
+      label: Card code
+      description: The CKC1:… code from Cat Key.
+      render: text
+    validations:
+      required: true

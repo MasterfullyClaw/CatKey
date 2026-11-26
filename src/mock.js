@@ -27,7 +27,7 @@ const TEMPLATES = [
 
 function mockStatus(params) {
   return {
-    version: '1.1.0', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
+    version: '1.2.0', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
     configDir: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', problems: {}, engineRunning: params.get('engine') !== '0',
     startup: params.get('startup') || 'on',
   };
@@ -48,7 +48,8 @@ export function createMock() {
     ] : []),
     settings: {
       launchAtStartup: true, adminMode: false, theme: params.get('theme') || 'dark', skin: params.get('skin') || 'mochi',
-      catName: '', sounds: false, pauseHotkey: null, excludedApps: [], hidePowertoysTip: false,
+      catName: '', sounds: true, pauseHotkey: null, excludedApps: [], hidePowertoysTip: false,
+      coach: true, coachChromium: false, coachMuted: [], purrVolume: 45,
     },
     templates: params.get('mytpl') === '1'
       ? [{ id: 'tmine', name: 'Work laptop', description: '3 shortcuts, saved Nov 20.', builtin: false, rules: rulesFrom(STARTER.slice(0, 3), 'tm') }]
@@ -111,7 +112,7 @@ export function createMock() {
           if (!keylogOn || keylogSent) return { on: keylogOn, lines: [] };
           keylogSent = true;
           return { on: true, lines: [
-            '  0.000s  key log started · Cat Key 1.1.0 · hook on · watchdog on',
+            '  0.000s  key log started · Cat Key 1.2.0 · hook on · watchdog on',
             '  2.114s  LAlt↓  from keyboard  held: -  → passed  [chrome.exe]',
             '  2.201s  W↓  from keyboard  held: LAlt  → swallowed  then send: LCtrl↓ mask LAlt↑ W↓  [chrome.exe]',
             '  2.201s     sent 5/5 in 0 ms',
@@ -126,6 +127,34 @@ export function createMock() {
           return 1;
         case 'read_clipboard':
           return null;
+        case 'coach_stats': {
+          const d = new Date();
+          const k = (n) => { const x = new Date(d); x.setDate(x.getDate() - n); return x.toLocaleDateString('en-CA'); };
+          return {
+            days: params.get('coach') === '0' ? {} : {
+              [k(0)]: { 'adobe premiere pro.exe': { used: 182, caught: 9, lostMs: 20100 }, 'chrome.exe': { used: 240, caught: 0, lostMs: 0 }, 'explorer.exe': { used: 35, caught: 6, lostMs: 9600 } },
+              [k(1)]: { 'adobe premiere pro.exe': { used: 150, caught: 12, lostMs: 30800 }, 'code.exe': { used: 410, caught: 2, lostMs: 3200 } },
+              [k(3)]: { 'photoshop.exe': { used: 90, caught: 5, lostMs: 11000 } },
+            },
+            tips: params.get('coach') === '0' ? {} : {
+              'explorer.exe|back': { app: 'explorer.exe', name: 'Back', keys: 'Alt+Left Arrow', kind: 'button', n: 7, last: 1 },
+              'adobe premiere pro.exe|ripple delete': { app: 'adobe premiere pro.exe', name: 'Ripple Delete', keys: 'Shift+Delete', kind: 'menu', n: 5, last: 2 },
+              '*|window-close': { app: 'notepad.exe', name: 'Close the window', keys: 'Alt+F4', kind: 'window', n: 4, last: 3 },
+              '*|habit-backspace': { app: 'code.exe', name: 'Delete a whole word', keys: 'Ctrl+Backspace', kind: 'habit', n: 3, last: 4 },
+            },
+            savedPerShortcutMs: 1600, lostMenuMs: 2900, lostButtonMs: 1600,
+          };
+        }
+        case 'set_coach_dict':
+        case 'coach_demo':
+        case 'coach_forget':
+          return null;
+        case 'coach_last':
+          return null;
+        case 'purr_set':
+          return !!args.on;
+        case 'purr_state':
+          return false;
         case 'tracked_counts':
           return {};
         case 'set_tracked':
