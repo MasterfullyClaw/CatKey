@@ -816,3 +816,43 @@ pub fn coach_take_adjust() -> Option<crate::coach::TipPayload> {
 pub fn set_capture(on: bool) {
     hook::set_capture(on);
 }
+
+// ---------------------------------------------------------------- the MCP connection (AI apps)
+
+/// Packs an AI app sent (through `CatKey --mcp`), taken out of the inbox.
+#[tauri::command]
+pub fn take_inbox() -> Vec<String> {
+    crate::mcp::take_inbox()
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpInfo {
+    /// Claude Desktop is installed / already starts this Cat Key.
+    claude_installed: bool,
+    claude_connected: bool,
+    /// The setup for any MCP app, and the line for Claude Code.
+    entry: String,
+    claude_code: String,
+    /// Cat Key runs from a place that won't last (a disk image, a download that macOS moved).
+    temp_place: bool,
+}
+
+#[tauri::command]
+pub fn mcp_info() -> McpInfo {
+    let (claude_installed, claude_connected) = crate::mcp::claude_status();
+    let entry = crate::mcp::server_entry();
+    let exe = entry["command"].as_str().unwrap_or("").to_string();
+    McpInfo {
+        claude_installed,
+        claude_connected,
+        entry: serde_json::to_string_pretty(&serde_json::json!({ "mcpServers": { "catkey": entry } })).unwrap_or_default(),
+        claude_code: format!("claude mcp add catkey -- \"{exe}\" --mcp"),
+        temp_place: win::running_from_temp_place(),
+    }
+}
+
+#[tauri::command]
+pub fn mcp_connect() -> Result<(), String> {
+    crate::mcp::connect_claude()
+}

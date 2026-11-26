@@ -1417,3 +1417,11 @@ pub fn window_icon(id: &str) -> Option<String> {
         hicon_to_png(icon).map(|b| format!("data:image/png;base64,{}", base64(&b)))
     }
 }
+
+/// Cat Key runs from a temporary folder (opened straight from a zip, say): what points at
+/// it, like an AI app's connection, would break when that folder is cleaned up.
+pub fn running_from_temp_place() -> bool {
+    let exe = std::env::current_exe().map(|p| p.to_string_lossy().to_lowercase()).unwrap_or_default();
+    let tmp = std::env::temp_dir().to_string_lossy().to_lowercase();
+    !tmp.is_empty() && exe.starts_with(tmp.trim_end_matches('\\'))
+}

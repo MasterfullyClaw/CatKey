@@ -1093,3 +1093,10 @@ select.field { padding: 0 10px; }
 .sp-top-left { left: 14px; top: 14px; } .sp-top { left: 50%; top: 14px; } .sp-top-right { left: calc(100% - 14px); top: 14px; }
 .sp-left { left: 14px; top: 50%; } .sp-right { left: calc(100% - 14px); top: 50%; }
 .sp-bottom-left { left: 14px; top: calc(100% - 14px); } .sp-bottom-right { left: calc(100% - 14px); top: calc(100% - 14px); }
+
+/* ---- Cat Builder: the Claude Desktop connection */
+.mcp-card .step-title .n svg.i { width: 14px; height: 14px; }
+.mcp-status { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; background: var(--s1); border: 1px solid var(--line); font-weight: 700; font-size: 13px; }
+.mcp-status .dot { flex: none; width: 9px; height: 9px; border-radius: 5px; background: var(--mu); }
+.mcp-status.on .dot { background: #3fbf7f; box-shadow: 0 0 0 4px rgba(63,191,127,.18); }
+.hint.warn { color: #e0a23a; }

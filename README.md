@@ -88,6 +88,12 @@ Cat Key listens to the keyboard with a standard Windows keyboard hook. When you 
 - **Your keys stay yours.** Cat Key keeps no keystroke log. For your stats it keeps only how many shortcuts you used in each app, never which keys or any text. Train yourself counts presses only for the shortcuts you're learning, on your PC. The optional key log (for troubleshooting) runs only while you have it open.
 - **The coach never looks at your screen.** When you click, it asks the system what's under the pointer (UI Automation on Windows, Accessibility on a Mac: the way screen readers do) and reads only that item's name and shortcut. Chrome-based apps are left out unless you switch them on, because answering costs them a little work.
 
+## Claude Desktop (and other AI apps) can hand packs straight to Cat Key
+
+Cat Key is also an MCP server, the plug AI apps use for tools. In **Cat Builder**, press **Connect Claude Desktop** (it adds Cat Key to Claude Desktop's settings and keeps a backup), quit and reopen Claude Desktop, then just ask: *"Make me Cat Key shortcuts for Blender"*. Claude reads the pack format, looks up the real shortcuts and sends the pack; Cat Key opens it so you pick what to add. Claude can also read your shortcuts (read-only), so new ones don't clash. Nothing changes until you add it.
+
+For other apps that speak MCP, **Copy the setup** gives the JSON, and **Copy for Claude Code** the line for `claude mcp add`. The server is the Cat Key program itself, started with `--mcp`.
+
 ## Make and share packs
 
 Packs are small JSON files. The [library guide](library/README.md) explains the format. To share one, open it in Cat Key and press **Post to the store**: GitHub opens in your browser with the pack filled in (Cat Key never sees your login), and a GitHub Action lists it in everyone's *Library → Community* with your name. ❤️ on a pack's issue is a like; the store re-ranks every hour.

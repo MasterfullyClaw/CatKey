@@ -517,6 +517,9 @@ pub fn run(args: Vec<String>) {
             crate::switcher::switch_close_window,
             crate::switcher::switch_hide,
             crate::switcher::switch_try,
+            crate::commands::take_inbox,
+            crate::commands::mcp_info,
+            crate::commands::mcp_connect,
         ])
         .setup(move |app| {
             if second {
@@ -552,8 +555,14 @@ pub fn run(args: Vec<String>) {
                     // And a coach tip.
                     std::thread::sleep(Duration::from_secs(2));
                     crate::coach::demo();
-                    std::thread::sleep(Duration::from_secs(2));
-                    let tip = h.get_webview_window("coach").and_then(|w| w.is_visible().ok()).unwrap_or(false);
+                    let mut tip = false;
+                    for _ in 0..20 {
+                        std::thread::sleep(Duration::from_millis(500));
+                        tip = h.get_webview_window("coach").and_then(|w| w.is_visible().ok()).unwrap_or(false);
+                        if tip {
+                            break;
+                        }
+                    }
                     crate::log(&format!("dock: coach tip shown {tip}"));
                 });
             }
@@ -562,6 +571,27 @@ pub fn run(args: Vec<String>) {
                 std::thread::sleep(Duration::from_secs(120));
                 save_stats(&saver);
             });
+            // Packs an AI app sent through Cat Key's MCP connection: show them.
+            let inbox = handle.clone();
+            std::thread::Builder::new()
+                .name("catkey-inbox".into())
+                .spawn(move || {
+                    let mut told: Option<std::time::Instant> = None;
+                    loop {
+                        std::thread::sleep(Duration::from_millis(1500));
+                        if !crate::mcp::inbox_waiting() {
+                            told = None;
+                            continue;
+                        }
+                        if told.is_some_and(|t| t.elapsed() < Duration::from_secs(15)) {
+                            continue;
+                        }
+                        told = Some(std::time::Instant::now());
+                        show_main(&inbox);
+                        let _ = inbox.emit_to("main", "ck://inbox", ());
+                    }
+                })
+                .ok();
             std::thread::spawn(move || {
                 if let Err(e) = apply_startup(&settings) {
                     crate::log(&format!("startup setting: {e}"));

@@ -105,6 +105,12 @@ export function createMock() {
           return null;
         case 'running_apps':
           return apps;
+        case 'mcp_info':
+          return { claudeInstalled: params.get('claude') !== '0', claudeConnected: params.get('claude') === 'on', entry: '{\n  "mcpServers": {\n    "catkey": { "command": "C:\\\\Users\\\\me\\\\AppData\\\\Local\\\\Cat Key\\\\CatKey.exe", "args": ["--mcp"] }\n  }\n}', claudeCode: 'claude mcp add catkey -- "C:\\Users\\me\\AppData\\Local\\Cat Key\\CatKey.exe" --mcp', tempPlace: false };
+        case 'mcp_connect':
+          return null;
+        case 'take_inbox':
+          return params.get('inbox') === '1' && !window.__inboxTaken ? (window.__inboxTaken = true, [JSON.stringify({ format: 'catkey-pack', version: 1, name: 'REAPER', kind: 'cheatsheet', platform: 'both', app: 'REAPER', description: 'From Claude', apps: { windows: ['reaper.exe'] }, sections: [{ name: 'Editing', items: [{ name: 'Split items', keys: 'S', fav: true }, { name: 'Undo', keys: 'Mod+Z' }] }] })]) : [];
         case 'installed_apps':
           return params.get('scan') === '0' ? [] : [
             ...apps,

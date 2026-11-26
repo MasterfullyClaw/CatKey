@@ -1067,6 +1067,9 @@ function wire() {
   });
   // A tip's Adjust was pressed: open a new shortcut for it.
   backend.listen('ck://coach-adjust', takeAdjust);
+  // An AI app sent a pack through Cat Key's connection.
+  backend.listen('ck://inbox', () => takeInbox());
+  setTimeout(takeInbox, 600);
   // Every click gets a soft paw tap (and now and then a little mew).
   document.addEventListener('click', (e) => { if (e.target.closest?.('button, [role="button"], summary, label')) clickSound(); }, true);
   $('#btn-min').onclick = () => invoke('window_minimize');
@@ -3439,8 +3442,54 @@ function renderAI() {
     h('div', { class: 'ai-row' },
       h('button', { class: 'btn', type: 'button', html: `${icon('check')}<span>Check what I pasted</span>`, onclick: async () => { if (await importText(AI.answer, 'answer')) AI.answer = ''; } }),
       h('span', { class: 'hint', text: isCat ? `${cat()} checks the colours and gear and shows you the new cat.` : `${cat()} checks every key, skips what it can’t use, and you pick before anything is added. Cheat sheets go straight into Train yourself.` }))));
+  if (!isCat) box.append(mcpCard());
   if (hadFocus && $(`#${hadFocus}`)) { const el = $(`#${hadFocus}`); el.focus(); if (el.setSelectionRange && el.value != null) el.setSelectionRange(el.value.length, el.value.length); }
 }
+// ------------------------------------------------------------------ Claude Desktop: packs straight in, no copying
+
+const MCP = { info: null, loading: false };
+function mcpCard() {
+  const card = h('section', { class: 'ai-step mcp-card', id: 'mcp-card' });
+  const i = MCP.info;
+  if (!i && !MCP.loading) {
+    MCP.loading = true;
+    invoke('mcp_info').then((x) => { MCP.info = x; }).catch(() => { MCP.info = { claudeInstalled: false, claudeConnected: false, entry: '', claudeCode: '' }; })
+      .finally(() => { MCP.loading = false; if (S.view === 'ai') renderAI(); });
+  }
+  const copy = async (what, label) => {
+    try { await navigator.clipboard.writeText(what); toast(`Copied ${label}.`); } catch { toast('Couldn’t copy.', { kind: 'warn' }); }
+  };
+  const status = !i ? 'Looking for Claude Desktop…'
+    : i.claudeConnected ? `Connected. Ask Claude for shortcuts (“Make me Cat Key shortcuts for Blender”) and the pack opens right here.`
+    : i.claudeInstalled ? 'Claude Desktop is on this computer. Connect it once and Claude can hand packs to Cat Key itself.'
+    : 'Claude Desktop isn’t on this computer. Any app that speaks MCP (Claude Code, Cursor…) can use the setup below.';
+  card.append(...[
+    h('div', { class: 'step-title' }, h('span', { class: 'n', html: icon('sparkle') }), 'Or let Claude hand it over'),
+    h('p', { class: 'hint', text: `Connect Claude Desktop and you skip the copying: Claude reads the pack format, looks up the real shortcuts and sends the pack, and ${cat()} opens it here so you pick what to add. Claude can also see your shortcuts, so new ones don’t clash. Nothing changes until you add it.` }),
+    h('div', { class: `mcp-status${i?.claudeConnected ? ' on' : ''}` }, h('span', { class: 'dot' }), h('span', { text: status })),
+    i?.tempPlace ? h('p', { class: 'hint warn', text: PLAT() === 'mac' ? 'Move Cat Key into Applications first: from where it runs now, the connection would stop working.' : 'Cat Key is running from a temporary folder. Install it (or keep the exe somewhere it stays) first, so the connection keeps working.' }) : null,
+    h('div', { class: 'ai-row' },
+      i?.claudeInstalled ? h('button', { class: `btn${i.claudeConnected ? '' : ' primary'}`, type: 'button', html: `${icon(i.claudeConnected ? 'refresh' : 'link')}<span>${i.claudeConnected ? 'Connect again' : 'Connect Claude Desktop'}</span>`,
+        onclick: async () => {
+          try {
+            await invoke('mcp_connect');
+            MCP.info = { ...i, claudeConnected: true };
+            renderAI();
+            toast('Connected. Quit Claude Desktop and open it again, then ask it for shortcuts.', { ms: 9000 });
+          } catch (e) { toast(String(e), { kind: 'warn', ms: 9000 }); }
+        } }) : null,
+      i?.entry ? h('button', { class: 'btn', type: 'button', html: `${icon('copy')}<span>Copy the setup</span>`, title: 'For any app that speaks MCP', onclick: () => copy(i.entry, 'the setup') }) : null,
+      i?.claudeCode ? h('button', { class: 'btn ghost', type: 'button', html: `${icon('copy')}<span>Copy for Claude Code</span>`, onclick: () => copy(i.claudeCode, 'the Claude Code line') }) : null),
+  ].filter(Boolean));
+  return card;
+}
+
+/** Packs an AI app sent through the connection: open them like a pasted answer. */
+async function takeInbox() {
+  const texts = await invoke('take_inbox').catch(() => []);
+  for (const t of texts || []) await importText(t, 'AI app');
+}
+
 function refreshPrompt() {
   const pre = $('#ai-prompt');
   if (pre) pre.textContent = aiPrompt();

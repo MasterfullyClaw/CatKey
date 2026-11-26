@@ -62,6 +62,12 @@ jobs:
           Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue
           Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'dock:|switch:|coach|crash' } | ForEach-Object { "::notice title=Windows log::$_" }
           Stop-Process -Id $d.Id -Force
+          # The MCP connection AI apps use: a handshake and the list of tools.
+          Set-Content -Path mcp-in.txt -Value @('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}', '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
+          Start-Process -FilePath $exe -ArgumentList '--mcp' -RedirectStandardInput mcp-in.txt -RedirectStandardOutput mcp-out.txt -NoNewWindow -Wait
+          $mcp = Get-Content mcp-out.txt -Raw
+          if ($mcp -notmatch 'add_shortcut_pack') { "MCP answered: $mcp"; throw "The MCP connection didn't answer" }
+          "::notice title=Windows MCP::$($mcp.Substring(0, [Math]::Min(200, $mcp.Length)) -replace "`r?`n", ' ')"
       - uses: actions/upload-artifact@v4
         with:
           name: CatKey-windows
@@ -112,6 +118,10 @@ jobs:
           cat "$HOME/Library/Application Support/CatKey/catkey.log" || true
           grep -E "dock:|switch:|coach|crash" "$HOME/Library/Application Support/CatKey/catkey.log" | sed 's/^/::notice title=Mac log::/' || true
           pkill -x CatKey || true
+          # The MCP connection AI apps use: a handshake and the list of tools.
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | "$APP/Contents/MacOS/CatKey" --mcp > mcp-out.txt
+          grep -q add_shortcut_pack mcp-out.txt || { cat mcp-out.txt; echo "The MCP connection didn't answer"; exit 1; }
+          echo "::notice title=Mac MCP::$(head -c 200 mcp-out.txt | tr '\n' ' ')"
       - uses: actions/upload-artifact@v4
         with:
           name: CatKey-mac

@@ -14,6 +14,7 @@ mod dock_drop;
 mod mac_paws;
 #[cfg(windows)]
 mod paw_cursor;
+mod mcp;
 mod paws;
 mod switcher;
 mod tray;
@@ -72,6 +73,11 @@ fn main() {
         default_hook(info);
     }));
     let args: Vec<String> = std::env::args().collect();
+    // Started by an AI app (Claude Desktop…) as its Cat Key connection: speak MCP and nothing else.
+    if args.iter().any(|a| a == "--mcp") {
+        mcp::serve();
+        return;
+    }
     // For checking: write the apps "Your apps" would list to a file, and quit.
     if let Some(i) = args.iter().position(|a| a == "--list-apps") {
         let apps = win::installed_apps();
