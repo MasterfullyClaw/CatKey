@@ -44,7 +44,9 @@ mod win {
         let hwnd = h.0 as HWND;
         let k = window.scale_factor().unwrap_or(1.0);
         unsafe {
-            plain(hwnd);
+            if plain(hwnd) {
+                crate::log(&format!("shape: {} cut to {} parts", window.label(), shapes.len()));
+            }
             let all: HRGN = CreateRectRgn(0, 0, 0, 0);
             for s in shapes {
                 if !(s.w > 0.5 && s.h > 0.5) {
@@ -69,17 +71,18 @@ mod win {
     }
 
     /// Windows 11 rounds the corners of windows and may draw a thin border on them; a
-    /// see-through window wants neither.
-    unsafe fn plain(hwnd: HWND) {
+    /// see-through window wants neither. True the first time for a window.
+    unsafe fn plain(hwnd: HWND) -> bool {
         let key = hwnd as isize;
         let mut done = PLAIN.lock().unwrap_or_else(|e| e.into_inner());
         if done.contains(&key) {
-            return;
+            return false;
         }
         let corner: u32 = 1; // DWMWCP_DONOTROUND
         let none: u32 = 0xFFFF_FFFE; // DWMWA_COLOR_NONE
         DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE as u32, &corner as *const u32 as *const _, 4);
         DwmSetWindowAttribute(hwnd, DWMWA_BORDER_COLOR as u32, &none as *const u32 as *const _, 4);
         done.push(key);
+        true
     }
 }

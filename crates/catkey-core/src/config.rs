@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 /// 2 = 1.0.2: Alt+T (new tab) joined the starter set; user templates.
 /// 3 = 1.2.0: cat sounds are on by default.
-pub const CONFIG_VERSION: u32 = 3;
+pub const CONFIG_VERSION: u32 = 4;
 
 fn yes() -> bool {
     true
@@ -657,6 +657,12 @@ impl Config {
             self.settings.sounds = true;
             changed = true;
         }
+        if self.version < 4 {
+            // 1.10.1: the Cat Dock is on from the start, the cat's home on the screen edge
+            // (it used to wait to be switched on, so most never met it). Off stays off after.
+            self.settings.dock.on = true;
+            changed = true;
+        }
         changed
     }
 
@@ -973,6 +979,21 @@ mod tests {
         let list = &c.shortcuts[b'F' as usize];
         assert!(matches!(list[0].scope, CScope::Only(_)));
         assert!(matches!(list[1].scope, CScope::All));
+    }
+
+    #[test]
+    fn dock_comes_on_once() {
+        // A setup from before 1.10.1 that never switched the Dock on gets it.
+        let mut cfg: Config = serde_json::from_str(r#"{"version":3,"settings":{"dock":{"on":false}}}"#).unwrap();
+        assert!(cfg.migrate());
+        cfg.normalize();
+        assert!(cfg.settings.dock.on);
+        // Switched off after that, it stays off.
+        let mut cfg: Config = serde_json::from_str(r#"{"version":4,"settings":{"dock":{"on":false}}}"#).unwrap();
+        assert!(!cfg.migrate());
+        assert!(!cfg.settings.dock.on);
+        // A brand-new setup has it on.
+        assert!(Config::default().settings.dock.on);
     }
 
     #[test]

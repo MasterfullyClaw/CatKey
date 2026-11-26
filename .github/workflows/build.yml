@@ -63,7 +63,7 @@ jobs:
           if ($d.HasExited) { Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue; throw "Cat Key stopped with the Dock on (exit code $($d.ExitCode))" }
           "Dock check: still running after 48 s"
           Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue
-          Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'dock:|switch:|coach|catgpt|permissions|crash' } | ForEach-Object { "::notice title=Windows log::$_" }
+          Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'dock:|switch:|coach|catgpt|permissions|shape:|crash' } | ForEach-Object { "::notice title=Windows log::$_" }
           Stop-Process -Id $d.Id -Force
           New-Item -ItemType Directory -Force -Path ci-pictures | Out-Null
           Copy-Item "$env:APPDATA\CatKey\ci\*.jpg" ci-pictures -ErrorAction SilentlyContinue
@@ -129,7 +129,7 @@ jobs:
           if ! pgrep -x CatKey > /dev/null; then cat "$HOME/Library/Application Support/CatKey/catkey.log" || true; echo "Cat Key stopped with the Dock on"; exit 1; fi
           echo "Dock check: still running after 48 s"
           cat "$HOME/Library/Application Support/CatKey/catkey.log" || true
-          grep -E "dock:|switch:|coach|catgpt|permissions|crash" "$HOME/Library/Application Support/CatKey/catkey.log" | sed 's/^/::notice title=Mac log::/' || true
+          grep -E "dock:|switch:|coach|catgpt|permissions|shape:|crash" "$HOME/Library/Application Support/CatKey/catkey.log" | sed 's/^/::notice title=Mac log::/' || true
           pkill -x CatKey || true
           # The MCP connection AI apps use: a handshake and the list of tools.
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | "$APP/Contents/MacOS/CatKey" --mcp > mcp-out.txt

@@ -10,7 +10,8 @@
     "switch",
     "catgpt",
     "canvas",
-    "rec"
+    "rec",
+    "paws"
   ],
   "permissions": [
     "core:default",
