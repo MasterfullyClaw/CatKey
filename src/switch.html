@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Switch</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="switch.css">
+</head>
+<body>
+<div id="sw" class="ck dark mochi" data-side="left" data-how="spot">
+  <section class="sw-panel" id="panel" aria-label="Switch to a window">
+    <header class="sw-head">
+      <span class="sw-cat" id="cat"></span>
+      <div class="sw-who">
+        <b id="title">Your windows</b>
+        <span id="sub">Click one to jump to it</span>
+      </div>
+      <span class="sw-count" id="count">0</span>
+    </header>
+    <label class="sw-search" id="search-wrap" hidden>
+      <svg class="sw-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="search" type="text" autocomplete="off" spellcheck="false" placeholder="Type to find a window" aria-label="Find a window">
+    </label>
+    <div class="sw-list" id="list" role="listbox" aria-label="Open windows"></div>
+    <footer class="sw-foot" id="foot"></footer>
+  </section>
+</div>
+<script type="module" src="switch.js"></script>
+</body>
+</html>

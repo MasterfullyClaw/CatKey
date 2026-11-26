@@ -9,6 +9,7 @@ pub mod engine;
 pub mod keys;
 pub mod powertoys;
 pub mod shellcmd;
+pub mod switcher;
 
 pub use config::{builtin_templates, compile, Action, Compiled, Config, Rule, Scope, ScopeMode, Settings, Template};
 pub use engine::{Effect, Engine, Env, KeyEvent, Out};

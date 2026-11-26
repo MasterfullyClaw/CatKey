@@ -1223,3 +1223,197 @@ pub fn clipboard_text() -> Option<String> {
         out
     }
 }
+
+// ------------------------------------------------------------------- the app switcher
+
+use crate::switcher::{Screen, SwitchItem};
+use catkey_core::switcher::Rect as SwRect;
+
+/// Where the pointer is, in screen pixels.
+pub fn pointer() -> Option<(f64, f64)> {
+    use windows_sys::Win32::Foundation::POINT;
+    use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
+    let mut p = POINT { x: 0, y: 0 };
+    (unsafe { GetCursorPos(&mut p) } != 0).then_some((p.x as f64, p.y as f64))
+}
+
+/// The screen under a point: all of it, the part the taskbar leaves free, and its scale.
+pub fn screen_at(x: f64, y: f64) -> Option<Screen> {
+    use windows_sys::Win32::Foundation::{POINT, RECT};
+    use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONULL};
+    use windows_sys::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
+    unsafe {
+        let m = MonitorFromPoint(POINT { x: x.round() as i32, y: y.round() as i32 }, MONITOR_DEFAULTTONULL);
+        if m.is_null() {
+            return None;
+        }
+        let mut mi: MONITORINFO = zeroed();
+        mi.cbSize = size_of::<MONITORINFO>() as u32;
+        if GetMonitorInfoW(m, &mut mi) == 0 {
+            return None;
+        }
+        let (mut dx, mut dy) = (96u32, 96u32);
+        let scale = if GetDpiForMonitor(m, MDT_EFFECTIVE_DPI, &mut dx, &mut dy) == 0 && dx > 0 { dx as f64 / 96.0 } else { 1.0 };
+        let r = |r: RECT| SwRect::new(r.left as f64, r.top as f64, (r.right - r.left) as f64, (r.bottom - r.top) as f64);
+        Some(Screen { full: r(mi.rcMonitor), work: r(mi.rcWork), scale })
+    }
+}
+
+unsafe fn class_name(hwnd: HWND) -> String {
+    use windows_sys::Win32::UI::WindowsAndMessaging::GetClassNameW;
+    let mut buf = [0u16; 128];
+    let n = GetClassNameW(hwnd, buf.as_mut_ptr(), buf.len() as i32);
+    String::from_utf16_lossy(&buf[..n.max(0) as usize])
+}
+
+unsafe fn title_of(hwnd: HWND) -> String {
+    let len = GetWindowTextLengthW(hwnd);
+    if len <= 0 {
+        return String::new();
+    }
+    let mut buf = vec![0u16; len as usize + 1];
+    GetWindowTextW(hwnd, buf.as_mut_ptr(), buf.len() as i32);
+    from_wide(&buf)
+}
+
+/// App names by program path ("Google Chrome"), read once: the switcher opens often.
+static APP_NAMES: Mutex<Option<std::collections::HashMap<String, String>>> = Mutex::new(None);
+
+fn app_name_of(path: &str, exe: &str) -> String {
+    if let Some(n) = APP_NAMES.lock().ok().and_then(|g| g.as_ref().and_then(|m| m.get(path).cloned())) {
+        return n;
+    }
+    let name = file_description(path)
+        .filter(|d| !d.trim().is_empty())
+        .unwrap_or_else(|| exe.trim_end_matches(".exe").to_string());
+    if let Ok(mut g) = APP_NAMES.lock() {
+        g.get_or_insert_with(Default::default).insert(path.to_string(), name.clone());
+    }
+    name
+}
+
+/// The windows you can switch to, front to back (the order Alt+Tab shows them in).
+pub fn switch_windows() -> Vec<SwitchItem> {
+    use windows_sys::Win32::Foundation::RECT;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowRect, IsIconic, WS_EX_APPWINDOW, WS_EX_NOACTIVATE};
+    let mut hwnds: Vec<usize> = Vec::new();
+    unsafe {
+        EnumWindows(Some(collect_windows), &mut hwnds as *mut _ as LPARAM);
+    }
+    let me = unsafe { GetCurrentProcessId() };
+    let front = unsafe { GetForegroundWindow() } as usize;
+    let mut out: Vec<SwitchItem> = Vec::new();
+    for h in hwnds {
+        let hwnd = h as HWND;
+        unsafe {
+            if IsWindowVisible(hwnd) == 0 {
+                continue;
+            }
+            let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE) as u32;
+            if ex & WS_EX_APPWINDOW == 0 && (ex & (WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE) != 0 || !GetWindow(hwnd, GW_OWNER).is_null()) {
+                continue;
+            }
+            // Windows on another desktop (and Store apps' hidden frames) are cloaked.
+            let mut cloaked: u32 = 0;
+            if DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED as u32, &mut cloaked as *mut _ as *mut c_void, 4) == 0 && cloaked != 0 {
+                continue;
+            }
+            let class = class_name(hwnd);
+            if matches!(
+                class.as_str(),
+                "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd" | "Windows.UI.Core.CoreWindow" | "XamlExplorerHostIslandWindow"
+            ) {
+                continue;
+            }
+            let min = IsIconic(hwnd) != 0;
+            if !min {
+                let mut r: RECT = zeroed();
+                if GetWindowRect(hwnd, &mut r) == 0 || r.right - r.left < 8 || r.bottom - r.top < 8 {
+                    continue;
+                }
+            }
+            let title = title_of(hwnd);
+            if title.trim().is_empty() {
+                continue;
+            }
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(hwnd, &mut pid);
+            if pid == me {
+                continue;
+            }
+            let (path, exe) = match process_path(pid) {
+                Some(p0) => {
+                    let exe0 = file_name_lower(&p0);
+                    let rp = real_pid(hwnd, pid, &exe0);
+                    let p = if rp != pid { process_path(rp).unwrap_or(p0) } else { p0 };
+                    let exe = file_name_lower(&p);
+                    (p, exe)
+                }
+                None => (String::new(), String::new()),
+            };
+            // A Store app that's asleep: only its frame is left, so it goes by its title.
+            let hosted = exe.is_empty() || exe == "applicationframehost.exe";
+            let app = if hosted { title.trim().to_string() } else { app_name_of(&path, &exe) };
+            out.push(SwitchItem {
+                id: h.to_string(),
+                title: title.trim().to_string(),
+                app,
+                exe: if hosted { String::new() } else { exe },
+                path: if hosted { String::new() } else { path },
+                front: h == front,
+                min,
+                can_close: true,
+            });
+        }
+    }
+    out
+}
+
+/// Bring a window to the front (back from the taskbar if it was minimised).
+pub fn switch_to(id: &str, _reopen: bool) -> bool {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_MOUSE};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        BringWindowToTop, GetForegroundWindow, IsIconic, IsWindow, SetForegroundWindow, ShowWindow, SW_RESTORE,
+    };
+    let Ok(h) = id.parse::<usize>() else { return false };
+    let hwnd = h as HWND;
+    unsafe {
+        if IsWindow(hwnd) == 0 {
+            return false;
+        }
+        if IsIconic(hwnd) != 0 {
+            ShowWindow(hwnd, SW_RESTORE);
+        }
+        // An empty mouse event first: Windows then lets us hand the front over.
+        let mut input: INPUT = zeroed();
+        input.r#type = INPUT_MOUSE;
+        SendInput(1, &input, size_of::<INPUT>() as i32);
+        SetForegroundWindow(hwnd);
+        BringWindowToTop(hwnd);
+        GetForegroundWindow() == hwnd
+    }
+}
+
+/// Ask a window to close (it can still ask to save first).
+pub fn switch_close(id: &str) -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{IsWindow, PostMessageW, WM_CLOSE};
+    let Ok(h) = id.parse::<usize>() else { return false };
+    let hwnd = h as HWND;
+    unsafe { IsWindow(hwnd) != 0 && PostMessageW(hwnd, WM_CLOSE, 0, 0) != 0 }
+}
+
+/// A window's own icon, for Store apps whose program has none (PNG data URL).
+pub fn window_icon(id: &str) -> Option<String> {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetClassLongPtrW, SendMessageTimeoutW, GCLP_HICON, ICON_BIG, SMTO_ABORTIFHUNG, WM_GETICON};
+    let hwnd = id.parse::<usize>().ok()? as HWND;
+    unsafe {
+        let mut res: usize = 0;
+        SendMessageTimeoutW(hwnd, WM_GETICON, ICON_BIG as usize, 0, SMTO_ABORTIFHUNG, 80, &mut res);
+        let icon = if res != 0 { res as HICON } else { GetClassLongPtrW(hwnd, GCLP_HICON) as HICON };
+        if icon.is_null() {
+            return None;
+        }
+        // The window owns this icon: don't destroy it.
+        hicon_to_png(icon).map(|b| format!("data:image/png;base64,{}", base64(&b)))
+    }
+}

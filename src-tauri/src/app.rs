@@ -157,6 +157,7 @@ pub fn apply_config(app: &AppHandle, cfg: Config) -> Result<Config, String> {
     crate::coach::set_settings(&cfg.settings);
     crate::dock::set_settings(&cfg.settings.dock);
     crate::paws::set_settings(&cfg.settings.paws);
+    crate::switcher::set_settings(&cfg.settings.switcher);
     if old.settings.purr_volume != cfg.settings.purr_volume {
         crate::purr::set_volume_only(cfg.settings.purr_volume);
         if crate::purr::is_on() {
@@ -300,6 +301,15 @@ struct RecordPayload {
     shortcut: Option<String>,
 }
 
+/// A shortcut that opens one of Cat Key's own tools ("catkey://switch").
+fn cat_tool(app: &AppHandle, tool: &str) {
+    match tool.trim().trim_end_matches('/').to_lowercase().as_str() {
+        "switch" | "switcher" => crate::switcher::from_shortcut(),
+        "window" | "open" | "" => show_main(app),
+        other => crate::log(&format!("no Cat Key tool called {other}")),
+    }
+}
+
 fn start_dispatcher(app: AppHandle, rx: Receiver<Effect>) {
     std::thread::Builder::new()
         .name("catkey-effects".into())
@@ -323,6 +333,11 @@ fn start_dispatcher(app: AppHandle, rx: Receiver<Effect>) {
                         }
                     }
                     Effect::Launch { target, args } => {
+                        // Cat Key's own tools, for shortcuts: catkey://switch …
+                        if let Some(tool) = target.strip_prefix("catkey://") {
+                            cat_tool(&app, tool);
+                            continue;
+                        }
                         if let Err(err) = win::launch(&target, &args) {
                             crate::log(&format!("open {target}: {err}"));
                             let _ = app.emit("ck://error", format!("Couldn't open {target}: {err}"));
@@ -496,6 +511,12 @@ pub fn run(args: Vec<String>) {
             crate::dock::walk_test,
             crate::paws::paws_try,
             crate::paws::paws_colors,
+            crate::switcher::switch_state,
+            crate::switcher::switch_ready,
+            crate::switcher::switch_to,
+            crate::switcher::switch_close_window,
+            crate::switcher::switch_hide,
+            crate::switcher::switch_try,
         ])
         .setup(move |app| {
             if second {
@@ -513,6 +534,7 @@ pub fn run(args: Vec<String>) {
             }
             crate::dock::start(&handle, handle.state::<AppState>().dir.clone(), &dock_settings);
             crate::paws::start(&handle, &coach_settings.paws);
+            crate::switcher::start(&handle, &coach_settings.switcher);
             if dock_test {
                 let h = handle.clone();
                 std::thread::spawn(move || {
@@ -524,6 +546,9 @@ pub fn run(args: Vec<String>) {
                     crate::paws::set_settings(&catkey_core::config::PawSettings { on: true, cursor: true, colors: Vec::new() });
                     crate::paws::paws_try();
                     crate::log("dock: test paws tried");
+                    // And the app switcher: the list of windows, and its panel once.
+                    std::thread::sleep(Duration::from_secs(1));
+                    crate::switcher::self_test(&h);
                 });
             }
             let saver = handle.clone();

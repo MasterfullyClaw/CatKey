@@ -1070,3 +1070,26 @@ select.field { padding: 0 10px; }
 .soon-foot { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 20px; border: 1.5px dashed color-mix(in srgb, var(--ac) 45%, var(--line)); background: var(--acs); }
 .soon-foot .hint { margin: 0; }
 .soon-foot .row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ---- the app switcher: Cat Key tools in "Open app", and where the pointer rests */
+.letter.cattool { display: inline-flex; align-items: center; justify-content: center; background: var(--acs) !important; color: var(--act); }
+.letter.cattool svg.i { width: 62%; height: 62%; }
+.app-tile[aria-pressed="true"] { border-color: var(--ac); background: var(--acs); }
+.spot-row { display: flex; gap: 12px; align-items: center; padding: 10px 0 2px; }
+.spot-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.spot-side b { font-weight: 800; }
+.spot-side .hint { font-size: 12.5px; line-height: 1.35; }
+.spot-side .seg { align-self: flex-start; }
+.spot-side .seg button { height: 30px; padding: 0 8px; font-size: 12.5px; white-space: nowrap; }
+.spotpick { position: relative; flex: none; width: 182px; height: 116px; margin-left: 2px; }
+.spotpick .sp-screen { position: absolute; inset: 12px; border-radius: 10px; border: 2px solid var(--line); background: linear-gradient(160deg, var(--s1), var(--s2)); overflow: hidden; }
+.spotpick .sp-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 9px; background: var(--s3); }
+.spotpick.mac .sp-bar { top: 0; bottom: auto; height: 7px; }
+.sp-dot { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; padding: 0; border-radius: 11px; border: 2px solid var(--line); background: var(--bg);
+  color: var(--aci); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .2s cubic-bezier(.34,1.56,.64,1), border-color .15s, background .15s; }
+.sp-dot:hover { border-color: var(--ac); transform: scale(1.12); }
+.sp-dot[aria-checked="true"] { background: var(--ac); border-color: var(--ac); transform: scale(1.15); box-shadow: 0 0 0 4px var(--acs); }
+.sp-dot svg.i { width: 13px; height: 13px; }
+.sp-top-left { left: 14px; top: 14px; } .sp-top { left: 50%; top: 14px; } .sp-top-right { left: calc(100% - 14px); top: 14px; }
+.sp-left { left: 14px; top: 50%; } .sp-right { left: calc(100% - 14px); top: 50%; }
+.sp-bottom-left { left: 14px; top: calc(100% - 14px); } .sp-bottom-right { left: calc(100% - 14px); top: calc(100% - 14px); }

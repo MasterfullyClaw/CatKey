@@ -1,13 +1,13 @@
-## Cat Key 1.6.0: paws everywhere, and what's coming
+## Cat Key 1.7.0: the app switcher
 
 **⬇ [Download for Windows](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe)** or the [portable exe](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-portable-x64.exe) · **[Download for Mac](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-mac.dmg)** (Apple Silicon and Intel, macOS 11+).
 
-### Paws (Settings → Paws, off unless you want them)
-- **Paw prints where you click:** a little print in your cat's colours appears beside the pointer, never on what you clicked, and fades at once. Drag to select and the cat steps along; scroll and tiny steps go up or down. Clicks go straight through, nothing takes the keyboard, and it stays out of games and films.
-- **Cat-paw pointer (Windows):** your pointer becomes an arrow in your cat's fur with a paw print, with a soft halo so it shows on dark screens too. Your own pointer comes back the moment you turn it off or quit Cat Key, and on the next start if anything went wrong.
-- Every cat has its own paws: they follow the cat you pick, custom cats included.
-
-### Coming soon
-- A new **Coming soon** page (top bar) with the gadgets on the drawing board: **Cat Keycaps**, a Bluetooth pad with a tiny screen in every key that changes with the app you're in, and the **Cat Desk Companion**, a little cat for your desk with a screen for a face that purrs, naps and keeps your focus timer.
+### App switcher (Settings → App switcher, off unless you want it)
+- **Rest the pointer in a corner** and a little cat panel of your open windows pops up right there, newest first. Click one to jump to it (minimised ones come back too), middle-click or × to close it. Move away and it's gone. It never takes the keyboard, so you can carry on typing.
+- **Pick the spot:** any corner, or the middle of the top, left or right edge. The panel opens a little way in, so whatever lives in that very corner (Start, Show desktop, a close button, the Apple menu) still works with a quick click: the switcher only opens when the pointer rests there. Choose how long it rests first: Instant, Quick, Calm or Slow.
+- **On a shortcut:** make a shortcut that opens **App switcher** (Open app → Cat Key tools). Then it takes the keyboard: the arrows and Enter, the numbers 1 to 9, or type a few letters to find a window. Esc puts it away. It starts on the window you used before this one, so the shortcut then Enter flips back, like Alt+Tab.
+- It stays out of games and films running full screen, and windows on other desktops stay out of the list.
+- **On a Mac** it lists your apps, front to back, like ⌘Tab. Click one to bring it to the front (hidden ones and ones with no window open come back too); × quits it.
+- Mac app icons now show everywhere in Cat Key (they were letters before).
 
 **Mac, first open:** Cat Key isn't notarized by Apple yet. Open it once, then System Settings → Privacy & Security → **Open Anyway**. If that goes round in circles, paste this into Terminal: `xattr -dr com.apple.quarantine "/Applications/Cat Key.app" && open "/Applications/Cat Key.app"`.

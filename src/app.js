@@ -147,6 +147,7 @@ const MAC_APP_NAMES = {
 const appNames = new Map([...Object.entries(KNOWN_APPS), ...Object.entries(MAC_APP_NAMES)]);
 function appName(exeOrPath) {
   if (!exeOrPath) return '';
+  if (CAT_TOOLS[exeOrPath.toLowerCase()]) return CAT_TOOLS[exeOrPath.toLowerCase()].name;
   if (/^[a-z]+:\/\//i.test(exeOrPath)) return exeOrPath.replace(/^https?:\/\//i, '').replace(/\/$/, '');
   const file = exeOrPath.split(/[\\/]/).pop().toLowerCase();
   if (appNames.has(file)) return appNames.get(file);
@@ -170,6 +171,7 @@ const iconCache = new Map();
 function appIcon(key, cls = 'appico') {
   if (!key) return h('span', { class: `${cls} letter`, style: { background: '#777' }, text: '?' });
   const k = key.toLowerCase();
+  if (k.startsWith('catkey://')) return h('span', { class: `${cls} letter cattool`, html: icon('paw') });
   const url = iconCache.get(k);
   if (url) return h('img', { class: cls, src: url, alt: '' });
   const isUrl = /^[a-z]+:\/\//i.test(key);
@@ -362,6 +364,44 @@ function setPaws(patch) {
   const paws = { on: false, cursor: false, ...(S.config.settings.paws || {}), ...patch, colors: pawColors() };
   return commitSettings({ paws });
 }
+
+// ------------------------------------------------------------------ the app switcher
+
+const SPOTS = [
+  ['top-left', 'Top-left corner'], ['top', 'Middle of the top edge'], ['top-right', 'Top-right corner'],
+  ['left', 'Middle of the left edge'], ['right', 'Middle of the right edge'],
+  ['bottom-left', 'Bottom-left corner'], ['bottom-right', 'Bottom-right corner'],
+];
+const switcherNow = () => ({ on: false, spot: 'top-left', delayMs: 150, ...(S.config.settings.switcher || {}) });
+function setSwitcher(patch) {
+  return commitSettings({ switcher: { ...switcherNow(), ...patch } });
+}
+/** What's already in that spot, so nobody is surprised. */
+function spotNote(spot, mac) {
+  const notes = mac
+    ? { 'top-left': 'The Apple menu stays clickable: the panel opens just below it.', top: 'Rest in the middle of the menu bar.',
+      'top-right': 'Your menu bar icons stay clickable: it waits for the pointer to rest.', left: 'Rest on the middle of the left edge.',
+      right: 'Rest on the middle of the right edge.', 'bottom-left': 'Rest in the corner by the Dock.', 'bottom-right': 'Rest in the corner by the Dock.' }
+    : { 'top-left': 'A quiet corner: nothing much lives there.', top: 'Rest on the middle of the top edge.',
+      'top-right': 'Close buttons live there: a quick click still closes, it only opens when the pointer rests.',
+      left: 'Rest on the middle of the left edge.', right: 'Rest on the middle of the right edge.',
+      'bottom-left': 'Start lives there: a quick click still opens Start.', 'bottom-right': 'Show desktop lives there: a quick click still works.' };
+  return notes[spot] || '';
+}
+function spotPicker(cur, mac, onPick) {
+  const box = h('div', { class: `spotpick${mac ? ' mac' : ''}`, role: 'radiogroup', 'aria-label': 'Where the pointer rests' },
+    h('span', { class: 'sp-screen', 'aria-hidden': 'true' }, h('span', { class: 'sp-bar' })));
+  for (const [id, label] of SPOTS) {
+    box.append(h('button', { type: 'button', class: `sp-dot sp-${id}`, role: 'radio', 'aria-checked': String(cur === id), title: label, 'aria-label': label,
+      html: cur === id ? icon('paw') : '', onclick: () => onPick(id) }));
+  }
+  return box;
+}
+
+/** Cat Key's own tools, for a shortcut's "Open app". */
+const CAT_TOOLS = {
+  'catkey://switch': { name: 'App switcher', sub: 'Your open windows, with the keys' },
+};
 
 /** The Cat Dock and the cat walk dress like the app: the same cat, theme and sounds. */
 function shareUi(dark, skin) {
@@ -1411,7 +1451,7 @@ function renderPanel() {
       picked.textContent = '';
       if (a.target) {
         picked.append(h('span', { class: 'appbig' }, appIcon(a.target, 'appbig-img')),
-          h('span', { class: 'who' }, h('b', { text: appName(a.target) }), h('span', { text: a.target })));
+          h('span', { class: 'who' }, h('b', { text: appName(a.target) }), h('span', { text: CAT_TOOLS[a.target.toLowerCase()]?.sub || a.target })));
       } else {
         picked.append(h('span', { class: 'appbig', html: icon('launch') }),
           h('span', { class: 'who' }, h('b', { text: 'Nothing picked yet' }), h('span', { text: 'Pick a running app, browse, or paste a link below.' })));
@@ -1426,7 +1466,11 @@ function renderPanel() {
     const setTarget = (t) => { a.target = t; E.mem.launch.target = t; E.err.launch = null; targetInput.value = t; fillPicked(); renderNotes(); $('#ed-name').placeholder = autoName(E.d); };
     fillPicked();
     const grid = h('div', { class: 'apps-grid' }, h('span', { class: 'hint', text: 'Looking around…' }));
+    const tools = h('div', { class: 'apps-grid' }, ...Object.entries(CAT_TOOLS).map(([t, tool]) =>
+      h('button', { class: 'app-tile', type: 'button', title: tool.sub, 'aria-pressed': String(a.target === t), onclick: () => setTarget(t) },
+        appIcon(t, 'letter-or-img'), h('span', { class: 'nm', text: tool.name }))));
     panel.append(picked, h('div', { class: 'hint', style: { fontWeight: '800' }, text: 'Running now' }), grid,
+      h('div', { class: 'hint', style: { fontWeight: '800' }, text: 'Cat Key tools' }), tools,
       h('label', { class: 'label' }, 'Program, file, folder or link', targetInput),
       h('label', { class: 'label' }, h('span', {}, 'Open with ', h('span', { class: 'opt', text: '(optional)' })),
         h('input', { class: 'field', type: 'text', placeholder: 'Extra arguments, e.g. a folder path', value: a.args || '', oninput: (e) => { a.args = e.target.value; E.mem.launch.args = a.args; } })));
@@ -1935,6 +1979,22 @@ function renderSettings() {
           ...SOUND_PART_TEXT.filter(([id]) => !(mac && id === 'tips')).map(([id, title, desc]) => settingRow(title, desc,
             switchEl(soundParts()[id], title, () => { const on = !soundParts()[id]; setSoundPart(id, on); if (on && s.sounds) previewSound(id); })))),
         settingRow('Purr volume', 'For the background purr (the paw button at the top, or the tray menu).', purrVol)),
+      h('section', { style: { gap: '0' } }, h('h2', { text: 'App switcher', style: { marginBottom: '4px' } }),
+        settingRow(mac ? 'Rest in a corner to switch apps' : 'Rest in a corner to switch windows',
+          mac ? `Rest the pointer in a corner and ${cat()} shows your open apps right there. Click one to bring it to the front. Move away and it goes. It never takes the keyboard.`
+            : `Rest the pointer in a corner and ${cat()} shows your open windows right there, newest first. Click one to jump to it, middle-click to close it. Move away and it goes. It never takes the keyboard.`,
+          switchEl(!!switcherNow().on, 'App switcher', () => setSwitcher({ on: !switcherNow().on }).then(() => { if (switcherNow().on) toast(`Rest the pointer in the ${SPOTS.find(([v]) => v === switcherNow().spot)?.[1].toLowerCase() || 'corner'}.`); }))),
+        h('div', { class: 'spot-row' },
+          spotPicker(switcherNow().spot, mac, (spot) => setSwitcher({ spot })),
+          h('div', { class: 'spot-side' },
+            h('b', { text: SPOTS.find(([v]) => v === switcherNow().spot)?.[1] || 'Top-left corner' }),
+            h('span', { class: 'hint', text: spotNote(switcherNow().spot, mac) }),
+            h('div', { class: 'seg soft', role: 'group', 'aria-label': 'How long the pointer rests first' },
+              ...[[0, 'Instant'], [150, 'Quick'], [300, 'Calm'], [600, 'Slow']].map(([v, l]) => h('button', { type: 'button', 'aria-pressed': String((switcherNow().delayMs ?? 150) === v), text: l,
+                title: v ? `Opens after the pointer rests for ${v / 1000} s` : 'Opens as soon as the pointer gets there', onclick: () => setSwitcher({ delayMs: v }) }))))),
+        h('div', { class: 'row-between', style: { paddingTop: '10px' } },
+          h('button', { class: 'btn small', type: 'button', html: `${icon('paw')}<span>Try it</span>`, onclick: () => invoke('switch_try').catch((e) => toast(String(e), { kind: 'warn' })) }),
+          h('span', { class: 'hint', text: 'Want it on a key? Make a shortcut that opens “App switcher”.' }))),
       h('section', { style: { gap: '0' } }, h('h2', { text: 'Paws', style: { marginBottom: '4px' } }),
         settingRow('Paw prints where I click', `A little paw print in ${cat()}’s colours appears beside the pointer when you click, steps along when you drag, and fades at once. Clicks go straight through it, and it stays out of games and films.`,
           switchEl(!!s.paws?.on, 'Paw prints where I click', () => setPaws({ on: !s.paws?.on }).then(() => { if (!s.paws?.on) invoke('paws_try').catch(() => {}); }))),

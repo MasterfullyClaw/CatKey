@@ -124,6 +124,37 @@ pub struct Settings {
     /// Paw prints where you click, and the cat-paw pointer.
     #[serde(default)]
     pub paws: PawSettings,
+    /// The app switcher: rest the pointer in a corner and your open windows show up.
+    #[serde(default)]
+    pub switcher: SwitcherSettings,
+}
+
+/// The app switcher (off unless chosen).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SwitcherSettings {
+    #[serde(default)]
+    pub on: bool,
+    /// Where the pointer rests to open it: "top-left", "top", "top-right", "left", "right",
+    /// "bottom-left" or "bottom-right".
+    #[serde(default = "default_spot")]
+    pub spot: String,
+    /// How long it rests there first, in milliseconds.
+    #[serde(default = "default_switch_delay")]
+    pub delay_ms: u32,
+}
+
+fn default_spot() -> String {
+    "top-left".into()
+}
+fn default_switch_delay() -> u32 {
+    150
+}
+
+impl Default for SwitcherSettings {
+    fn default() -> Self {
+        SwitcherSettings { on: false, spot: default_spot(), delay_ms: default_switch_delay() }
+    }
 }
 
 /// Paw prints and the paw pointer (both off unless chosen).
@@ -259,6 +290,7 @@ impl Default for Settings {
             sound_parts: Default::default(),
             dock: DockSettings::default(),
             paws: PawSettings::default(),
+            switcher: SwitcherSettings::default(),
         }
     }
 }

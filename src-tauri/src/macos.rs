@@ -141,10 +141,72 @@ pub fn file_description(path: &str) -> Option<String> {
     })
 }
 
-/// App icons come later on the Mac; the window draws a letter instead.
-pub fn icon_data_url(_path: &str) -> Option<String> {
-    None
+fn base64(data: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
+    for chunk in data.chunks(3) {
+        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+        let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
+        out.push(T[(n >> 18) as usize & 63] as char);
+        out.push(T[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { T[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { T[n as usize & 63] as char } else { '=' });
+    }
+    out
 }
+
+#[repr(C)]
+struct DispatchQueue {
+    _private: [u8; 0],
+}
+
+extern "C" {
+    static _dispatch_main_q: DispatchQueue;
+    fn dispatch_sync_f(queue: *const DispatchQueue, context: *mut std::ffi::c_void, work: extern "C" fn(*mut std::ffi::c_void));
+}
+
+/// Run `f` on the main thread (where AppKit wants its drawing) and wait for it.
+fn on_main<F: FnOnce() -> R + Send, R: Send>(f: F) -> R {
+    if unsafe { libc::pthread_main_np() } == 1 {
+        return f();
+    }
+    extern "C" fn work<F: FnOnce() -> R, R>(ctx: *mut std::ffi::c_void) {
+        let slot = unsafe { &mut *(ctx as *mut (Option<F>, Option<R>)) };
+        if let Some(f) = slot.0.take() {
+            slot.1 = Some(f());
+        }
+    }
+    let mut slot: (Option<F>, Option<R>) = (Some(f), None);
+    unsafe {
+        dispatch_sync_f(&_dispatch_main_q, &mut slot as *mut _ as *mut std::ffi::c_void, work::<F, R>);
+    }
+    slot.1.expect("ran on the main thread")
+}
+
+/// An app's (or any file's) icon as a small PNG data URL.
+pub fn icon_data_url(path: &str) -> Option<String> {
+    let path = path.trim().to_string();
+    if path.is_empty() || path.contains("://") || !Path::new(&path).exists() {
+        return None;
+    }
+    on_main(move || icon_now(&path))
+}
+
+fn icon_now(path: &str) -> Option<String> {
+    use objc2::AnyThread;
+    use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep};
+    use objc2_foundation::{NSDictionary, NSPoint, NSRect, NSSize};
+    autoreleasepool(|_| unsafe {
+        let image = NSWorkspace::sharedWorkspace().iconForFile(&ns(path));
+        let mut rect = NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(64.0, 64.0));
+        let cg = image.CGImageForProposedRect_context_hints(&mut rect, None, None)?;
+        let rep = NSBitmapImageRep::initWithCGImage(NSBitmapImageRep::alloc(), &cg);
+        let data = rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new())?;
+        Some(format!("data:image/png;base64,{}", base64(&data.to_vec())))
+    })
+}
+
+pub use crate::mac_switch::{pointer, screen_at, switch_close, switch_to, switch_windows, window_icon};
 
 // ---------------------------------------------------------------- opening things
 

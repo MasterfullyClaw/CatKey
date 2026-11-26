@@ -15,8 +15,11 @@ mod mac_paws;
 #[cfg(windows)]
 mod paw_cursor;
 mod paws;
+mod switcher;
 mod tray;
 mod vitals;
+#[cfg(target_os = "macos")]
+mod mac_switch;
 
 #[cfg(windows)]
 mod coach;

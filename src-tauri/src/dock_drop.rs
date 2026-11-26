@@ -162,3 +162,14 @@ pub fn no_activate(w: &tauri::WebviewWindow) {
         }
     }
 }
+
+/// A window that stays out of Alt+Tab and the taskbar but still takes clicks (the switcher).
+pub fn tool_window(w: &tauri::WebviewWindow) {
+    if let Ok(h) = w.hwnd() {
+        let hwnd = HWND(h.0);
+        unsafe {
+            let ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+            SetWindowLongPtrW(hwnd, GWL_EXSTYLE, ex | WS_EX_TOOLWINDOW.0 as isize);
+        }
+    }
+}
