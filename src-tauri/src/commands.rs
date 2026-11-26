@@ -562,3 +562,150 @@ pub fn purr_set(app: AppHandle, on: bool) -> bool {
 pub fn purr_state() -> bool {
     crate::purr::is_on()
 }
+
+// ---------------------------------------------------------------- your data folder and backups
+
+/// What a backup holds: everything Cat Key keeps about you, all plain JSON.
+const DATA_FILES: &[&str] = &["config.json", "progress.json", "coach.json", "stats.json", "coach-dict.json"];
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataFile {
+    name: String,
+    bytes: u64,
+    /// Last saved, seconds since 1970.
+    modified: u64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DataInfo {
+    folder: String,
+    files: Vec<DataFile>,
+}
+
+fn flush_everything(app: &AppHandle) {
+    app::save_stats(app);
+    crate::coach::flush(true);
+}
+
+/// The data folder and what's in it (saved first, so the sizes and times are current).
+#[tauri::command]
+pub fn data_info(app: AppHandle, state: State<AppState>) -> DataInfo {
+    flush_everything(&app);
+    let mut files = Vec::new();
+    if let Ok(rd) = std::fs::read_dir(&state.dir) {
+        for e in rd.flatten() {
+            let Ok(meta) = e.metadata() else { continue };
+            if !meta.is_file() {
+                continue;
+            }
+            let name = e.file_name().to_string_lossy().to_string();
+            if name.ends_with(".tmp") || name == "restored.flag" {
+                continue;
+            }
+            let modified = meta.modified().ok().and_then(|m| m.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs()).unwrap_or(0);
+            files.push(DataFile { name, bytes: meta.len(), modified });
+        }
+    }
+    files.sort_by_key(|f| DATA_FILES.iter().position(|n| *n == f.name).unwrap_or(99));
+    DataInfo { folder: state.dir.to_string_lossy().to_string(), files }
+}
+
+/// Open the data folder in File Explorer.
+#[tauri::command]
+pub fn open_data_folder(app: AppHandle, state: State<AppState>) -> Result<(), String> {
+    flush_everything(&app);
+    let _ = std::fs::create_dir_all(&state.dir);
+    win::launch(&state.dir.to_string_lossy(), "")
+}
+
+/// The window's own records (training, typing, friends, rank), kept in the data
+/// folder beside the config, so that one folder holds everything.
+#[tauri::command]
+pub fn save_progress(state: State<AppState>, text: String) -> Result<(), String> {
+    if app::NO_SAVE.load(std::sync::atomic::Ordering::SeqCst) {
+        return Ok(());
+    }
+    if text.len() > 16 * 1024 * 1024 {
+        return Err("progress too large".into());
+    }
+    app::write_atomic(&state.dir.join("progress.json"), &text)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Progress {
+    text: String,
+    /// It came back from a backup: the window should take it as it is.
+    restored: bool,
+}
+
+#[tauri::command]
+pub fn load_progress(state: State<AppState>) -> Option<Progress> {
+    let flag = state.dir.join("restored.flag");
+    let restored = flag.exists();
+    if restored {
+        let _ = std::fs::remove_file(&flag);
+    }
+    std::fs::read_to_string(state.dir.join("progress.json")).ok().map(|text| Progress { text, restored })
+}
+
+fn copy_data(from: &std::path::Path, to: &std::path::Path) -> Result<usize, String> {
+    std::fs::create_dir_all(to).map_err(|e| e.to_string())?;
+    let mut n = 0;
+    for f in DATA_FILES {
+        let src = from.join(f);
+        if src.is_file() {
+            std::fs::copy(&src, to.join(f)).map_err(|e| format!("{f}: {e}"))?;
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
+/// Copy everything into a new dated folder where the user picks. Returns that folder.
+#[tauri::command]
+pub async fn backup_now(app: AppHandle) -> Result<Option<String>, String> {
+    flush_everything(&app);
+    let Some(picked) = app.dialog().file().set_title("Where should the backup go?").blocking_pick_folder() else {
+        return Ok(None);
+    };
+    let root = picked.into_path().map_err(|e| e.to_string())?;
+    let dest = root.join(format!("Cat Key backup {}", win::local_stamp()));
+    let dir = app.state::<AppState>().dir.clone();
+    copy_data(&dir, &dest)?;
+    let _ = std::fs::write(
+        dest.join("README.txt"),
+        "This is a Cat Key backup: your shortcuts, templates, packs, settings, your cat, training and typing progress, friends and stats.\r\n\r\nTo bring it back: Cat Key > Settings > Your data and backups > Restore from a backup, then pick this folder.\r\n",
+    );
+    Ok(Some(dest.to_string_lossy().to_string()))
+}
+
+/// Bring a backup back. What's there now is kept in "Before restore" first. The
+/// window then restarts Cat Key, which loads the restored files.
+#[tauri::command]
+pub async fn restore_backup(app: AppHandle) -> Result<bool, String> {
+    let Some(picked) = app.dialog().file().set_title("Pick a Cat Key backup folder").blocking_pick_folder() else {
+        return Ok(false);
+    };
+    let src = picked.into_path().map_err(|e| e.to_string())?;
+    let text = std::fs::read_to_string(src.join("config.json"))
+        .map_err(|_| "That folder isn't a Cat Key backup (there's no config.json in it).".to_string())?;
+    serde_json::from_str::<Config>(&text).map_err(|e| format!("The backup's config.json can't be read ({e})."))?;
+    flush_everything(&app);
+    let dir = app.state::<AppState>().dir.clone();
+    copy_data(&dir, &dir.join("Before restore").join(win::local_stamp()))?;
+    app::NO_SAVE.store(true, std::sync::atomic::Ordering::SeqCst);
+    for f in DATA_FILES {
+        let from = src.join(f);
+        let to = dir.join(f);
+        if from.is_file() {
+            std::fs::copy(&from, &to).map_err(|e| format!("{f}: {e}"))?;
+        } else if *f != "config.json" {
+            let _ = std::fs::remove_file(&to); // not in the backup: start that part fresh
+        }
+    }
+    let _ = std::fs::write(dir.join("restored.flag"), "1");
+    Ok(true)
+}

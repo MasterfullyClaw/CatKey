@@ -1,4 +1,4 @@
-## Cat Key 1.2.0: Cat Warrior
+## Cat Key 1.2.1: Cat Warrior
 
 **⬇ [Download for Windows](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe)**, or the [portable exe](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-portable-x64.exe).
 
@@ -14,3 +14,4 @@ Cat Key is now the all-in-one shortcut manager: every shortcut of every app in o
 - **Train any set:** Your shortcuts and every template can be trained, next to the library packs. Packs made with AI can carry their own little animated demos.
 - **The store:** post a pack from Cat Key and it shows with your GitHub name. People ❤️ it and the most loved rise to the top. Built-in packs say "Comes with Cat Key".
 - **Make your own with AI** is everywhere now, with a confirm step before ChatGPT or Claude opens.
+- **Your data folder, one place for everything (1.2.1):** Settings → *Your data and backups* shows the folder with all of it (shortcuts, settings, your cat, training, typing, friends, stats), what each file holds, and buttons to open the folder, back it up and restore a backup. Training and typing progress are now saved in that folder too, so copying it really is a full backup.

@@ -269,6 +269,9 @@ pub fn flush(force: bool) {
         s.clone()
     };
     LAST_SAVE.store(ticks(), Ordering::Relaxed);
+    if crate::app::NO_SAVE.load(Ordering::SeqCst) {
+        return;
+    }
     let dir = DIR.lock().ok().and_then(|d| d.clone());
     if let (Some(dir), Ok(text)) = (dir, serde_json::to_string(&snapshot)) {
         let tmp = dir.join("coach.tmp");

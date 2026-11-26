@@ -231,6 +231,7 @@ async function boot() {
   S.stats = st.stats || S.stats;
   S.templates = st.templates || [];
   setSoundsEnabled(S.config.settings.sounds);
+  await restoreProgress();
   const newTab = st.upgraded && rules().find((r) => r.trigger === 'LAlt+T' && r.action.keys === 'LCtrl+T');
   if (newTab) markFresh(newTab.id);
 
@@ -1769,7 +1770,8 @@ function renderSettings() {
             renderAll();
             toast('Starter shortcuts are back.');
           } })),
-        h('p', { class: 'hint', style: { margin: '2px 0 0' } }, 'Everything is saved in ', h('b', { text: S.status.configDir || '%APPDATA%\\CatKey' }), '.'))),
+        h('p', { class: 'hint', style: { margin: '2px 0 0' } }, 'Moving to another PC or a Mac? “Export my setup” makes one file with your shortcuts, templates, packs and settings.')),
+      dataSection()),
     h('div', { class: 'drawer-foot' },
       h('span', {}, `Cat Key ${S.status.version || ''} · `, h('button', { class: 'link', type: 'button', text: 'MasterfullyClaw/CatKey', onclick: () => invoke('open_link', { url: 'https://github.com/MasterfullyClaw/CatKey' }) })),
       h('button', { class: 'btn small', type: 'button', text: 'Quit Cat Key', onclick: async () => {
@@ -2858,7 +2860,7 @@ const today = () => new Date().toLocaleDateString('en-CA');
 function trainDb() {
   try { const d = JSON.parse(localStorage.getItem(TRAIN_KEY) || '{}'); return { items: d.items || {}, days: d.days || {}, sessions: d.sessions || [], track: d.track !== false }; } catch { return { items: {}, days: {}, sessions: [], track: true }; }
 }
-function trainSave(db) { try { localStorage.setItem(TRAIN_KEY, JSON.stringify(db)); } catch { /* storage full or private: progress just isn't kept */ } }
+function trainSave(db) { try { localStorage.setItem(TRAIN_KEY, JSON.stringify(db)); } catch { /* storage full or private: progress just isn't kept */ } scheduleProgress(); }
 try { TR.sound = localStorage.getItem('catkey.train.sound') !== '0'; } catch { /* default on */ }
 setTrainSounds(TR.sound);
 
@@ -3655,6 +3657,9 @@ async function renderWarrior() {
   box.append(boardsEl());
 
   // ---- how it's counted
+  box.append(h('p', { class: 'hint wr-data' }, `Your cat, rank, training and stats are saved in your data folder. `,
+    h('button', { class: 'link', type: 'button', text: 'Open it', onclick: openDataFolder }), ' · ',
+    h('button', { class: 'link', type: 'button', text: 'Back it up…', onclick: backupNow })));
   box.append(h('details', { class: 'wr-how' }, h('summary', { text: 'How the time and XP are counted' }),
     h('p', { text: `Time comes from the Keystroke-Level Model (Card, Moran and Newell), the classic way to time computer tasks: reaching for the mouse takes about 0.4 s each way, pointing about 1.1 s and a click 0.2 s, while a shortcut is two or three key presses at about 0.2 s each. So every shortcut you use counts as ${(t.perShortcut / 1000).toFixed(1)} s saved (as if it replaced one button: the cautious end), and every trip the coach catches counts what it cost: about 1.6 s for a button, 2.9 s for a menu.` }),
     h('p', { text: 'Only shortcuts with Ctrl, Alt or Win are counted (not typing), and only the count per app is kept: never which keys, never any text.' }),
@@ -3743,6 +3748,7 @@ async function addFriend() {
   const list = friends().filter((f) => f.name !== card.name);
   list.push(card);
   try { localStorage.setItem(FRIENDS_KEY, JSON.stringify(list.slice(-50))); } catch { /* fine */ }
+  scheduleProgress();
   toast(`${card.name} joined your board.`);
   renderWarrior();
 }
@@ -3985,7 +3991,7 @@ const TY = { on: false, line: '', pos: 0, wrongAt: -1, lineStart: 0, last: 0, ri
 function tyDb() {
   try { const d = JSON.parse(localStorage.getItem(TY_KEY) || '{}'); return { open: Math.max(TY_START, d.open || TY_START), keys: d.keys || {}, best: d.best || 0, peek: d.peek !== false }; } catch { return { open: TY_START, keys: {}, best: 0, peek: true }; }
 }
-function tySave(db) { try { localStorage.setItem(TY_KEY, JSON.stringify(db)); } catch { /* fine */ } }
+function tySave(db) { try { localStorage.setItem(TY_KEY, JSON.stringify(db)); } catch { /* fine */ } scheduleProgress(); }
 const tyLetters = (db = tyDb()) => TY_ORDER.slice(0, db.open);
 
 function tyWeakest(db = tyDb()) {
@@ -4151,4 +4157,105 @@ function renderTyping(fresh = false) {
   if (!TY.peek) kb.append(h('div', { class: 'ty-cover' }, h('span', { text: `🐾 No peeking: ${cat()} is lying on it.` })));
   const inp = $('#ty-input');
   if (inp && document.activeElement !== inp) inp.focus({ preventScroll: true });
+}
+
+// ------------------------------------------------------------------ your data folder: everything in one place, easy to back up
+//
+// config.json, stats and the coach's counts are written by Rust. What the window keeps
+// itself (training, typing, friends, rank) is mirrored to progress.json beside them, so
+// the one folder really holds everything, and a backup of it brings everything back.
+
+const PROGRESS_AT = 'catkey.progress.at';
+let progressTimer = 0;
+const readLS = (k) => { try { const v = localStorage.getItem(k); return v == null ? null : JSON.parse(v); } catch { return null; } };
+
+function progressData() {
+  return { format: 'catkey-progress', version: 1, savedAt: Date.now(), train: readLS(TRAIN_KEY), typing: readLS(TY_KEY), friends: readLS(FRIENDS_KEY),
+    rank: readLS('catkey.rank'), trainSound: readLS('catkey.train.sound') };
+}
+function scheduleProgress() {
+  clearTimeout(progressTimer);
+  progressTimer = setTimeout(() => {
+    const d = progressData();
+    invoke('save_progress', { text: JSON.stringify(d) }).then(() => { try { localStorage.setItem(PROGRESS_AT, String(d.savedAt)); } catch { /* fine */ } }).catch(() => {});
+  }, 2500);
+}
+/** On start: take progress.json when it came back from a backup, or is newer than what this window has. */
+async function restoreProgress() {
+  const p = await invoke('load_progress').catch(() => null);
+  let d = null;
+  try { d = p?.text ? JSON.parse(p.text) : null; } catch { d = null; }
+  if (!d || d.format !== 'catkey-progress') { scheduleProgress(); return; }
+  const localAt = Number(readLS(PROGRESS_AT) || 0);
+  if (!p.restored && (d.savedAt || 0) <= localAt) return;
+  const put = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch { /* fine */ } };
+  put(TRAIN_KEY, d.train);
+  put(TY_KEY, d.typing);
+  put(FRIENDS_KEY, d.friends);
+  put('catkey.rank', d.rank);
+  if (d.trainSound != null) put('catkey.train.sound', d.trainSound);
+  put(PROGRESS_AT, d.savedAt || Date.now());
+  TR.sound = readLS('catkey.train.sound') !== 0;
+  if (p.restored) setTimeout(() => toast('Your backup is back: shortcuts, your cat, training, typing and stats.', { ms: 8000 }), 800);
+}
+
+const DATA_ABOUT = {
+  'config.json': 'Your shortcuts, templates, packs, settings and your cat',
+  'progress.json': 'Training, typing, friends and your rank',
+  'coach.json': 'Shortcuts used and time saved or lost, per app',
+  'stats.json': 'How often each of your shortcuts fired',
+  'coach-dict.json': 'What apps call their commands (rebuilt by itself)',
+  'catkey.log': 'A short log, for troubleshooting',
+  'config.broken.json': 'A damaged settings file Cat Key set aside',
+};
+const fmtBytes = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} B`);
+
+function dataSection() {
+  const list = h('div', { class: 'datafiles' }, h('p', { class: 'hint', text: 'Reading the folder…' }));
+  const path = h('code', { class: 'datapath-text', text: S.status.configDir || '%APPDATA%\\CatKey' });
+  invoke('data_info').then((info) => {
+    if (!info) return;
+    path.textContent = info.folder;
+    list.textContent = '';
+    for (const f of info.files) {
+      list.append(h('div', { class: 'datafile' },
+        h('span', { class: 'nm' }, h('b', { text: f.name }), h('span', { class: 'hint', text: DATA_ABOUT[f.name] || '' })),
+        h('span', { class: 'hint n', text: fmtBytes(f.bytes) }),
+        h('span', { class: 'hint n', text: f.modified ? new Date(f.modified * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '' })));
+    }
+    if (!info.files.length) list.append(h('p', { class: 'hint', text: 'Nothing saved yet.' }));
+  }).catch(() => { list.textContent = ''; });
+  return h('section', {}, h('h2', { text: 'Your data and backups' }),
+    h('p', { class: 'hint', style: { margin: '0', fontSize: '13px' }, text: `Everything ${cat()} keeps about you lives in this one folder on your PC: shortcuts, templates, packs, settings, your cat, training and typing progress, friends and stats. All plain files: copy the folder anywhere to back it up.` }),
+    h('div', { class: 'datapath' }, h('span', { html: icon('folder'), style: { display: 'inline-flex' } }), path,
+      h('button', { class: 'tbtn', type: 'button', title: 'Copy the path', 'aria-label': 'Copy the folder path', html: icon('copy'),
+        onclick: async () => { try { await navigator.clipboard.writeText(path.textContent); toast('Folder path copied.'); } catch { toast('Couldn’t copy the path.', { kind: 'warn' }); } } })),
+    list,
+    h('div', { class: 'grid2' },
+      h('button', { class: 'btn strong', type: 'button', html: `${icon('folder')}<span>Open the folder</span>`, onclick: openDataFolder }),
+      h('button', { class: 'btn', type: 'button', html: `${icon('up')}<span>Back up now…</span>`, onclick: backupNow }),
+      h('button', { class: 'btn', type: 'button', html: `${icon('down')}<span>Restore from a backup…</span>`, onclick: restoreBackup })));
+}
+
+function openDataFolder() {
+  invoke('open_data_folder').catch((e) => toast(String(e), { kind: 'warn' }));
+}
+async function backupNow() {
+  clearTimeout(progressTimer);
+  const d = progressData();
+  await invoke('save_progress', { text: JSON.stringify(d) }).catch(() => {});
+  try {
+    const where = await invoke('backup_now');
+    if (where) { sounds.saved(); toast(`Backed up to “${where}”.`, { ms: 8000 }); }
+  } catch (e) { toast(String(e), { kind: 'err', ms: 8000 }); }
+}
+async function restoreBackup() {
+  if (!(await confirmBox('Restore a backup?', `Pick a “Cat Key backup” folder. What you have now is kept in the data folder under “Before restore”, just in case. Then ${cat()} restarts with the backup.`, 'Pick the backup'))) return;
+  clearTimeout(progressTimer);
+  try {
+    if (await invoke('restore_backup')) {
+      toast('Restoring… Cat Key restarts in a moment.', { ms: 4000 });
+      setTimeout(() => invoke('restart_app').catch(() => {}), 600);
+    }
+  } catch (e) { toast(String(e), { kind: 'err', ms: 9000 }); }
 }

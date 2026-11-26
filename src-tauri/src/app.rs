@@ -14,6 +14,8 @@ use tauri::{AppHandle, Emitter, Manager, RunEvent, WebviewUrl, WebviewWindowBuil
 
 /// True while the window (and its webview) exists.
 pub static UI_OPEN: AtomicBool = AtomicBool::new(false);
+/// Set while a backup is being restored: nothing in memory may overwrite the restored files.
+pub static NO_SAVE: AtomicBool = AtomicBool::new(false);
 
 pub const POWERTOYS_ENGINE: &str = "PowerToys.KeyboardManagerEngine.exe";
 
@@ -48,7 +50,7 @@ pub fn config_dir() -> PathBuf {
     std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("CatKey")
 }
 
-fn write_atomic(path: &Path, text: &str) -> Result<(), String> {
+pub fn write_atomic(path: &Path, text: &str) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
@@ -58,6 +60,9 @@ fn write_atomic(path: &Path, text: &str) -> Result<(), String> {
 }
 
 pub fn save_config_file(dir: &Path, cfg: &Config) -> Result<(), String> {
+    if NO_SAVE.load(Ordering::SeqCst) {
+        return Ok(());
+    }
     let text = serde_json::to_string_pretty(cfg).map_err(|e| e.to_string())?;
     write_atomic(&dir.join("config.json"), &text)
 }
@@ -91,6 +96,9 @@ fn load_stats(dir: &Path) -> Stats {
 }
 
 pub fn save_stats(app: &AppHandle) {
+    if NO_SAVE.load(Ordering::SeqCst) {
+        return;
+    }
     let state = app.state::<AppState>();
     let snapshot = {
         let mut s = state.stats.lock().unwrap();
@@ -431,6 +439,12 @@ pub fn run(args: Vec<String>) {
             crate::commands::coach_forget,
             crate::commands::purr_set,
             crate::commands::purr_state,
+            crate::commands::data_info,
+            crate::commands::open_data_folder,
+            crate::commands::save_progress,
+            crate::commands::load_progress,
+            crate::commands::backup_now,
+            crate::commands::restore_backup,
         ])
         .setup(move |app| {
             if second {

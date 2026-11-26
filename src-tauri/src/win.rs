@@ -533,6 +533,15 @@ pub fn local_date() -> String {
     }
 }
 
+/// "2026-11-26 0352": for backup folder names.
+pub fn local_stamp() -> String {
+    unsafe {
+        let mut st: SYSTEMTIME = zeroed();
+        GetLocalTime(&mut st);
+        format!("{:04}-{:02}-{:02} {:02}{:02}", st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute)
+    }
+}
+
 fn shell_execute(verb: Option<&str>, file: &str, params: &str, dir: Option<&str>) -> Result<(), u32> {
     ensure_com();
     unsafe {

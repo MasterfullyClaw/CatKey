@@ -27,7 +27,7 @@ const TEMPLATES = [
 
 function mockStatus(params) {
   return {
-    version: '1.2.0', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
+    version: '1.2.1', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
     configDir: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', problems: {}, engineRunning: params.get('engine') !== '0',
     startup: params.get('startup') || 'on',
   };
@@ -154,6 +154,22 @@ export function createMock() {
         case 'purr_set':
           return !!args.on;
         case 'purr_state':
+          return false;
+        case 'data_info':
+          return { folder: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', files: [
+            { name: 'config.json', bytes: 18420, modified: Math.floor(Date.now() / 1000) - 60 },
+            { name: 'progress.json', bytes: 9120, modified: Math.floor(Date.now() / 1000) - 30 },
+            { name: 'coach.json', bytes: 3311, modified: Math.floor(Date.now() / 1000) - 300 },
+            { name: 'stats.json', bytes: 812, modified: Math.floor(Date.now() / 1000) - 900 },
+            { name: 'coach-dict.json', bytes: 40210, modified: Math.floor(Date.now() / 1000) - 3600 },
+            { name: 'catkey.log', bytes: 2100, modified: Math.floor(Date.now() / 1000) - 7200 }] };
+        case 'open_data_folder':
+        case 'save_progress':
+        case 'load_progress':
+          return null;
+        case 'backup_now':
+          return 'C:\\Users\\me\\Documents\\Cat Key backup 2026-11-26 0352';
+        case 'restore_backup':
           return false;
         case 'tracked_counts':
           return {};
