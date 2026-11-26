@@ -64,8 +64,13 @@ Prefer no installer? Grab [the portable exe](https://github.com/MasterfullyClaw/
 ### Mac
 
 1. [Download the disk image](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-mac.dmg), open it and drag **Cat Key** into **Applications**.
-2. Open Cat Key from Applications. The first time, macOS may say it can't check the app (it isn't notarized by Apple yet): open **System Settings → Privacy & Security** and click **Open Anyway**.
-3. Let Cat Key use the keyboard: **System Settings → Privacy & Security → Accessibility**, switch on Cat Key. Its Checkup has a button that opens that page.
+2. Open Cat Key from Applications. The first time, macOS says it can't check the app, because Cat Key isn't notarized by Apple yet. Either:
+   - open **System Settings → Privacy & Security**, click **Open Anyway** next to Cat Key, then **Open Anyway** once more in the box that follows; or
+   - if that keeps going round in circles, paste this into **Terminal** and press Return. It removes the "downloaded from the internet" flag from Cat Key only, and opens it:
+     ```sh
+     xattr -dr com.apple.quarantine "/Applications/Cat Key.app" && open "/Applications/Cat Key.app"
+     ```
+3. Let Cat Key use the keyboard: when macOS asks, click **Open System Settings** and switch Cat Key on under **Accessibility** (and **Input Monitoring**, if it asks). Its Checkup has a button that opens that page.
 
 On a Mac, ⌘ is shown as ⌘ and Cat Key starts with no remaps (your Mac already has ⌘); pick what you want from the Library and Templates, like *Windows keys on a Mac* for Ctrl habits. The shortcut coach's tips are Windows-only for now.
 

@@ -74,6 +74,13 @@ ul.ticks li b { color: var(--tx); }
 ul.ticks li::before { content: '🐾'; position: absolute; left: 0; }
 .cta { text-align: center; padding: 70px 20px; border-radius: 30px; background: linear-gradient(135deg, rgba(255,140,198,.16), rgba(183,156,255,.12)); border: 1px solid var(--line); margin: 40px 0 70px; }
 .cta p { color: var(--mu); }
+.mac-help { max-width: 640px; margin: 26px auto 0; text-align: left; padding: 14px 18px; border-radius: 18px; background: var(--s1); border: 1px solid var(--line); }
+.mac-help summary { cursor: pointer; font-weight: 900; }
+.mac-help p { font-size: 15px; margin: 10px 0; }
+.mac-help b { color: var(--tx); }
+.cmd { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--capb); border: 1px solid var(--line); }
+.cmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font: 600 13px ui-monospace, Menlo, Consolas, monospace; color: var(--act); }
+.cmd button { flex: none; height: 32px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--s2); color: var(--tx); font: 800 13px Nunito, sans-serif; cursor: pointer; }
 footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--mu); font-size: 14px; }
 footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; }
 @media (max-width: 880px) { .hero, .train { grid-template-columns: 1fr; } .grid, .who { grid-template-columns: 1fr; } .cat { width: 110px; top: -80px; right: 0; } }
@@ -97,7 +104,7 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space
       <a class="btn main" href="https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe">⬇ Download for Windows <small>free</small></a>
       <a class="btn" href="https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-mac.dmg">⬇ Download for Mac <small>free</small></a>
     </div>
-    <p class="fine">Windows 10 & 11 · open source · no account · nothing leaves your PC</p>
+    <p class="fine">Windows 10 & 11 · macOS 11+ · open source · no account · nothing leaves your computer · <a href="#mac" style="color:inherit">first time on a Mac?</a></p>
   </div>
   <div class="stage" aria-hidden="true">
     <img class="cat" src="cat.svg" alt="">
@@ -164,11 +171,21 @@ footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space
     <a class="btn main" href="https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-mac.dmg">⬇ Download for Mac</a>
     <a class="btn" href="https://github.com/MasterfullyClaw/CatKey">View on GitHub</a>
   </div>
+  <details class="mac-help" id="mac">
+    <summary>🍎 Opening Cat Key on a Mac the first time</summary>
+    <p>Cat Key isn't notarized by Apple yet, so macOS asks before it opens it. Drag Cat Key into Applications, open it once, then go to <b>System Settings → Privacy & Security</b> and click <b>Open Anyway</b>.</p>
+    <p>If that goes round in circles, paste this into <b>Terminal</b>. It removes the "downloaded from the internet" flag from Cat Key only, and opens it:</p>
+    <div class="cmd"><code id="mac-cmd">xattr -dr com.apple.quarantine "/Applications/Cat Key.app" &amp;&amp; open "/Applications/Cat Key.app"</code><button type="button" id="mac-copy">Copy</button></div>
+    <p>Then let Cat Key use the keyboard: when macOS asks, switch it on under <b>Accessibility</b>.</p>
+  </details>
 </div>
 
 <footer><div class="wrap"><span>Cat Key · built by <a href="https://github.com/MasterfullyClaw">Masterfully</a> · <a href="https://x.com/MasterfullyClaw">X @MasterfullyClaw</a> · MIT licensed · app names belong to their owners.</span><span><a href="https://github.com/MasterfullyClaw/CatKey/issues/new?template=share-a-pack.yml">Share a pack</a> · <a href="https://github.com/MasterfullyClaw/CatKey/issues">Report a problem</a></span></div></footer>
 
 <script>
+document.getElementById('mac-copy').onclick = (e) => { navigator.clipboard?.writeText(document.getElementById('mac-cmd').textContent).then(() => { e.target.textContent = 'Copied'; setTimeout(() => { e.target.textContent = 'Copy'; }, 1800); }); };
+if (location.hash === '#mac') document.getElementById('mac').open = true;
+document.querySelector('a[href="#mac"]').addEventListener('click', () => { document.getElementById('mac').open = true; });
 // A keyboard the cat walks across: paw prints land on keys, and the right shortcut lights up.
 const rows = [['Esc','1','2','3','4','5','6','7','8','9','0'], ['Tab','Q','W','E','R','T','Y','U','I','O','P'], ['Caps','A','S','D','F','G','H','J','K','L'], ['Shift','Z','X','C','V','B','N','M',',','.'], ['Ctrl','Win','Alt','Space','Alt','Ctrl']];
 const kb = document.getElementById('kb');
