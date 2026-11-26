@@ -1920,7 +1920,7 @@ function renderSettings() {
   if (body) body.scrollTop = scrollTop;
 }
 
-const ME = { name: 'Masterfully', github: 'https://github.com/MasterfullyClaw', x: 'https://x.com/MasterfullyClaw' };
+const ME = { name: 'Masterfully', github: 'https://github.com/MasterfullyClaw', x: 'https://x.com/MasterfullyClaw', site: 'https://masterfullyclaw.github.io/CatKey/' };
 
 /** Open the About page from anywhere (the top bar, Settings) and bring it into view. */
 function openAbout() {
@@ -1953,12 +1953,13 @@ function renderAbout() {
         link('link', 'X (Twitter)', '@MasterfullyClaw', ME.x))),
     h('section', { class: 'about-block' }, h('h3', { text: 'Cat Key' }),
       h('div', { class: 'about-links' },
+        link('globe', 'Website', 'catkey on the web', ME.site),
         link('star', 'Cat Key on GitHub', 'Code, downloads and the store', `https://github.com/${REPO}`),
         link('sparkle', 'What’s new', 'Every version and what changed', `https://github.com/${REPO}/releases`),
         link('up', 'Share a pack', 'Post your shortcuts to the store', `https://github.com/${REPO}/issues/new?template=share-a-pack.yml`),
         link('info', 'Report a problem', 'Opens a new issue on GitHub', `https://github.com/${REPO}/issues/new`))),
     h('section', { class: 'about-block' }, h('h3', { text: 'Community' }),
-      h('p', { class: 'hint about-soon', text: 'A Discord server, Cat Key’s own website and its social pages are on the way. They’ll show up right here.' })));
+      h('p', { class: 'hint about-soon', text: 'A Discord server and Cat Key’s social pages are on the way, and gadgets to go with the app. They’ll show up right here.' })));
   ABOUT_CAT = new Mascot(holder, { size: 104, look: myLook() });
 }
 
