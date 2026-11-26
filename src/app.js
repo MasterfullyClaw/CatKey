@@ -432,7 +432,7 @@ function renderTabs() {
   const libN = L.data ? libPacks().filter((p) => p._origin !== 'community').length : null;
   for (const [id, label, n, ic] of [['shortcuts', 'Your shortcuts', rules().length, 'keyboard'], ['library', 'Library', libN, 'book'],
     ['templates', 'Templates', allTemplates().length, 'layers'], ['train', 'Train', null, 'target'], ['warrior', 'Cat Warrior', null, 'star'],
-    ...(PLAT() === 'mac' ? [] : [['coach', 'Coach', null, 'sparkle']]), ['ai', 'Cat Builder', null, 'wand']]) {
+    ['coach', 'Coach', null, 'sparkle'], ['ai', 'Cat Builder', null, 'wand']]) {
     box.append(h('button', { class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(S.view === id), onclick: () => setView(id) },
       h('span', { class: 'ic', html: icon(ic) }), h('span', { text: label }), n == null ? null : h('span', { class: 'count', text: String(n) })));
   }
@@ -1977,7 +1977,7 @@ function renderSettings() {
         settingRow('All sounds', 'One switch for every sound Cat Key makes. Each part also has its own, below.',
           switchEl(s.sounds, 'All sounds', () => { const on = !s.sounds; commitSettings({ sounds: on }); if (on) sounds.on(); })),
         h('div', { class: `sound-parts${s.sounds ? '' : ' muted'}`, title: s.sounds ? null : 'All sounds are off' },
-          ...SOUND_PART_TEXT.filter(([id]) => !(mac && id === 'tips')).map(([id, title, desc]) => settingRow(title, desc,
+          ...SOUND_PART_TEXT.map(([id, title, desc]) => settingRow(title, desc,
             switchEl(soundParts()[id], title, () => { const on = !soundParts()[id]; setSoundPart(id, on); if (on && s.sounds) previewSound(id); })))),
         settingRow('Purr volume', 'For the background purr (the paw button at the top, or the tray menu).', purrVol)),
       h('section', { style: { gap: '0' } }, h('h2', { text: 'App switcher', style: { marginBottom: '4px' } }),
@@ -2016,7 +2016,7 @@ function renderSettings() {
         h('div', { class: 'row-between', style: { paddingTop: '10px' } },
           h('button', { class: 'btn small', type: 'button', html: `${icon('paw')}<span>See the cat walk</span>`, onclick: () => invoke('walk_test').catch((e) => toast(String(e), { kind: 'warn' })) }),
           h('span', { class: 'hint', text: 'It walks by when a focus timer ends.' }))),
-      mac ? null : h('section', { style: { gap: '0' } }, h('h2', { text: 'Shortcut coach', style: { marginBottom: '4px' } }),
+      h('section', { style: { gap: '0' } }, h('h2', { text: 'Shortcut coach', style: { marginBottom: '4px' } }),
         settingRow('Tips when you do it the long way', `Where tips appear, what you ignored, and what ${cat()} caught: all on the Coach page.`,
           h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Open the Coach page</span>`, onclick: () => { closeSettings(); setView('coach'); } }))),
       h('section', {}, h('h2', { text: 'Nap zones' }),
@@ -4226,7 +4226,10 @@ const kcaps = (keys) => h('span', { class: 'keys-inline' }, ...String(keys).spli
 /** "Alt+Left Arrow" (as an app writes it) → "Alt+Left" (as Cat Key writes it). */
 function coachCombo(keys) {
   const map = { 'left arrow': 'Left', 'right arrow': 'Right', 'up arrow': 'Up', 'down arrow': 'Down', 'page up': 'PageUp', 'page down': 'PageDown', pgup: 'PageUp', pgdn: 'PageDown',
-    plus: 'Equals', minus: 'Minus', del: 'Delete', ins: 'Insert', esc: 'Esc', escape: 'Esc', return: 'Enter', backspace: 'Backspace', spacebar: 'Space' };
+    plus: 'Equals', minus: 'Minus', del: 'Delete', ins: 'Insert', esc: 'Esc', escape: 'Esc', return: 'Enter', backspace: 'Backspace', spacebar: 'Space',
+    '⌘': 'Win', cmd: 'Win', command: 'Win', '⌥': 'Alt', option: 'Alt', opt: 'Alt', '⌃': 'Ctrl', control: 'Ctrl', '⇧': 'Shift',
+    '←': 'Left', '→': 'Right', '↑': 'Up', '↓': 'Down', '⌫ delete': 'Backspace', '⌦': 'Delete', space: 'Space', tab: 'Tab',
+    ',': 'Comma', '.': 'Period', '/': 'Slash', ';': 'Semicolon', "'": 'Quote', '[': 'LBracket', ']': 'RBracket', '\\': 'Backslash', '-': 'Minus', '=': 'Equals', '`': 'Backtick' };
   const parts = String(keys).split('+').map((p) => p.trim()).filter(Boolean).map((p) => map[p.toLowerCase()] || p);
   const t = tidyCombo(parts.join('+'));
   return t.error ? null : t.value;
@@ -4564,7 +4567,7 @@ async function renderWarrior() {
       : 'The shortcut coach is off. Turn it on from the Coach page to see what you still do with the mouse.' }),
     h('div', { class: 'row' },
       h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Show me a tip</span>`, onclick: () => invoke('coach_demo').catch(() => {}) }),
-      PLAT() === 'mac' ? null : h('button', { class: 'link', type: 'button', text: 'Open the Coach page', onclick: () => setView('coach') })));
+      h('button', { class: 'link', type: 'button', text: 'Open the Coach page', onclick: () => setView('coach') })));
   }
   for (const tip of tips.slice(0, 10)) {
     const muted = isMuted(tip.id);

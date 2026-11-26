@@ -76,7 +76,7 @@ Prefer no installer? Grab [the portable exe](https://github.com/MasterfullyClaw/
      ```
 3. Let Cat Key use the keyboard: when macOS asks, click **Open System Settings** and switch Cat Key on under **Accessibility** (and **Input Monitoring**, if it asks). Its Checkup has a button that opens that page.
 
-On a Mac, ⌘ is shown as ⌘ and Cat Key starts with no remaps (your Mac already has ⌘); pick what you want from the Library and Templates, like *Windows keys on a Mac* for Ctrl habits. The shortcut coach's tips are Windows-only for now.
+On a Mac, ⌘ is shown as ⌘ and Cat Key starts with no remaps (your Mac already has ⌘); pick what you want from the Library and Templates, like *Windows keys on a Mac* for Ctrl habits. The shortcut coach works on a Mac too: click a menu item that has a shortcut (or a window's close and minimise buttons) and a little note shows its keys.
 
 ## How it works
 
@@ -86,7 +86,7 @@ Cat Key listens to the keyboard with a standard Windows keyboard hook. When you 
 - **It doesn't fight other tools.** Keys typed by other programs (password managers, macro tools) pass untouched. Alt shortcuts work even with PowerToys Grab And Move holding Alt back.
 - **It stays out of your typing.** Single-letter remaps pause while a text cursor is active, so "V does A" in an editor never turns "Very" into "Aery".
 - **Your keys stay yours.** Cat Key keeps no keystroke log. For your stats it keeps only how many shortcuts you used in each app, never which keys or any text. Train yourself counts presses only for the shortcuts you're learning, on your PC. The optional key log (for troubleshooting) runs only while you have it open.
-- **The coach never looks at your screen.** When you click, it asks Windows what's under the pointer (UI Automation, the way screen readers do) and reads only that item's name and shortcut. Chrome-based apps are left out unless you switch them on, because answering costs them a little work.
+- **The coach never looks at your screen.** When you click, it asks the system what's under the pointer (UI Automation on Windows, Accessibility on a Mac: the way screen readers do) and reads only that item's name and shortcut. Chrome-based apps are left out unless you switch them on, because answering costs them a little work.
 
 ## Make and share packs
 

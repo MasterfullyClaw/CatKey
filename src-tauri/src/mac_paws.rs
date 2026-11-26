@@ -1,5 +1,6 @@
-//! Mac: the mouse for paw prints, from a listen-only event tap on its own thread. It only
-//! listens (it can't hold anything up), and it only starts once paw prints are turned on.
+//! Mac: the mouse for paw prints and the shortcut coach, from a listen-only event tap on
+//! its own thread. It only listens (it can't hold anything up), and it only starts once
+//! paw prints or the coach are on.
 
 use std::ffi::c_void;
 use std::ptr::null_mut;
@@ -14,6 +15,10 @@ extern "C" {
     fn CGEventTapCreate(tap: u32, place: u32, options: u32, mask: u64, callback: TapCallback, info: *mut c_void) -> CFMachPortRef;
     fn CGEventTapEnable(tap: CFMachPortRef, enable: bool);
     fn CGEventGetIntegerValueField(event: CGEventRef, field: u32) -> i64;
+}
+
+fn at(event: CGEventRef) -> (f64, f64) {
+    crate::mac_switch::event_location(event)
 }
 
 #[link(name = "CoreFoundation", kind = "framework")]
@@ -49,8 +54,16 @@ extern "C" fn callback(_proxy: *mut c_void, kind: u32, event: CGEventRef, _info:
                 unsafe { CGEventTapEnable(tap, true) };
             }
         }
-        LEFT_DOWN => input(Input::Down),
-        LEFT_UP => input(Input::Up),
+        LEFT_DOWN => {
+            input(Input::Down);
+            let (x, y) = at(event);
+            crate::coach::click(x, y, true);
+        }
+        LEFT_UP => {
+            input(Input::Up);
+            let (x, y) = at(event);
+            crate::coach::click(x, y, false);
+        }
         RIGHT_DOWN => input(Input::Right),
         LEFT_DRAGGED => input(Input::Move),
         SCROLL if !event.is_null() => {

@@ -77,6 +77,15 @@ const EXCLUDE_DESKTOP: u32 = 1 << 4;
 const CF_SINT64: isize = 4;
 const CF_FLOAT64: isize = 6;
 
+/// Where a mouse event happened (for the mouse tap).
+pub(crate) fn event_location(event: *mut c_void) -> (f64, f64) {
+    if event.is_null() {
+        return (0.0, 0.0);
+    }
+    let p = unsafe { CGEventGetLocation(event as CFTypeRef) };
+    (p.x, p.y)
+}
+
 /// Where the pointer is.
 pub fn pointer() -> Option<(f64, f64)> {
     unsafe {
@@ -235,6 +244,40 @@ pub fn switch_windows() -> Vec<SwitchItem> {
         apps.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.app.to_lowercase().cmp(&b.1.app.to_lowercase())));
         apps.into_iter().map(|(_, it)| it).collect()
     })
+}
+
+/// The app whose window is at a point (front to back), for the coach. `None` when it's
+/// the menu bar or the desktop.
+pub fn pid_at(x: f64, y: f64) -> Option<i32> {
+    unsafe {
+        let list = CGWindowListCopyWindowInfo(ON_SCREEN_ONLY | EXCLUDE_DESKTOP, 0);
+        if list.is_null() {
+            return None;
+        }
+        let mut found = None;
+        for i in 0..CFArrayGetCount(list) {
+            let d = CFArrayGetValueAtIndex(list, i);
+            if d.is_null() || float(d, kCGWindowAlpha).unwrap_or(1.0) <= 0.01 {
+                continue;
+            }
+            // The menu bar and the Dock (layers 20 and up, below pop-up menus) aren't an app's.
+            let layer = number(d, kCGWindowLayer).unwrap_or(0);
+            if (20..100).contains(&layer) {
+                continue;
+            }
+            let mut r = CGRect::default();
+            let b = CFDictionaryGetValue(d, kCGWindowBounds);
+            if b.is_null() || !CGRectMakeWithDictionaryRepresentation(b, &mut r) {
+                continue;
+            }
+            if x >= r.origin.x && x < r.origin.x + r.size.width && y >= r.origin.y && y < r.origin.y + r.size.height {
+                found = number(d, kCGWindowOwnerPID).map(|p| p as i32);
+                break;
+            }
+        }
+        CFRelease(list);
+        found
+    }
 }
 
 fn open_app(path: &str) -> bool {

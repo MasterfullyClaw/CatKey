@@ -549,6 +549,12 @@ pub fn run(args: Vec<String>) {
                     // And the app switcher: the list of windows, and its panel once.
                     std::thread::sleep(Duration::from_secs(1));
                     crate::switcher::self_test(&h);
+                    // And a coach tip.
+                    std::thread::sleep(Duration::from_secs(2));
+                    crate::coach::demo();
+                    std::thread::sleep(Duration::from_secs(2));
+                    let tip = h.get_webview_window("coach").and_then(|w| w.is_visible().ok()).unwrap_or(false);
+                    crate::log(&format!("dock: coach tip shown {tip}"));
                 });
             }
             let saver = handle.clone();

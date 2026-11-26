@@ -129,7 +129,7 @@ fn mod_index(vk: u8) -> Option<usize> {
 }
 
 /// Mac key code → the engine's virtual key (0 = not a key Cat Key handles).
-fn mac_to_vk(code: u16) -> u8 {
+pub(crate) fn mac_to_vk(code: u16) -> u8 {
     match code {
         0x00 => b'A', 0x0B => b'B', 0x08 => b'C', 0x02 => b'D', 0x0E => b'E', 0x03 => b'F', 0x05 => b'G', 0x04 => b'H',
         0x22 => b'I', 0x26 => b'J', 0x28 => b'K', 0x25 => b'L', 0x2E => b'M', 0x2D => b'N', 0x1F => b'O', 0x23 => b'P',

@@ -1,6 +1,10 @@
 // The shortcut coach's tip window: shows the tip Rust sends, waits while the pointer is
 // on it, and hides itself. Ignore = never again, Dismiss = for now, Adjust = make your own.
+import * as K from './keys.js';
+
 const T = window.__TAURI__;
+// On a Mac the keys wear their Mac names (⌘ ⌥ ⌃ ⇧).
+K.setMac(/Mac/.test(navigator.userAgent));
 const tip = document.getElementById('tip');
 const LIFE_MS = 6000;
 let timer = 0, shown = -1, cur = null, left = LIFE_MS, started = 0;
@@ -25,7 +29,7 @@ function show(p) {
   if (p.sound) import('./sound.js').then((m) => { m.setSoundParts({ tips: true }); m.sounds.tip(); }).catch(() => {});
   document.body.dataset.anchor = p.anchor || 'bottom-right';
   const keys = document.getElementById('keys');
-  keys.replaceChildren(...String(p.keys).split('+').map((k) => { const s = document.createElement('span'); s.className = 'kc'; s.textContent = k.trim(); return s; }));
+  keys.replaceChildren(...String(p.keys).split('+').map((k) => { const s = document.createElement('span'); s.className = 'kc'; s.textContent = K.keyLabel(k.trim()); return s; }));
   document.getElementById('use').textContent = p.demo ? 'A tip looks like this:' : 'Next time:';
   document.getElementById('what').textContent = p.name;
   const secs = (p.savesMs / 1000).toFixed(1).replace(/\.0$/, '');
