@@ -596,11 +596,16 @@ function macCheckupRows() {
     rows.push({ level: 'warn', title: 'Move Cat Key to Applications first', desc: 'It’s running from the disk image or Downloads, where macOS forgets its permissions. Drag Cat Key into Applications and open it from there.' });
   }
   if (!st.keyboardAllowed) {
-    rows.push({ level: 'bad', title: 'Let Cat Key use the keyboard', desc: 'macOS asks once. Open Privacy & Security → Accessibility, switch on Cat Key (add it with + if it isn’t listed), and your shortcuts start right away.', actions: [['Open Accessibility', page('accessibility')], ['Input Monitoring', page('input-monitoring')]] });
+    rows.push({ level: 'bad', title: 'Let Cat Key use the keyboard', desc: 'Open Privacy & Security → Accessibility and switch on Cat Key (add it with + if it isn’t listed); your shortcuts start right away. Just updated Cat Key and it’s already on? macOS sees the new version as a new app: select Cat Key, press −, then add it again with +.', actions: [['Open Accessibility', page('accessibility')], ['Input Monitoring', page('input-monitoring')]] });
   } else if (st.engineRunning === false) {
     rows.push({ level: 'warn', title: 'The keyboard is starting', desc: 'Allowed. If it stays like this, quit Cat Key and open it again.', actions: [['Restart Cat Key', () => invoke('restart_app')]] });
   } else {
     rows.push({ level: 'ok', title: 'Keyboard engine is running', desc: 'Allowed in Privacy & Security. Every shortcut is handled the moment you press it.' });
+  }
+  if (st.screenAllowed === false) {
+    rows.push({ level: 'info', title: 'CatGPT can’t see your screen yet', desc: 'Screenshots, the canvas and recordings need Privacy & Security → Screen & System Audio Recording. Switch Cat Key on there (after an update: select it, press −, add it again), then let macOS reopen Cat Key.', actions: [['Open Screen Recording', () => invoke('catgpt_ask_capture').catch((e) => toast(String(e), { kind: 'err' }))]] });
+  } else if (st.screenAllowed) {
+    rows.push({ level: 'ok', title: 'CatGPT can see your screen', desc: 'Allowed in Screen & System Audio Recording, for screenshots, the canvas and recordings.' });
   }
   if (!s.launchAtStartup) {
     rows.push({ level: 'info', title: 'Doesn’t open at login', desc: 'After a restart you’d have to open Cat Key yourself.', actions: [['Turn on', () => commitSettings({ launchAtStartup: true }).then(() => setTimeout(refreshStatusNow, 800))]] });
@@ -4479,7 +4484,7 @@ function renderCatGPT() {
   if (mac && !info.canCapture) {
     box.append(h('section', { class: 'wr-card cg-warn' },
       h('h3', { text: 'macOS needs your OK to see the screen' }),
-      h('p', { class: 'hint', text: 'Screenshots, the canvas and recordings need Screen & System Audio Recording. Allow Cat Key there, then open Cat Key again.' }),
+      h('p', { class: 'hint', text: 'Screenshots, the canvas and recordings need Screen & System Audio Recording. Allow Cat Key there, then open Cat Key again. Just updated? macOS sees the new version as a new app: select Cat Key, press −, and add it again with +.' }),
       h('div', { class: 'row' }, h('button', { class: 'btn small strong', type: 'button', text: 'Allow screen recording', onclick: () => invoke('catgpt_ask_capture').then((ok) => toast(ok ? 'Allowed.' : 'Switch Cat Key on in that list, then open Cat Key again.', { ms: 8000 })).catch(() => {}) }))));
   }
 

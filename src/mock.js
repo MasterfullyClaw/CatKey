@@ -33,6 +33,7 @@ function mockStatus(params) {
     platform: params.get('mac') === '1' ? 'mac' : 'windows',
     keyboardAllowed: params.get('allowed') !== '0',
     tempPlace: params.get('temp') === '1',
+    screenAllowed: params.get('screen') !== '0',
   };
 }
 

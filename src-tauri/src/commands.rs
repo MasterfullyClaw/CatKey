@@ -36,6 +36,8 @@ pub struct Status {
     keyboard_allowed: bool,
     /// Mac: running straight from the disk image or Downloads (permissions won't stick).
     temp_place: bool,
+    /// Mac: CatGPT may see the screen (Screen & System Audio Recording). Windows: always.
+    screen_allowed: bool,
 }
 
 #[derive(Serialize)]
@@ -79,6 +81,10 @@ fn status(state: &AppState) -> Status {
         temp_place: win::running_from_temp_place(),
         #[cfg(not(target_os = "macos"))]
         temp_place: false,
+        #[cfg(target_os = "macos")]
+        screen_allowed: crate::cg::can_record(),
+        #[cfg(not(target_os = "macos"))]
+        screen_allowed: true,
     }
 }
 
