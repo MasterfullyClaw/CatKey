@@ -16,6 +16,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use crate::shape::SeeThrough;
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -198,7 +199,7 @@ fn build(app: &AppHandle) -> Option<WebviewWindow> {
         .title("Switch")
         .inner_size(W, 300.0)
         .decorations(false)
-        .transparent(true)
+        .see_through()
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)

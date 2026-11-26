@@ -24,6 +24,7 @@ use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use crate::shape::SeeThrough;
 
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromPoint, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
@@ -497,7 +498,7 @@ fn build(app: &AppHandle) -> Option<WebviewWindow> {
         .title("Cat Key tip")
         .inner_size(TIP_W, TIP_H)
         .decorations(false)
-        .transparent(true)
+        .see_through()
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)

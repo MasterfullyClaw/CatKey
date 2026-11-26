@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Cat Key check</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent !important; }
+  .dot { position: absolute; left: 40px; top: 40px; width: 160px; height: 160px; border-radius: 50%;
+    background: #ff8a3d; display: grid; place-items: center; font: 700 17px system-ui, sans-serif; color: #1a1a1a; text-align: center; }
+</style>
+</head>
+<body>
+<!-- Only for the release check: a round dot in a see-through window, to see what's around it. -->
+<div class="dot" id="dot"></div>
+<script type="module">
+  import { autoShape } from './shape.js';
+  const q = new URLSearchParams(location.search);
+  document.getElementById('dot').textContent = q.get('t') || '';
+  if (q.get('shape') === '1') autoShape([['.dot', 2]]);
+</script>
+</body>
+</html>

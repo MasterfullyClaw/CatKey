@@ -12,6 +12,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use crate::shape::SeeThrough;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Input {
@@ -73,7 +74,7 @@ fn build(app: &AppHandle) -> Option<WebviewWindow> {
         .title("Paw prints")
         .inner_size(400.0, 300.0)
         .decorations(false)
-        .transparent(true)
+        .see_through()
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
