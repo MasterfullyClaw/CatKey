@@ -10,6 +10,11 @@ mod commands;
 mod dock;
 #[cfg(windows)]
 mod dock_drop;
+#[cfg(target_os = "macos")]
+mod mac_paws;
+#[cfg(windows)]
+mod paw_cursor;
+mod paws;
 mod tray;
 mod vitals;
 

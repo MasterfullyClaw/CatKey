@@ -121,6 +121,24 @@ pub struct Settings {
     /// The Cat Dock: the cat ball on the screen edge and what it keeps.
     #[serde(default)]
     pub dock: DockSettings,
+    /// Paw prints where you click, and the cat-paw pointer.
+    #[serde(default)]
+    pub paws: PawSettings,
+}
+
+/// Paw prints and the paw pointer (both off unless chosen).
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PawSettings {
+    /// Little paw prints where you click, scroll and drag, fading at once.
+    #[serde(default)]
+    pub on: bool,
+    /// The pointer becomes a cat paw (Windows).
+    #[serde(default)]
+    pub cursor: bool,
+    /// The paws' colours, from the cat you picked: fur, outline, toe beans (CSS colours).
+    #[serde(default)]
+    pub colors: Vec<String>,
 }
 
 /// The Cat Dock's settings.
@@ -240,6 +258,7 @@ impl Default for Settings {
             coach_pos: CoachPos::default(),
             sound_parts: Default::default(),
             dock: DockSettings::default(),
+            paws: PawSettings::default(),
         }
     }
 }

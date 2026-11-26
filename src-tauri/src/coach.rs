@@ -550,7 +550,7 @@ fn place(w: &WebviewWindow, pt: POINT) {
     }
 }
 
-fn show_quietly(w: &WebviewWindow) {
+pub(crate) fn show_quietly(w: &WebviewWindow) {
     if let Ok(h) = w.hwnd() {
         unsafe {
             let hwnd = h.0 as HWND;
@@ -676,6 +676,10 @@ unsafe extern "system" fn proc_(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LP
     DefWindowProcW(hwnd, msg, wparam, lparam)
 }
 
+thread_local! {
+    static MOVED: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
 unsafe fn on_input(lparam: LPARAM) {
     let mut ri: RAWINPUT = zeroed();
     let mut size = size_of::<RAWINPUT>() as u32;
@@ -684,6 +688,34 @@ unsafe fn on_input(lparam: LPARAM) {
         return; // 0 = RIM_TYPEMOUSE
     }
     let flags = ri.data.mouse.Anonymous.Anonymous.usButtonFlags;
+    // Paw prints (only when they're on): clicks, the wheel, and drags.
+    if crate::paws::enabled() {
+        use crate::paws::{input, Input};
+        if flags & 0x0001 != 0 {
+            input(Input::Down);
+        }
+        if flags & 0x0002 != 0 {
+            input(Input::Up);
+        }
+        if flags & 0x0004 != 0 {
+            input(Input::Right);
+        }
+        if flags & 0x0400 != 0 {
+            input(Input::Scroll(ri.data.mouse.Anonymous.Anonymous.usButtonData as i16 as i32));
+        }
+        let (dx, dy) = (ri.data.mouse.lLastX, ri.data.mouse.lLastY);
+        if dx != 0 || dy != 0 {
+            // Only every so often: a gaming mouse reports a thousand moves a second.
+            let n = MOVED.with(|m| {
+                let n = m.get() + dx.unsigned_abs() + dy.unsigned_abs();
+                m.set(if n > 24 { 0 } else { n });
+                n
+            });
+            if n > 24 {
+                input(Input::Move);
+            }
+        }
+    }
     if flags & 0x0001 != 0 {
         // RI_MOUSE_LEFT_BUTTON_DOWN: ask now, while a menu item is still open under the pointer.
         on_click();

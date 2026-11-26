@@ -266,6 +266,7 @@ async function boot() {
 
   $('#btn-settings').innerHTML = icon('gear');
   $('#btn-about').innerHTML = `${icon('info')}<span>About</span>`;
+  $('#btn-soon').innerHTML = `${icon('sparkle')}<span>Coming soon</span>`;
   paintPurr();
   paintDock();
   $('#cat-switch').innerHTML = `${icon('swap')}<span>Switch cat</span>`;
@@ -341,6 +342,25 @@ function applyLook() {
   hero?.setName(cat());
   E?.mini?.setLook(myLook());
   shareUi(dark, theme);
+  syncPawColors();
+}
+
+// The paw prints and the paw pointer wear the cat's colours: fur, outline, toe beans.
+const SKIN_PAWS = { mochi: ['#FFF7F0', '#6B4A5E', '#FFB8D2'], kuro: ['#2D2638', '#0E0A14', '#FF8FBF'], tora: ['#FFB36B', '#7A3E12', '#FFC1B0'], sora: ['#CFDBF1', '#43506E', '#FFC0D9'] };
+function pawColors(look = myLook()) {
+  const base = SKIN_PAWS[look.skin] || SKIN_PAWS.mochi;
+  const c = look.colors || {};
+  return [c.fur || base[0], c.line || base[1], c.ear || base[2]];
+}
+function syncPawColors() {
+  const p = S.config.settings.paws || {};
+  if (!p.on && !p.cursor) return;
+  const colors = pawColors();
+  if (JSON.stringify(colors) !== JSON.stringify(p.colors || [])) commitSettings({ paws: { ...p, colors } });
+}
+function setPaws(patch) {
+  const paws = { on: false, cursor: false, ...(S.config.settings.paws || {}), ...patch, colors: pawColors() };
+  return commitSettings({ paws });
 }
 
 /** The Cat Dock and the cat walk dress like the app: the same cat, theme and sounds. */
@@ -377,7 +397,7 @@ function renderTabs() {
   }
 }
 
-const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train', warrior: '#warrior', coach: '#coach-page', about: '#about-page' };
+const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train', warrior: '#warrior', coach: '#coach-page', about: '#about-page', soon: '#soon-page' };
 function applyView() {
   for (const v of Object.keys(VIEW_BOX)) $('#app').classList.toggle(`view-${v}`, S.view === v);
   if (S.view !== 'shortcuts' && SEL.on) setSelecting(false);
@@ -389,6 +409,8 @@ function applyView() {
   if (S.view === 'about') renderAbout();
   if (S.view === 'coach') renderCoach();
   $('#btn-about')?.setAttribute('aria-pressed', String(S.view === 'about'));
+  $('#btn-soon')?.setAttribute('aria-pressed', String(S.view === 'soon'));
+  if (S.view === 'soon') renderSoon();
 }
 
 function setView(v) {
@@ -982,6 +1004,7 @@ function onFired(id) {
 function wire() {
   $('#btn-settings').onclick = openSettings;
   $('#btn-about').onclick = openAbout;
+  $('#btn-soon').onclick = () => { if (SETTINGS_OPEN) closeSettings(); setView('soon'); requestAnimationFrame(() => $('#tabs')?.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' })); };
   $('#btn-purr').onclick = () => setPurr(!PURR.on);
   $('#btn-dock').onclick = () => setDock(!(S.config.settings.dock?.on));
   // The Dock moved, or its purr player changed the volume.
@@ -1912,6 +1935,14 @@ function renderSettings() {
           ...SOUND_PART_TEXT.filter(([id]) => !(mac && id === 'tips')).map(([id, title, desc]) => settingRow(title, desc,
             switchEl(soundParts()[id], title, () => { const on = !soundParts()[id]; setSoundPart(id, on); if (on && s.sounds) previewSound(id); })))),
         settingRow('Purr volume', 'For the background purr (the paw button at the top, or the tray menu).', purrVol)),
+      h('section', { style: { gap: '0' } }, h('h2', { text: 'Paws', style: { marginBottom: '4px' } }),
+        settingRow('Paw prints where I click', `A little paw print in ${cat()}’s colours appears beside the pointer when you click, steps along when you drag, and fades at once. Clicks go straight through it, and it stays out of games and films.`,
+          switchEl(!!s.paws?.on, 'Paw prints where I click', () => setPaws({ on: !s.paws?.on }).then(() => { if (!s.paws?.on) invoke('paws_try').catch(() => {}); }))),
+        mac ? null : settingRow('Cat-paw pointer', `Your pointer becomes an arrow in ${cat()}’s fur with a paw print. Your own pointer comes back the moment you turn it off or quit Cat Key.`,
+          switchEl(!!s.paws?.cursor, 'Cat-paw pointer', () => setPaws({ cursor: !s.paws?.cursor }))),
+        h('div', { class: 'row-between', style: { paddingTop: '10px' } },
+          h('button', { class: 'btn small', type: 'button', html: `${icon('paw')}<span>Try the paws</span>`, onclick: () => invoke('paws_try').catch((e) => toast(String(e), { kind: 'warn' })) }),
+          h('span', { class: 'hint', text: 'A print appears next to your pointer.' }))),
       h('section', { style: { gap: '0' } }, h('h2', { text: 'Cat Dock', style: { marginBottom: '4px' } }),
         settingRow('The cat on the edge of your screen', 'A cat ball that opens into a little panel: drop files, text and links on it and drag them back out, see what you copied, run a focus timer, play the purr and see how hard your computer works. Drag it along the edge to move it.',
           switchEl(s.dock?.on, 'Cat Dock', () => setDock(!s.dock?.on))),
@@ -1993,6 +2024,72 @@ function renderAbout() {
     h('section', { class: 'about-block' }, h('h3', { text: 'Community' }),
       h('p', { class: 'hint about-soon', text: 'A Discord server and Cat Key’s social pages are on the way, and gadgets to go with the app. They’ll show up right here.' })));
   ABOUT_CAT = new Mascot(holder, { size: 104, look: myLook() });
+}
+
+// ------------------------------------------------------------------ Coming soon: the gadgets
+
+/** Concept drawings: a Bluetooth pad of keys with a screen in each, and a cat for your desk. */
+const SOON_KEYS = `<svg viewBox="0 0 360 210" role="img" aria-label="Concept: a pad of six keys, each with a tiny screen">
+  <defs><linearGradient id="sk-cap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A3046"/><stop offset="1" stop-color="#241D2E"/></linearGradient></defs>
+  <rect x="28" y="22" width="304" height="170" rx="26" fill="#17121F" stroke="#3B3149" stroke-width="2"/>
+  <circle cx="306" cy="42" r="5" fill="#7FE0C2"><animate attributeName="opacity" values="1;.35;1" dur="2.4s" repeatCount="indefinite"/></circle>
+  ${[[52, 50, '✂', 'Split'], [146, 50, '⤺', 'Undo'], [240, 50, '★', 'Mark'], [52, 116, '⧉', 'Copy'], [146, 116, 'CAT', ''], [240, 116, '▶', 'Play']].map(([x, y, g, t], i) => `
+  <g transform="translate(${x} ${y})">
+    <rect width="72" height="58" rx="13" fill="#0E0A14"/>
+    <rect y="-4" width="72" height="56" rx="13" fill="url(#sk-cap)" stroke="${g === 'CAT' ? 'var(--ac)' : '#4A3E5A'}" stroke-width="${g === 'CAT' ? 2.5 : 1.5}"/>
+    <rect x="9" y="4" width="54" height="34" rx="7" fill="#0B0910"/>
+    ${g === 'CAT'
+      ? '<g transform="translate(36 21)"><path d="M-13 -6 -10 -15 -4 -9ZM13 -6 10 -15 4 -9Z" fill="#FFB8D2"/><circle r="11" fill="#FFF7F0"/><circle cx="-4" cy="-1" r="2.2" fill="#2E1E47"/><circle cx="4" cy="-1" r="2.2" fill="#2E1E47"/><path d="M-2 4Q0 6 2 4" stroke="#6B4A5E" stroke-width="1.3" fill="none"/></g>'
+      : `<text x="36" y="22" text-anchor="middle" font-size="15" fill="#FFC6E2" font-family="Nunito, sans-serif" font-weight="800">${g}</text><text x="36" y="34" text-anchor="middle" font-size="8.5" fill="#B7AAC8" font-family="Nunito, sans-serif" font-weight="800">${t}</text>`}
+    ${i === 0 ? '<rect x="9" y="4" width="54" height="34" rx="7" fill="none" stroke="var(--ac)" stroke-width="2"><animate attributeName="opacity" values="0;1;0" dur="1.8s" repeatCount="indefinite"/></rect>' : ''}
+  </g>`).join('')}
+</svg>`;
+const SOON_DESK = `<svg viewBox="0 0 360 210" role="img" aria-label="Concept: a little cat for your desk with a round screen for a face">
+  <ellipse cx="180" cy="192" rx="92" ry="9" fill="rgba(0,0,0,.28)"/>
+  <path d="M118 74 104 26Q103 16 113 20L150 44Z" fill="#2A2235" stroke="#4A3E5A" stroke-width="2"/>
+  <path d="M242 74 256 26Q257 16 247 20L210 44Z" fill="#2A2235" stroke="#4A3E5A" stroke-width="2"/>
+  <path d="M113 32 140 46 120 60Z" fill="#FF8CC6" opacity=".55"/><path d="M247 32 220 46 240 60Z" fill="#FF8CC6" opacity=".55"/>
+  <rect x="96" y="40" width="168" height="148" rx="74" fill="#211B2A" stroke="#4A3E5A" stroke-width="2.5"/>
+  <circle cx="180" cy="112" r="56" fill="#0B0910" stroke="#372D44" stroke-width="3"/>
+  <g transform="translate(180 106)">
+    <g><animateTransform attributeName="transform" type="translate" values="0 0;0 -1.5;0 0" dur="3s" repeatCount="indefinite"/>
+      <ellipse cx="-17" cy="-4" rx="7" ry="9" fill="#9B6BFF"><animate attributeName="ry" values="9;9;1;9" keyTimes="0;.9;.95;1" dur="4s" repeatCount="indefinite"/></ellipse>
+      <ellipse cx="17" cy="-4" rx="7" ry="9" fill="#9B6BFF"><animate attributeName="ry" values="9;9;1;9" keyTimes="0;.9;.95;1" dur="4s" repeatCount="indefinite"/></ellipse>
+      <circle cx="-15" cy="-7" r="2.4" fill="#fff"/><circle cx="19" cy="-7" r="2.4" fill="#fff"/>
+      <path d="M-3 8Q0 10.5 3 8L0 11Z" fill="#FF7FAF"/>
+      <path d="M-7 13Q-3.5 17 0 13Q3.5 17 7 13" stroke="#FFC6E2" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g>
+  </g>
+  <text x="180" y="152" text-anchor="middle" font-size="11" fill="#B7AAC8" font-family="Nunito, sans-serif" font-weight="800">Focus 18:42</text>
+  <rect x="150" y="176" width="60" height="6" rx="3" fill="#372D44"/><rect x="150" y="176" width="38" height="6" rx="3" fill="var(--ac)"/>
+</svg>`;
+
+function renderSoon() {
+  const box = $('#soon-page');
+  if (!box) return;
+  box.textContent = '';
+  const card = (art, kicker, title, text, points) => h('section', { class: 'soon-card' },
+    h('div', { class: 'soon-art', html: art }),
+    h('div', { class: 'soon-txt' },
+      h('span', { class: 'soon-kick', text: kicker }),
+      h('h3', { class: 'display', text: title }),
+      h('p', { text }),
+      h('ul', {}, ...points.map((p) => h('li', { text: p })))));
+  box.append(
+    h('div', { class: 'soon-hero' },
+      h('h2', { class: 'display', text: 'Coming soon' }),
+      h('p', { class: 'hint', text: `Cat Key is growing past the screen. These are the gadgets on the drawing board: they know your shortcuts, and they wear ${cat()}.` })),
+    card(SOON_KEYS, 'Concept · Bluetooth', 'Cat Keycaps',
+      'A pad of keys with a tiny screen in each one. Every key shows what it does in the app you’re in, and changes the moment you switch apps.',
+      ['Your Cat Key shortcuts and packs, one tap away', 'The shortcut you’re learning lights up', 'One key is your cat: tap it to purr or pause']),
+    card(SOON_DESK, 'Concept · Bluetooth', 'Cat Desk Companion',
+      `A little cat for your desk with a round screen for a face. It’s ${cat()}: it purrs, naps when you’re away, gets serious when your computer works hard, and keeps your focus timer.`,
+      ['Shows the shortcut you just did the long way', 'Your focus timer, with a stretch at the end', 'Changes cats when you do']),
+    h('section', { class: 'soon-foot' },
+      h('p', { class: 'hint', text: 'These are concept designs, not something you can buy yet. Want one? Follow along and you’ll hear first.' }),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn small strong', type: 'button', html: `${icon('link')}<span>Follow on X</span>`, onclick: () => invoke('open_link', { url: ME.x }).catch((e) => toast(String(e), { kind: 'warn' })) }),
+        h('button', { class: 'btn small', type: 'button', html: `${icon('star')}<span>Star Cat Key on GitHub</span>`, onclick: () => invoke('open_link', { url: `https://github.com/${REPO}` }).catch((e) => toast(String(e), { kind: 'warn' })) }))));
 }
 
 function recordPause() {

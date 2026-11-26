@@ -156,6 +156,7 @@ pub fn apply_config(app: &AppHandle, cfg: Config) -> Result<Config, String> {
     save_config_file(&state.dir, &cfg)?;
     crate::coach::set_settings(&cfg.settings);
     crate::dock::set_settings(&cfg.settings.dock);
+    crate::paws::set_settings(&cfg.settings.paws);
     if old.settings.purr_volume != cfg.settings.purr_volume {
         crate::purr::set_volume_only(cfg.settings.purr_volume);
         if crate::purr::is_on() {
@@ -493,6 +494,8 @@ pub fn run(args: Vec<String>) {
             crate::dock::timer_stop,
             crate::dock::walk_last,
             crate::dock::walk_test,
+            crate::paws::paws_try,
+            crate::paws::paws_colors,
         ])
         .setup(move |app| {
             if second {
@@ -509,13 +512,18 @@ pub fn run(args: Vec<String>) {
                 dock_settings.on = true;
             }
             crate::dock::start(&handle, handle.state::<AppState>().dir.clone(), &dock_settings);
+            crate::paws::start(&handle, &coach_settings.paws);
             if dock_test {
                 let h = handle.clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_secs(3));
                     crate::dock::walk(&h, "Release check: the cat walks.".into());
                     crate::dock::timer_start(h.clone(), 0.1, "Release check".into());
-                    crate::log("dock test: walk and timer started");
+                    crate::log("dock: test walk and timer started");
+                    // The paws too: the paw pointer and a print next to the pointer.
+                    crate::paws::set_settings(&catkey_core::config::PawSettings { on: true, cursor: true, colors: Vec::new() });
+                    crate::paws::paws_try();
+                    crate::log("dock: test paws tried");
                 });
             }
             let saver = handle.clone();
@@ -544,6 +552,9 @@ pub fn run(args: Vec<String>) {
             }
         }
         RunEvent::Exit => {
+            // The normal pointer back, if it was a paw.
+            #[cfg(windows)]
+            crate::paw_cursor::apply(false, &[]);
             hook::send(hook::Cmd::Quit);
             save_stats(app);
             crate::coach::flush(true);
