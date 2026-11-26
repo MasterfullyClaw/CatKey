@@ -1,6 +1,6 @@
 [package]
 name = "catkey"
-version = "1.2.3"
+version = "1.3.0"
 description = "Cat Key - a purr-fect keyboard shortcut remapper for Windows"
 authors = ["Masterfully"]
 edition = "2021"
@@ -48,6 +48,14 @@ features = [
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
 ]
+
+# macOS: the front app, the clipboard, app bundles (AppKit/Foundation) and the Accessibility prompt.
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+core-foundation = "0.10"
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSBundle", "NSProcessInfo", "NSArray", "NSDictionary", "NSValue"] }
+objc2-app-kit = { version = "0.3", features = ["NSWorkspace", "NSRunningApplication", "NSPasteboard"] }
 
 # UI Automation (COM) for the shortcut coach (what's under the pointer), and the shell's own
 # ShellExecute (opening links as the signed-in user while Cat Key runs as administrator).

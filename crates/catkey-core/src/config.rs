@@ -200,6 +200,15 @@ impl Scope {
 }
 
 /// "Chrome" / "C:\\…\\chrome.exe" / "chrome.EXE" -> "chrome.exe"
+/// An app in a rule matches the app in front: exactly, or by its start when it ends in
+/// `*` (Mac apps whose id carries a version, like "com.adobe.premierepro.25").
+pub fn app_matches(pattern: &str, exe: &str) -> bool {
+    match pattern.strip_suffix('*') {
+        Some(start) => !start.is_empty() && exe.starts_with(start),
+        None => pattern == exe,
+    }
+}
+
 pub fn normalize_app(app: &str) -> String {
     let a = app.trim().trim_matches('"');
     let file = a.rsplit(['\\', '/']).next().unwrap_or(a).trim().to_lowercase();
@@ -235,8 +244,12 @@ fn rule(trigger: &str, keys: &str, name: &str) -> Rule {
     }
 }
 
-/// The starter pack: the user's Mac-style Alt shortcuts.
+/// The starter pack: the user's Mac-style Alt shortcuts. A Mac already has ⌘, so it
+/// starts with none (the Mac starter template is there for people coming from Windows).
 pub fn default_rules() -> Vec<Rule> {
+    if cfg!(target_os = "macos") {
+        return Vec::new();
+    }
     vec![
         rule("LAlt+W", "LCtrl+W", "Close tab"),
         rule("LAlt+C", "LCtrl+C", "Copy"),
@@ -259,6 +272,63 @@ fn new_tab() -> Rule {
 
 pub const STARTER_TEMPLATE_ID: &str = "builtin-starter";
 
+/// Terminals keep Ctrl as it is (Ctrl+C stops a program there).
+const MAC_TERMINALS: [&str; 7] = [
+    "com.apple.terminal",
+    "com.googlecode.iterm2",
+    "dev.warp.warp-stable",
+    "com.github.wez.wezterm",
+    "net.kovidgoyal.kitty",
+    "com.mitchellh.ghostty",
+    "org.alacritty",
+];
+
+/// The Mac's templates: Windows habits (Ctrl) doing what ⌘ does, outside terminals.
+fn mac_templates() -> Vec<(&'static str, &'static str, &'static str, Vec<Rule>)> {
+    let ctrl = |key: &str, cmd: &str, name: &str| {
+        let mut r = rule(&format!("LCtrl+{key}"), cmd, name);
+        r.scope = Scope { mode: ScopeMode::Except, apps: MAC_TERMINALS.iter().map(|s| s.to_string()).collect() };
+        r
+    };
+    vec![
+        (
+            STARTER_TEMPLATE_ID,
+            "Windows keys on a Mac",
+            "Ctrl does what ⌘ does, like on Windows: copy, paste, undo, save, find, tabs. ⌘ keeps working, and terminals keep their Ctrl.",
+            vec![
+                ctrl("C", "LWin+C", "Copy"),
+                ctrl("V", "LWin+V", "Paste"),
+                ctrl("X", "LWin+X", "Cut"),
+                ctrl("Z", "LWin+Z", "Undo"),
+                ctrl("Y", "LWin+LShift+Z", "Redo"),
+                ctrl("A", "LWin+A", "Select all"),
+                ctrl("S", "LWin+S", "Save"),
+                ctrl("F", "LWin+F", "Find"),
+                ctrl("N", "LWin+N", "New"),
+                ctrl("T", "LWin+T", "New tab"),
+                ctrl("W", "LWin+W", "Close tab"),
+                ctrl("R", "LWin+R", "Reload"),
+            ],
+        ),
+        (
+            "builtin-mac-more",
+            "More Windows habits",
+            "Print, open, bold, italic, zoom and the address bar, with Ctrl like on Windows.",
+            vec![
+                ctrl("P", "LWin+P", "Print"),
+                ctrl("O", "LWin+O", "Open"),
+                ctrl("B", "LWin+B", "Bold"),
+                ctrl("I", "LWin+I", "Italic"),
+                ctrl("L", "LWin+L", "Address bar"),
+                ctrl("Equals", "LWin+Equals", "Zoom in"),
+                ctrl("Minus", "LWin+Minus", "Zoom out"),
+                ctrl("0", "LWin+0", "Reset zoom"),
+                ctrl("Backspace", "LAlt+Backspace", "Delete word"),
+            ],
+        ),
+    ]
+}
+
 /// Templates that ship with Cat Key. Fixed ids, so the UI can tell them apart.
 pub fn builtin_templates() -> Vec<Template> {
     fn tpl(id: &str, name: &str, description: &str, rules: Vec<Rule>) -> Template {
@@ -271,6 +341,9 @@ pub fn builtin_templates() -> Vec<Template> {
             })
             .collect();
         Template { id: id.into(), name: name.into(), description: description.into(), builtin: true, rules }
+    }
+    if cfg!(target_os = "macos") {
+        return mac_templates().into_iter().map(|(id, name, d, rules)| tpl(id, name, d, rules)).collect();
     }
     vec![
         tpl(
@@ -478,8 +551,8 @@ impl CScope {
     pub fn matches(&self, exe: &str) -> bool {
         match self {
             CScope::All => true,
-            CScope::Only(apps) => apps.iter().any(|a| a == exe),
-            CScope::Except(apps) => !apps.iter().any(|a| a == exe),
+            CScope::Only(apps) => apps.iter().any(|a| app_matches(a, exe)),
+            CScope::Except(apps) => !apps.iter().any(|a| app_matches(a, exe)),
         }
     }
     fn rank(&self) -> u8 {
@@ -624,7 +697,13 @@ pub fn compile(cfg: &Config) -> Compiled {
     if cfg.settings.swap_alt_ctrl {
         // Alt ⇄ Ctrl on both sides, ahead of any other remap of those keys. Rules then
         // see the swapped keys, like a keyboard whose two keys traded places.
-        for (from, to) in [(0xA4u8, 0xA2u8), (0xA2, 0xA4), (0xA5, 0xA3), (0xA3, 0xA5)] {
+        // On a Mac the pair is ⌘ (the Win key here) and Control.
+        let pairs: [(u8, u8); 4] = if cfg!(target_os = "macos") {
+            [(0x5B, 0xA2), (0xA2, 0x5B), (0x5C, 0xA3), (0xA3, 0x5C)]
+        } else {
+            [(0xA4, 0xA2), (0xA2, 0xA4), (0xA5, 0xA3), (0xA3, 0xA5)]
+        };
+        for (from, to) in pairs {
             c.remaps[from as usize].insert(0, CKeyRemap { index: SYSTEM_RULE, scope: CScope::All, action: KAction::Key(to) });
         }
     }
@@ -721,6 +800,28 @@ mod tests {
         cfg.settings.sounds = false; // turned off again later: stays off
         assert!(!cfg.migrate());
         assert!(!cfg.settings.sounds);
+    }
+
+    #[test]
+    fn app_patterns_match_by_start() {
+        assert!(app_matches("com.adobe.premierepro*", "com.adobe.premierepro.25"));
+        assert!(app_matches("chrome.exe", "chrome.exe"));
+        assert!(!app_matches("chrome.exe", "chrome2.exe"));
+        assert!(!app_matches("*", "anything"));
+        assert_eq!(normalize_app("com.adobe.PremierePro*"), "com.adobe.premierepro*");
+    }
+
+    #[test]
+    fn mac_templates_are_sound() {
+        let all = mac_templates();
+        assert_eq!(all[0].0, STARTER_TEMPLATE_ID);
+        for (_, _, _, rules) in &all {
+            assert!(!rules.is_empty());
+            for r in rules {
+                assert_eq!(r.scope.mode, ScopeMode::Except);
+                assert!(r.scope.apps.iter().any(|a| a == "com.apple.terminal"));
+            }
+        }
     }
 
     #[test]

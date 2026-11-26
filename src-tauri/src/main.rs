@@ -1,17 +1,39 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-//! Cat Key: a purr-fect keyboard shortcut remapper for Windows.
+//! Cat Key: a purr-fect keyboard shortcut remapper for Windows and macOS.
+//!
+//! The system-specific parts have the same module names on both systems, so the rest of
+//! the app reads the same: `win` (system helpers), `hook` (the keyboard engine's eyes and
+//! hands), `coach` and `purr`. On a Mac they come from the `mac*` files.
 
 mod app;
-mod coach;
 mod commands;
-mod hook;
-mod purr;
 mod tray;
+
+#[cfg(windows)]
+mod coach;
+#[cfg(windows)]
+mod hook;
+#[cfg(windows)]
+mod purr;
+#[cfg(windows)]
+mod win;
+
+#[cfg(target_os = "macos")]
+#[path = "mac_coach.rs"]
+mod coach;
+#[cfg(target_os = "macos")]
+#[path = "mac_hook.rs"]
+mod hook;
+#[cfg(target_os = "macos")]
+#[path = "mac_purr.rs"]
+mod purr;
+#[cfg(target_os = "macos")]
+#[path = "macos.rs"]
 mod win;
 
 use std::io::Write;
 
-/// Append a line to %APPDATA%\CatKey\catkey.log (kept small).
+/// Append a line to catkey.log in the data folder (kept small).
 pub fn log(msg: &str) {
     let path = app::config_dir().join("catkey.log");
     if std::fs::metadata(&path).map(|m| m.len() > 256 * 1024).unwrap_or(false) {

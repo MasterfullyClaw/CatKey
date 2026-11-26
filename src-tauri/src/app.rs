@@ -46,8 +46,19 @@ pub struct AppState {
     pub icons: Mutex<HashMap<String, Option<String>>>,
 }
 
+/// %APPDATA%\CatKey on Windows, ~/Library/Application Support/CatKey on a Mac.
 pub fn config_dir() -> PathBuf {
-    std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("CatKey")
+    #[cfg(target_os = "macos")]
+    {
+        std::env::var_os("HOME")
+            .map(|h| PathBuf::from(h).join("Library").join("Application Support"))
+            .unwrap_or_else(std::env::temp_dir)
+            .join("CatKey")
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("CatKey")
+    }
 }
 
 pub fn write_atomic(path: &Path, text: &str) -> Result<(), String> {
@@ -291,6 +302,7 @@ fn start_dispatcher(app: AppHandle, rx: Receiver<Effect>) {
     std::thread::Builder::new()
         .name("catkey-effects".into())
         .spawn(move || {
+            #[cfg(windows)]
             unsafe {
                 use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE};
                 CoInitializeEx(std::ptr::null(), (COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) as u32);
@@ -489,6 +501,9 @@ pub fn run(args: Vec<String>) {
             crate::purr::set(false, None);
             std::thread::sleep(Duration::from_millis(60));
         }
+        // Mac: clicking Cat Key in the Dock brings the window back.
+        #[cfg(target_os = "macos")]
+        RunEvent::Reopen { .. } => show_main(app),
         _ => {}
     });
 }

@@ -32,6 +32,10 @@ pub struct Status {
     platform: &'static str,
     /// Keys the watchdog caught that the keyboard hook missed (since Cat Key started).
     watch_fixes: u32,
+    /// Mac: Cat Key may use the keyboard (Privacy & Security → Accessibility).
+    keyboard_allowed: bool,
+    /// Mac: running straight from the disk image or Downloads (permissions won't stick).
+    temp_place: bool,
 }
 
 #[derive(Serialize)]
@@ -67,6 +71,14 @@ fn status(state: &AppState) -> Status {
         startup: app::startup_status(&settings).to_string(),
         platform: if cfg!(target_os = "macos") { "mac" } else { "windows" },
         watch_fixes: hook::WATCH_FIXES.load(std::sync::atomic::Ordering::Relaxed),
+        #[cfg(target_os = "macos")]
+        keyboard_allowed: win::keyboard_allowed(),
+        #[cfg(not(target_os = "macos"))]
+        keyboard_allowed: true,
+        #[cfg(target_os = "macos")]
+        temp_place: win::running_from_temp_place(),
+        #[cfg(not(target_os = "macos"))]
+        temp_place: false,
     }
 }
 
@@ -177,10 +189,12 @@ pub async fn pick_program(app: AppHandle) -> Option<Picked> {
     let file = app
         .dialog()
         .file()
-        .set_title("Pick an app or file")
-        .add_filter("Apps and shortcuts", &["exe", "lnk", "bat", "cmd", "url"])
-        .add_filter("Any file", &["*"])
-        .blocking_pick_file()?;
+        .set_title("Pick an app or file");
+    #[cfg(target_os = "macos")]
+    let file = file.set_directory("/Applications").add_filter("Apps", &["app"]);
+    #[cfg(not(target_os = "macos"))]
+    let file = file.add_filter("Apps and shortcuts", &["exe", "lnk", "bat", "cmd", "url"]).add_filter("Any file", &["*"]);
+    let file = file.blocking_pick_file()?;
     let path = file.into_path().ok()?.to_string_lossy().to_string();
     let exe = win::file_name_lower(&path);
     let name = win::file_description(&path).unwrap_or_else(|| {
@@ -359,6 +373,13 @@ pub async fn window_close(window: WebviewWindow) {
 #[tauri::command]
 pub async fn open_system_page(page: String) -> Result<(), String> {
     match page.as_str() {
+        #[cfg(target_os = "macos")]
+        "startup" => win::launch("x-apple.systempreferences:com.apple.LoginItems-Settings.extension", ""),
+        #[cfg(target_os = "macos")]
+        "accessibility" => win::launch("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility", ""),
+        #[cfg(target_os = "macos")]
+        "input-monitoring" => win::launch("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent", ""),
+        #[cfg(not(target_os = "macos"))]
         "startup" => win::launch("ms-settings:startupapps", ""),
         "powertoys" => {
             let path = win::find_process_path("PowerToys.exe")
@@ -458,7 +479,9 @@ pub async fn open_ai_app(app: String, link: Option<String>) -> Result<String, St
                     return Ok("filled".to_string());
                 }
             }
-            if link.len() <= 250 && win::has_protocol("claude") && win::open_url(&link).is_ok() {
+            // On a Mac `open` passes a link of any length; on Windows only short ones are safe here.
+            let fits = cfg!(target_os = "macos") || link.len() <= 250;
+            if fits && win::has_protocol("claude") && win::open_url(&link).is_ok() {
                 return Ok("filled".to_string());
             }
         }

@@ -45,10 +45,50 @@ jobs:
         with:
           name: CatKey-windows
           path: out/*
+
+  macos:
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci || npm install
+      - name: Build the Mac app (Apple Silicon and Intel in one)
+        run: npx tauri build --target universal-apple-darwin --bundles app
+      - name: Disk image and zip
+        run: |
+          set -e
+          APP="target/universal-apple-darwin/release/bundle/macos/Cat Key.app"
+          codesign --verify --verbose "$APP" || codesign --force --deep --sign - "$APP"
+          mkdir -p out dmg
+          cp -R "$APP" dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "Cat Key" -srcfolder dmg -ov -format UDZO out/CatKey-mac.dmg
+          ditto -c -k --keepParent "$APP" out/CatKey-mac.zip
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CatKey-mac
+          path: out/*
+
+  release:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
       - name: Version
         id: ver
-        shell: pwsh
-        run: echo "v=$(node -p "require('./package.json').version")" >> $env:GITHUB_OUTPUT
+        run: echo "v=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
       - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:

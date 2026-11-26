@@ -14,9 +14,9 @@ Like a password manager, but for shortcuts: every shortcut of every app, on Wind
 
 [![Download for Windows](https://img.shields.io/badge/⬇%20Download%20for%20Windows-free-ff8cc6?style=for-the-badge)](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe)
 &nbsp;
-[![Mac](https://img.shields.io/badge/Mac-coming%20soon-b79cff?style=for-the-badge)](https://github.com/MasterfullyClaw/CatKey/releases)
+[![Download for Mac](https://img.shields.io/badge/⬇%20Download%20for%20Mac-free-b79cff?style=for-the-badge)](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-mac.dmg)
 
-<sub>Windows 10 and 11 · free and open source · no account, no internet needed · <a href="https://masterfullyclaw.github.io/CatKey/">website</a></sub>
+<sub>Windows 10 and 11 · macOS 11 or later (Apple Silicon and Intel) · free and open source · no account, no internet needed · <a href="https://masterfullyclaw.github.io/CatKey/">website</a></sub>
 
 </div>
 
@@ -53,11 +53,21 @@ Each app keeps its own shortcuts. Cat Key only adds yours on top, and you can sw
 
 ## Install
 
+### Windows
+
 1. [Download the installer](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe) and run it. It doesn't need admin rights.
 2. Cat Key opens with your first shortcuts already working, and it lives in the tray by the clock.
 3. Want shortcuts in apps that run as administrator (Task Manager, admin terminals)? Settings → **Works in admin apps** → Allow.
 
 Prefer no installer? Grab [the portable exe](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-portable-x64.exe).
+
+### Mac
+
+1. [Download the disk image](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-mac.dmg), open it and drag **Cat Key** into **Applications**.
+2. Open Cat Key from Applications. The first time, macOS may say it can't check the app (it isn't notarized by Apple yet): open **System Settings → Privacy & Security** and click **Open Anyway**.
+3. Let Cat Key use the keyboard: **System Settings → Privacy & Security → Accessibility**, switch on Cat Key. Its Checkup has a button that opens that page.
+
+On a Mac, ⌘ is shown as ⌘ and Cat Key starts with no remaps (your Mac already has ⌘); pick what you want from the Library and Templates, like *Windows keys on a Mac* for Ctrl habits. The shortcut coach's tips are Windows-only for now.
 
 ## How it works
 

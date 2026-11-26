@@ -129,12 +129,32 @@ const KNOWN_APPS = {
   'claude.exe': 'Claude', 'cursor.exe': 'Cursor', 'obsidian.exe': 'Obsidian', 'notion.exe': 'Notion', 'telegram.exe': 'Telegram',
   'whatsapp.exe': 'WhatsApp', 'blender.exe': 'Blender', 'afterfx.exe': 'After Effects', 'photoshop.exe': 'Photoshop',
 };
-const appNames = new Map(Object.entries(KNOWN_APPS));
+// Mac apps are known by their bundle id ("com.apple.safari").
+const MAC_APP_NAMES = {
+  'com.apple.safari': 'Safari', 'com.apple.finder': 'Finder', 'com.apple.terminal': 'Terminal', 'com.apple.textedit': 'TextEdit',
+  'com.apple.notes': 'Notes', 'com.apple.mail': 'Mail', 'com.apple.finalcut': 'Final Cut Pro', 'com.apple.dt.xcode': 'Xcode',
+  'com.apple.logic10': 'Logic Pro', 'com.apple.keynote': 'Keynote', 'com.apple.iwork.keynote': 'Keynote', 'com.apple.iwork.pages': 'Pages',
+  'com.google.chrome': 'Chrome', 'com.microsoft.edgemac': 'Edge', 'org.mozilla.firefox': 'Firefox', 'com.brave.browser': 'Brave',
+  'company.thebrowser.browser': 'Arc', 'company.thebrowser.dia': 'Dia', 'com.microsoft.vscode': 'VS Code', 'com.todesktop.230313mzl4w4u92': 'Cursor',
+  'com.tinyspeck.slackmacgap': 'Slack', 'notion.id': 'Notion', 'com.figma.desktop': 'Figma', 'md.obsidian': 'Obsidian',
+  'com.openai.chat': 'ChatGPT', 'com.anthropic.claudefordesktop': 'Claude', 'com.spotify.client': 'Spotify', 'com.hnc.discord': 'Discord',
+  'com.googlecode.iterm2': 'iTerm', 'dev.warp.warp-stable': 'Warp', 'com.blackmagic-design.davinciresolve': 'DaVinci Resolve',
+  'com.adobe.photoshop': 'Photoshop', 'com.adobe.illustrator': 'Illustrator', 'com.adobe.aftereffects': 'After Effects',
+  'com.adobe.premierepro*': 'Premiere Pro', 'org.blenderfoundation.blender': 'Blender', 'com.microsoft.word': 'Word',
+  'com.microsoft.excel': 'Excel', 'com.microsoft.powerpoint': 'PowerPoint', 'com.lemon.lvoverseas': 'CapCut',
+};
+const appNames = new Map([...Object.entries(KNOWN_APPS), ...Object.entries(MAC_APP_NAMES)]);
 function appName(exeOrPath) {
   if (!exeOrPath) return '';
   if (/^[a-z]+:\/\//i.test(exeOrPath)) return exeOrPath.replace(/^https?:\/\//i, '').replace(/\/$/, '');
   const file = exeOrPath.split(/[\\/]/).pop().toLowerCase();
   if (appNames.has(file)) return appNames.get(file);
+  if (/^[a-z0-9-]+(\.[a-z0-9-]+){2,}\*?$/.test(file)) {
+    const known = [...appNames.entries()].find(([k]) => k.endsWith('*') && file.startsWith(k.slice(0, -1)));
+    if (known) return known[1];
+    const last = file.replace(/\*$/, '').split('.').pop();
+    return last.charAt(0).toUpperCase() + last.slice(1);
+  }
   const stem = file.replace(/\.(exe|lnk|bat|cmd|url)$/i, '');
   return stem.charAt(0).toUpperCase() + stem.slice(1);
 }
@@ -232,6 +252,9 @@ async function boot() {
   const st = await invoke('get_state');
   S.config = st.config;
   S.status = st.status;
+  K.setMac(PLAT() === 'mac');
+  $('#app').classList.toggle('mac', PLAT() === 'mac');
+  if (PLAT() === 'mac' && $('#find-kbd')) $('#find-kbd').textContent = '⌘ F';
   S.stats = st.stats || S.stats;
   S.templates = st.templates || [];
   setSoundsEnabled(S.config.settings.sounds);
@@ -257,7 +280,9 @@ async function boot() {
   await invoke('ui_ready').catch(() => {});
 
   if (S.status.firstRun) {
-    setTimeout(() => toast(`${cat()} brought your ${rules().length} shortcuts over. They already work everywhere!`, { ms: 6000 }), 500);
+    setTimeout(() => toast(rules().length
+      ? `${cat()} brought your ${rules().length} shortcuts over. They already work everywhere!`
+      : `Welcome! Pick shortcuts from the Library or make your own, and ${cat()} runs them in every app.`, { ms: 6000 }), 500);
   }
   if (newTab) {
     setTimeout(() => toast('New: Alt + T opens a new tab. Want it the other way round? Click the arrow on its card to swap.', { ms: 10000 }), 900);
@@ -378,9 +403,11 @@ function renderHero() {
     void bubble.offsetWidth;
     bubble.classList.add('swap');
   }
-  $('#sub').textContent = on
-    ? 'Alt now works like ⌘ on a Mac, in every app. Press one anywhere and ' + cat() + ' taps along.'
-    : 'Every key works like normal until you wake ' + cat() + ' up.';
+  $('#sub').textContent = !on
+    ? 'Every key works like normal until you wake ' + cat() + ' up.'
+    : PLAT() === 'mac'
+      ? (active ? `Your shortcuts work in every app. Press one anywhere and ${cat()} taps along.` : `Pick shortcuts from the Library or make your own, and ${cat()} runs them in every app.`)
+      : 'Alt now works like ⌘ on a Mac, in every app. Press one anywhere and ' + cat() + ' taps along.';
   const master = $('#master');
   master.setAttribute('aria-checked', String(on));
   master.querySelector('.switch').setAttribute('aria-checked', String(on));
@@ -418,6 +445,7 @@ function catQuickPicker(anchor) {
 }
 
 function checkupRows() {
+  if (PLAT() === 'mac') return macCheckupRows();
   const st = S.status;
   const s = S.config.settings;
   const rows = [];
@@ -461,6 +489,35 @@ function checkupRows() {
   return rows;
 }
 
+/** The Mac's checkup: the permission that lets Cat Key use the keyboard, where it runs from, login. */
+function macCheckupRows() {
+  const st = S.status;
+  const s = S.config.settings;
+  const rows = [];
+  const page = (p) => () => invoke('open_system_page', { page: p }).catch((e) => toast(String(e), { kind: 'err' }));
+  if (st.tempPlace) {
+    rows.push({ level: 'warn', title: 'Move Cat Key to Applications first', desc: 'It’s running from the disk image or Downloads, where macOS forgets its permissions. Drag Cat Key into Applications and open it from there.' });
+  }
+  if (!st.keyboardAllowed) {
+    rows.push({ level: 'bad', title: 'Let Cat Key use the keyboard', desc: 'macOS asks once. Open Privacy & Security → Accessibility, switch on Cat Key (add it with + if it isn’t listed), and your shortcuts start right away.', actions: [['Open Accessibility', page('accessibility')], ['Input Monitoring', page('input-monitoring')]] });
+  } else if (st.engineRunning === false) {
+    rows.push({ level: 'warn', title: 'The keyboard is starting', desc: 'Allowed. If it stays like this, quit Cat Key and open it again.', actions: [['Restart Cat Key', () => invoke('restart_app')]] });
+  } else {
+    rows.push({ level: 'ok', title: 'Keyboard engine is running', desc: 'Allowed in Privacy & Security. Every shortcut is handled the moment you press it.' });
+  }
+  if (!s.launchAtStartup) {
+    rows.push({ level: 'info', title: 'Doesn’t open at login', desc: 'After a restart you’d have to open Cat Key yourself.', actions: [['Turn on', () => commitSettings({ launchAtStartup: true }).then(() => setTimeout(refreshStatusNow, 800))]] });
+  } else if (st.startup === 'missing') {
+    rows.push({ level: 'warn', title: 'Open at login isn’t set up yet', desc: 'One click and Cat Key opens quietly every time you log in.', actions: [['Fix it', async () => {
+      try { await invoke('repair_startup'); toast('Fixed. Cat Key now opens at login.'); } catch (e) { toast(`Couldn’t fix it: ${e}`, { kind: 'err' }); }
+      refreshStatusNow();
+    }]] });
+  } else {
+    rows.push({ level: 'ok', title: 'Opens at login', desc: 'Wakes up quietly in the menu bar when you log in.' });
+  }
+  return rows;
+}
+
 function checkupEl(rows) {
   const list = h('div', { class: 'checkup-list' });
   for (const r of rows) {
@@ -494,7 +551,7 @@ function testPadEl() {
     }
   };
   const pad = h('div', { class: 'pad', tabindex: '0', role: 'textbox', 'aria-label': 'Test pad. Click, then press a shortcut' },
-    h('div', { class: 'pad-hint', html: `${icon('keyboard')}<span>Click here, then press one of your shortcuts, like Alt + C</span>` }), log);
+    h('div', { class: 'pad-hint', html: `${icon('keyboard')}<span>Click here, then press one of your shortcuts${PLAT() === 'mac' ? '' : ', like Alt + C'}</span>` }), log);
   pad.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) { pad.blur(); return; } // Esc still closes Settings
     e.preventDefault();
@@ -515,7 +572,7 @@ function testPadEl() {
   pad.addEventListener('keyup', (e) => { e.preventDefault(); e.stopPropagation(); });
   show();
   return h('div', { class: 'padwrap' }, pad,
-    h('p', { class: 'hint', style: { margin: '0' }, text: 'Press Alt + C here and you should see Ctrl + C, once. Alt + Q closes this window, just like everywhere else.' }));
+    h('p', { class: 'hint', style: { margin: '0' }, text: PLAT() === 'mac' ? 'Press a shortcut here and you see what your apps get instead, once.' : 'Press Alt + C here and you should see Ctrl + C, once. Alt + Q closes this window, just like everywhere else.' }));
 }
 
 // Key log: what Cat Key sees and sends, to understand a shortcut that misbehaves.
@@ -944,10 +1001,12 @@ function wire() {
       if (SEL.on) { setSelecting(false); return; }
     }
     if (TR.on) return; // training: the keys belong to the drill
-    if (SEL.on && e.ctrlKey && e.key.toLowerCase() === 'a' && !E && !DIALOG && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName)) {
+    // The app's own shortcuts use the system's command key: Ctrl on Windows, ⌘ on a Mac.
+    const cmdKey = PLAT() === 'mac' ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+    if (SEL.on && cmdKey && e.key.toLowerCase() === 'a' && !E && !DIALOG && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName)) {
       e.preventDefault(); visibleRules().forEach((r) => SEL.ids.add(r.id)); renderList(); renderBulkBar(); return;
     }
-    const ctrl = e.ctrlKey && !e.altKey && !e.metaKey;
+    const ctrl = cmdKey && !e.altKey;
     // In a text box, Ctrl keys do what they do in any text box (copy, paste, undo, select all…).
     const typingHere = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName) && document.activeElement?.id !== 'search';
     if (typingHere && !(E && ctrl && e.key.toLowerCase() === 's')) return;
@@ -1131,7 +1190,7 @@ function renderRecorderSection(kind) {
   box.textContent = '';
   box.append(recorderEl(kind));
   box.append(h('div', { class: 'row-between' },
-    h('span', { class: 'hint', text: kind === 'trigger' ? 'Windows keeps Win + L and Ctrl + Alt + Del for itself.' : 'What Windows will see instead.' }),
+    h('span', { class: 'hint', text: kind === 'trigger' ? (PLAT() === 'mac' ? 'macOS keeps ⌘ Tab for itself.' : 'Windows keeps Win + L and Ctrl + Alt + Del for itself.') : (PLAT() === 'mac' ? 'What your apps will see instead.' : 'What Windows will see instead.') }),
     h('button', { class: 'link', type: 'button', 'aria-expanded': String(E.manual[kind]), text: E.manual[kind] ? 'Hide fine-tuning' : 'Fine-tune by hand',
       onclick: () => { E.manual[kind] = !E.manual[kind]; renderRecorderSection(kind); } })));
   if (E.manual[kind]) box.append(manualEl(kind));
@@ -1224,7 +1283,7 @@ function startRec(kind) {
           return;
         }
       } else {
-        toast('Add a regular key too, like Alt + C.', { kind: 'warn' });
+        toast(PLAT() === 'mac' ? 'Add a regular key too, like ⌘ C.' : 'Add a regular key too, like Alt + C.', { kind: 'warn' });
       }
       renderRecorderSection(kind);
       renderNotes();
@@ -1751,7 +1810,7 @@ function renderSettings() {
   const purrVol = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(s.purrVolume ?? 45), 'aria-label': 'Purr volume', class: 'range',
     onchange: (e) => commitSettings({ purrVolume: Number(e.target.value) }) });
   const theme = h('div', { class: 'seg soft', role: 'group', 'aria-label': 'Theme' },
-    ...[['auto', 'Match Windows'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => h('button', { type: 'button', 'aria-pressed': String(s.theme === v), text: l, onclick: () => commitSettings({ theme: v }) })));
+    ...[['auto', PLAT() === 'mac' ? 'Match macOS' : 'Match Windows'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => h('button', { type: 'button', 'aria-pressed': String(s.theme === v), text: l, onclick: () => commitSettings({ theme: v }) })));
 
   const pauseCtl = h('div', { style: { display: 'flex', gap: '6px', alignItems: 'center' } });
   if (pauseListening) pauseCtl.append(h('button', { class: 'btn small dashed', type: 'button', onclick: () => stopRecording() }, h('span', { class: 'dot', style: { width: '9px', height: '9px', borderRadius: '5px', background: 'var(--ac)', animation: 'blink 1s infinite' } }), 'Press keys…'));
@@ -1766,6 +1825,7 @@ function renderSettings() {
   nap.append(h('button', { class: 'btn dashed', type: 'button', html: `${icon('plus')}<span>Add app</span>`,
     onclick: (e) => appPicker(e.currentTarget, { title: `Where should ${cat()} nap?`, exclude: s.excludedApps, onPick: (app) => commitSettings({ excludedApps: [...s.excludedApps, app.exe] }) }) }));
 
+  const mac = PLAT() === 'mac';
   const adminDesc = S.status.admin
     ? 'On. Cat Key is running as administrator, so shortcuts also work in Task Manager and admin terminals.'
     : 'Runs as administrator so shortcuts also work in Task Manager and admin terminals. Windows asks you once.';
@@ -1774,8 +1834,11 @@ function renderSettings() {
     h('div', { class: 'drawer-head' }, h('h1', { id: 'st-title', text: 'Settings' }), h('button', { class: 'tbtn', 'aria-label': 'Close settings', html: icon('x'), onclick: closeSettings })),
     h('div', { class: 'drawer-body' },
       h('section', { style: { gap: '0' } }, h('h2', { text: 'Quick settings', style: { marginBottom: '4px' } }),
-        settingRow('Swap Alt and Ctrl', 'Alt works as Ctrl and Ctrl as Alt, in every app, like the ⌘ and Control keys on a Mac. Off unless you turn it on.',
-          switchEl(!!s.swapAltCtrl, 'Swap Alt and Ctrl', () => commitSettings({ swapAltCtrl: !s.swapAltCtrl }).then(() => toast(!s.swapAltCtrl ? 'Swapped: Alt is Ctrl and Ctrl is Alt now.' : 'Alt and Ctrl are back where they were.'))))),
+        mac
+          ? settingRow('Swap ⌘ and Control', '⌘ works as Control and Control as ⌘, in every app, like Ctrl and Alt sit on a Windows keyboard. Off unless you turn it on.',
+            switchEl(!!s.swapAltCtrl, 'Swap Command and Control', () => commitSettings({ swapAltCtrl: !s.swapAltCtrl }).then(() => toast(!s.swapAltCtrl ? 'Swapped: ⌘ is Control and Control is ⌘ now.' : '⌘ and Control are back where they were.'))))
+          : settingRow('Swap Alt and Ctrl', 'Alt works as Ctrl and Ctrl as Alt, in every app, like the ⌘ and Control keys on a Mac. Off unless you turn it on.',
+            switchEl(!!s.swapAltCtrl, 'Swap Alt and Ctrl', () => commitSettings({ swapAltCtrl: !s.swapAltCtrl }).then(() => toast(!s.swapAltCtrl ? 'Swapped: Alt is Ctrl and Ctrl is Alt now.' : 'Alt and Ctrl are back where they were.'))))),
       h('section', {}, h('div', { class: 'row-between' }, h('h2', { text: 'Checkup' }),
         h('button', { class: 'link', type: 'button', text: 'Check again', onclick: () => { refreshStatusNow(); toast(`${cat()} checked everything again.`); } })),
         checkupEl(checkupRows())),
@@ -1783,12 +1846,14 @@ function renderSettings() {
       h('section', {}, h('h2', { text: 'Your cat' }), skins,
         h('div', { class: 'row-between', style: { fontWeight: '800' } }, 'Theme', theme)),
       h('section', { style: { gap: '0' } }, h('h2', { text: 'How it behaves', style: { marginBottom: '4px' } }),
-        settingRow('Start with Windows', 'Wakes up quietly in the tray when you sign in.', switchEl(s.launchAtStartup, 'Start with Windows', () => commitSettings({ launchAtStartup: !s.launchAtStartup }).then(() => setTimeout(refreshStatusNow, 900)))),
-        settingRow('Work in admin apps', adminDesc, switchEl(s.adminMode, 'Work in admin apps', () => setAdmin(!s.adminMode))),
+        mac
+          ? settingRow('Open at login', 'Wakes up quietly in the menu bar when you log in.', switchEl(s.launchAtStartup, 'Open at login', () => commitSettings({ launchAtStartup: !s.launchAtStartup }).then(() => setTimeout(refreshStatusNow, 900))))
+          : settingRow('Start with Windows', 'Wakes up quietly in the tray when you sign in.', switchEl(s.launchAtStartup, 'Start with Windows', () => commitSettings({ launchAtStartup: !s.launchAtStartup }).then(() => setTimeout(refreshStatusNow, 900)))),
+        mac ? null : settingRow('Work in admin apps', adminDesc, switchEl(s.adminMode, 'Work in admin apps', () => setAdmin(!s.adminMode))),
         settingRow('Cat sounds', 'A soft paw tap on every click, a little mew now and then, and a purr when you pet the cat.', switchEl(s.sounds, 'Cat sounds', () => { commitSettings({ sounds: !s.sounds }); setSoundsEnabled(!s.sounds); sounds.on(); })),
         settingRow('Purr volume', 'For the background purr (the paw button at the top, or the tray menu).', purrVol),
         settingRow('Pause hotkey', 'One shortcut that pauses every remap. Handy for games.', pauseCtl)),
-      h('section', { style: { gap: '0' } }, h('h2', { text: 'Shortcut coach', style: { marginBottom: '4px' } }),
+      mac ? null : h('section', { style: { gap: '0' } }, h('h2', { text: 'Shortcut coach', style: { marginBottom: '4px' } }),
         settingRow('Tips when you do it the long way', `When you click something that has a shortcut, ${cat()} shows its keys in a small note that fades away. Nothing is recorded: only the name of what you clicked is read, the way screen readers do.`,
           switchEl(s.coach, 'Shortcut coach', () => commitSettings({ coach: !s.coach }))),
         settingRow('Also in Chrome-based apps', 'Chrome, Edge, VS Code, Slack and Discord do a little extra work each time they’re asked what’s under the pointer, so they’re left out unless you want them.',
@@ -1800,7 +1865,7 @@ function renderSettings() {
         h('p', { class: 'hint', style: { margin: '0', fontSize: '13px' }, text: `${cat()} naps while these apps are in front, so every key works as normal there.` }), nap),
       h('section', {}, h('h2', { text: 'Your shortcuts' }),
         h('div', { class: 'grid2' },
-          h('button', { class: 'btn', type: 'button', html: `${icon('down')}<span>Import from PowerToys</span>`, onclick: importPowerToys }),
+          mac ? null : h('button', { class: 'btn', type: 'button', html: `${icon('down')}<span>Import from PowerToys</span>`, onclick: importPowerToys }),
           h('button', { class: 'btn', type: 'button', html: `${icon('folder')}<span>Import…</span>`, title: 'A Cat Key setup, a pack, an AI answer or a PowerToys file', onclick: importFile }),
           h('button', { class: 'btn', type: 'button', html: `${icon('up')}<span>Export my setup…</span>`, title: 'Everything: shortcuts, templates, saved packs and settings. Works on a Mac too.', onclick: exportProfile }),
           h('button', { class: 'btn', type: 'button', html: `${icon('refresh')}<span>Restore defaults</span>`, onclick: async () => {
@@ -3130,7 +3195,7 @@ function renderTrain() {
   box.append(h('div', { class: 'tpl-intro' },
     h('div', { class: 'txt' },
       h('h2', { class: 'display', text: 'Train yourself' }),
-      h('p', { class: 'hint', text: `Pick an app. ${cat()} names an action, you press its keys. While a round runs, every key stays inside the trainer: nothing reaches Windows or your apps, so nothing closes by accident (Alt+F4 isn’t drilled at all). Each shortcut comes back right before you'd forget it, until it's automatic.` })),
+      h('p', { class: 'hint', text: `Pick an app. ${cat()} names an action, you press its keys. While a round runs, every key stays inside the trainer: nothing reaches your apps or the system, so nothing closes by accident (keys that close windows aren’t drilled at all). Each shortcut comes back right before you'd forget it, until it's automatic.` })),
     h('div', { class: 'lib-actions' },
       h('button', { class: 'btn strong', type: 'button', html: `${icon('wand')}<span>Make your own with AI</span>`, onclick: () => makeWithAI('cheatsheet') }),
       h('button', { class: `chipbtn${TR.sound ? ' on' : ''}`, type: 'button', 'aria-pressed': String(TR.sound), html: `${icon('paw')}<span>Sounds ${TR.sound ? 'on' : 'off'}</span>`,
@@ -3264,7 +3329,7 @@ function trainCapture(on) {
   invoke('set_capture', { on: !!on }).catch(() => {});
 }
 /** Shortcuts never drilled: they close, lock or leave the screen. */
-const NOT_TRAINED = ['Alt+F4', 'Ctrl+Alt+Delete', 'Win+L'];
+const NOT_TRAINED = ['Alt+F4', 'Ctrl+Alt+Delete', 'Win+L', 'Win+Q', 'Win+Tab', 'Win+Space', 'Ctrl+Win+Q'];
 const trainSafe = (keys) => !NOT_TRAINED.some((k) => K.overlaps(keys, k));
 
 function trainListen() {

@@ -30,6 +30,9 @@ function mockStatus(params) {
     version: '1.2.1', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
     configDir: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', problems: {}, engineRunning: params.get('engine') !== '0',
     startup: params.get('startup') || 'on',
+    platform: params.get('mac') === '1' ? 'mac' : 'windows',
+    keyboardAllowed: params.get('allowed') !== '0',
+    tempPlace: params.get('temp') === '1',
   };
 }
 

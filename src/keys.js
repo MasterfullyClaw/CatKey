@@ -35,11 +35,19 @@ export const KEY_GROUPS = [
   ['Modifier keys (as a single key)', ['LCtrl', 'RCtrl', 'LShift', 'RShift', 'LAlt', 'RAlt', 'LWin', 'RWin']],
 ];
 
+// On a Mac the same keys wear their Mac names: ⌘ is the Win key, ⌥ is Alt, ⌃ is Ctrl.
+let MAC = false;
+const MAC_MODS = { Win: '⌘', Alt: '⌥', Ctrl: '⌃', Shift: '⇧' };
+const MAC_KEYS = { Backspace: '⌫ delete', Delete: '⌦', Enter: 'return', Esc: 'esc', Insert: 'Help', Tab: 'tab', Space: 'space', CapsLock: 'caps lock' };
+export function setMac(on) { MAC = !!on; }
+const modLabel = (f) => (MAC ? MAC_MODS[f] : f);
+
 export function keyLabel(name) {
   if (!name) return '';
+  if (MAC && MAC_KEYS[name]) return MAC_KEYS[name];
   if (LABELS[name]) return LABELS[name];
   const m = name.match(MOD_TOKEN);
-  if (m) return m[2];
+  if (m) return modLabel(m[2]);
   const num = name.match(/^Num(\d)$/);
   if (num) return `Num ${num[1]}`;
   return name;
@@ -82,11 +90,11 @@ export function caps(str) {
   const list = [];
   for (const f of FAMILIES) {
     const s = sc.mods[f];
-    if (s) list.push({ t: f, s: s === 'A' ? '' : s, mod: true });
+    if (s) list.push({ t: modLabel(f), s: s === 'A' ? '' : s, mod: true });
   }
   if (sc.key) {
     const m = sc.key.match(MOD_TOKEN);
-    list.push(m ? { t: m[2], s: m[1] || '', mod: true } : { t: keyLabel(sc.key), s: '', mod: false });
+    list.push(m ? { t: modLabel(m[2]), s: m[1] || '', mod: true } : { t: keyLabel(sc.key), s: '', mod: false });
   }
   return list;
 }
@@ -120,6 +128,7 @@ export function overlaps(a, b) {
 export function reservedNote(str) {
   const sc = parse(str);
   const only = (fams) => FAMILIES.every((f) => (fams.includes(f) ? !!sc.mods[f] : !sc.mods[f]));
+  if (MAC) return sc.key === 'Tab' && only(['Win']) ? 'macOS keeps ⌘ Tab for switching apps.' : '';
   if (sc.key === 'L' && only(['Win'])) return 'Windows keeps Win + L (lock) for itself, so it can’t be changed.';
   if (sc.key === 'Delete' && only(['Ctrl', 'Alt'])) return 'Ctrl + Alt + Delete belongs to Windows and can’t be changed.';
   return '';

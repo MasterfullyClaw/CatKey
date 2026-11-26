@@ -160,7 +160,7 @@ fn count_tracked(ctx: &mut Ctx, ev: &KeyEvent) {
         }
         if !apps.is_empty() {
             let e = exe.get_or_insert_with(|| ctx.env.foreground_exe().to_string());
-            if !apps.iter().any(|a| a == e) {
+            if !apps.iter().any(|a| catkey_core::config::app_matches(a, e)) {
                 continue;
             }
         }
