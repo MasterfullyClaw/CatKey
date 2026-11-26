@@ -176,8 +176,8 @@ pub struct PawSettings {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct DockSettings {
-    /// Show the cat ball on the screen edge.
-    #[serde(default)]
+    /// Show the cat ball on the screen edge. On from the start: it's the cat's home.
+    #[serde(default = "yes")]
     pub on: bool,
     /// "right" or "left".
     #[serde(default = "right_edge")]
@@ -257,7 +257,7 @@ fn dock_y() -> f64 {
 
 impl Default for DockSettings {
     fn default() -> Self {
-        DockSettings { on: false, edge: right_edge(), y: dock_y(), clipboard: true, keep_clips: false, vitals: true, end: TimerEnd::default() }
+        DockSettings { on: true, edge: right_edge(), y: dock_y(), clipboard: true, keep_clips: false, vitals: true, end: TimerEnd::default() }
     }
 }
 

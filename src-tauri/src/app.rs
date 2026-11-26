@@ -205,7 +205,8 @@ pub fn apply_startup(settings: &Settings) -> Result<(), String> {
         return Ok(());
     }
     if settings.admin_mode && elevated {
-        if !win::admin_task_exists() {
+        // Also when it still starts another copy (a portable one from before an install).
+        if !win::admin_task_exists() || !win::admin_task_is_ours() {
             win::create_admin_task()?;
         }
         win::set_run_entry(None);
@@ -227,7 +228,7 @@ pub fn startup_status(settings: &Settings) -> &'static str {
         return "off";
     }
     if settings.admin_mode && win::is_elevated() {
-        return if win::admin_task_exists() { "on" } else { "missing" };
+        return if win::admin_task_exists() && win::admin_task_is_ours() { "on" } else { "missing" };
     }
     match win::get_run_entry() {
         Some(cmd) if cmd == win::autostart_command() => {
@@ -445,6 +446,7 @@ pub fn run(args: Vec<String>) {
             crate::commands::export_file,
             crate::commands::restore_defaults,
             crate::commands::set_admin_mode,
+            crate::commands::mac_allow,
             crate::commands::restart_normal,
             crate::commands::ui_ready,
             crate::commands::window_minimize,
@@ -593,6 +595,15 @@ pub fn run(args: Vec<String>) {
                     // And CatGPT: the basket, a screenshot, the wheel, the canvas, a short recording.
                     std::thread::sleep(Duration::from_secs(1));
                     crate::catgpt::ci_test();
+                    // Opening at login: the checkup must read back what Fix it writes.
+                    let s = Settings { launch_at_startup: true, ..Settings::default() };
+                    match apply_startup(&s) {
+                        Ok(()) => crate::log(&format!("dock: login item after Fix it: {}", startup_status(&s))),
+                        Err(e) => crate::log(&format!("dock: login item after Fix it: error {e}")),
+                    }
+                    // Mac: Allow can clear Cat Key's own old permission entry (nothing else).
+                    #[cfg(target_os = "macos")]
+                    crate::win::reset_permissions(&["ScreenCapture"]);
                 });
             }
             let saver = handle.clone();

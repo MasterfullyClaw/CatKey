@@ -592,18 +592,27 @@ function macCheckupRows() {
   const s = S.config.settings;
   const rows = [];
   const page = (p) => () => invoke('open_system_page', { page: p }).catch((e) => toast(String(e), { kind: 'err' }));
+  const allow = (what) => async () => {
+    try {
+      const ok = await invoke('mac_allow', { what });
+      toast(ok ? 'Allowed. Thank you!' : what === 'keyboard'
+        ? 'Switch on Cat Key in the list macOS just opened. Your shortcuts start by themselves.'
+        : 'Switch on Cat Key in the list macOS just opened, then choose Quit & Reopen.', { ms: 10000 });
+    } catch (e) { toast(String(e), { kind: 'err' }); }
+    setTimeout(refreshStatusNow, 1500);
+  };
   if (st.tempPlace) {
     rows.push({ level: 'warn', title: 'Move Cat Key to Applications first', desc: 'It’s running from the disk image or Downloads, where macOS forgets its permissions. Drag Cat Key into Applications and open it from there.' });
   }
   if (!st.keyboardAllowed) {
-    rows.push({ level: 'bad', title: 'Let Cat Key use the keyboard', desc: 'Open Privacy & Security → Accessibility and switch on Cat Key (add it with + if it isn’t listed); your shortcuts start right away. Just updated Cat Key and it’s already on? macOS sees the new version as a new app: select Cat Key, press −, then add it again with +.', actions: [['Open Accessibility', page('accessibility')], ['Input Monitoring', page('input-monitoring')]] });
+    rows.push({ level: 'bad', title: 'Let Cat Key use the keyboard', desc: 'macOS needs your OK in Privacy & Security → Accessibility. Press Allow, then switch on Cat Key in the list. Already switched on? That switch belongs to the version before this update, which macOS no longer accepts: Allow clears it and asks again.', actions: [['Allow', allow('keyboard')], ['Open Accessibility', page('accessibility')]] });
   } else if (st.engineRunning === false) {
     rows.push({ level: 'warn', title: 'The keyboard is starting', desc: 'Allowed. If it stays like this, quit Cat Key and open it again.', actions: [['Restart Cat Key', () => invoke('restart_app')]] });
   } else {
     rows.push({ level: 'ok', title: 'Keyboard engine is running', desc: 'Allowed in Privacy & Security. Every shortcut is handled the moment you press it.' });
   }
   if (st.screenAllowed === false) {
-    rows.push({ level: 'info', title: 'CatGPT can’t see your screen yet', desc: 'Screenshots, the canvas and recordings need Privacy & Security → Screen & System Audio Recording. Switch Cat Key on there (after an update: select it, press −, add it again), then let macOS reopen Cat Key.', actions: [['Open Screen Recording', () => invoke('catgpt_ask_capture').catch((e) => toast(String(e), { kind: 'err' }))]] });
+    rows.push({ level: 'info', title: 'CatGPT can’t see your screen yet', desc: 'Screenshots, the canvas and recordings need Privacy & Security → Screen & System Audio Recording. Press Allow, switch on Cat Key, then choose Quit & Reopen. Already on from an earlier version? Allow clears that old switch and asks again.', actions: [['Allow', allow('screen')]] });
   } else if (st.screenAllowed) {
     rows.push({ level: 'ok', title: 'CatGPT can see your screen', desc: 'Allowed in Screen & System Audio Recording, for screenshots, the canvas and recordings.' });
   }
@@ -1142,8 +1151,8 @@ function wire() {
     if (!REC) return;
     const target = REC;
     if (phase === 'update') target.onUpdate?.(shortcut);
-    else if (phase === 'done') { REC = null; target.onDone?.(shortcut); }
-    else if (phase === 'cancel') { REC = null; target.onCancel?.(); toast('Stopped listening. Nothing was pressed.', { kind: 'warn' }); }
+    else if (phase === 'done') { domRecStop(); REC = null; target.onDone?.(shortcut); }
+    else if (phase === 'cancel') { if (DOMREC) return; REC = null; target.onCancel?.(); toast('Stopped listening. Nothing was pressed.', { kind: 'warn' }); }
   });
 
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyLook);
@@ -1182,19 +1191,92 @@ function wire() {
 async function startRecording(target) {
   await stopRecording();
   REC = target;
+  // The keyboard engine records keys anywhere. When it can't hear them (a Mac before
+  // Accessibility is allowed), this window listens to its own keys meanwhile.
+  if (S.status?.engineRunning === false || (PLAT() === 'mac' && S.status?.keyboardAllowed === false)) domRecStart();
   try {
     await invoke('start_recording');
   } catch (err) {
+    domRecStop();
     REC = null;
     toast(String(err), { kind: 'err' });
   }
 }
 async function stopRecording() {
+  domRecStop();
   if (!REC) return;
   const t = REC;
   REC = null;
   t.onCancel?.();
   await invoke('stop_recording').catch(() => {});
+}
+
+// Key names from the window's own key events, the same as the engine's ("LWin+LShift+Space").
+const DOM_MODS = { ShiftLeft: 'LShift', ShiftRight: 'RShift', ControlLeft: 'LCtrl', ControlRight: 'RCtrl', AltLeft: 'LAlt', AltRight: 'RAlt', MetaLeft: 'LWin', MetaRight: 'RWin', OSLeft: 'LWin', OSRight: 'RWin' };
+const DOM_KEYS = { Escape: 'Esc', Backquote: 'Backtick', Equal: 'Equals', BracketLeft: 'LBracket', BracketRight: 'RBracket', ContextMenu: 'Menu', ArrowLeft: 'Left', ArrowRight: 'Right', ArrowUp: 'Up', ArrowDown: 'Down', NumpadMultiply: 'NumMultiply', NumpadAdd: 'NumAdd', NumpadSubtract: 'NumSubtract', NumpadDecimal: 'NumDecimal', NumpadDivide: 'NumDivide', NumpadEnter: 'Enter', AudioVolumeMute: 'VolumeMute', AudioVolumeDown: 'VolumeDown', AudioVolumeUp: 'VolumeUp', MediaTrackNext: 'MediaNext', MediaTrackPrevious: 'MediaPrev', MediaPlayPause: 'MediaPlayPause', MediaStop: 'MediaStop' };
+const DOM_SAME = new Set(['Home', 'End', 'PageUp', 'PageDown', 'Insert', 'Delete', 'Enter', 'Tab', 'Space', 'Backspace', 'CapsLock', 'PrintScreen', 'Pause', 'ScrollLock', 'NumLock', 'Minus', 'Backslash', 'Semicolon', 'Quote', 'Comma', 'Period', 'Slash', 'IntlBackslash']);
+function domKeyName(code) {
+  if (DOM_MODS[code]) return DOM_MODS[code];
+  if (DOM_KEYS[code]) return DOM_KEYS[code];
+  if (DOM_SAME.has(code) || /^F\d{1,2}$/.test(code)) return code;
+  const m = /^Key([A-Z])$/.exec(code) || /^Digit(\d)$/.exec(code);
+  if (m) return m[1];
+  const n = /^Numpad(\d)$/.exec(code);
+  return n ? `Num${n[1]}` : '';
+}
+let DOMREC = null;
+function domRecStop() {
+  if (!DOMREC) return;
+  window.removeEventListener('keydown', DOMREC.down, true);
+  window.removeEventListener('keyup', DOMREC.up, true);
+  clearTimeout(DOMREC.timer);
+  DOMREC = null;
+}
+function domRecStart() {
+  domRecStop();
+  const held = {}; // Win/Ctrl/Alt/Shift -> 'L' | 'R'
+  let lastMod = '';
+  let presses = 0;
+  const mods = () => ({ Win: held.Win || '', Ctrl: held.Ctrl || '', Alt: held.Alt || '', Shift: held.Shift || '' });
+  const end = (fn) => {
+    const t = REC;
+    domRecStop();
+    REC = null;
+    invoke('stop_recording').catch(() => {});
+    if (t) fn(t);
+  };
+  const down = (e) => {
+    if (!REC) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.repeat) return;
+    const name = domKeyName(e.code);
+    if (!name) return;
+    clearTimeout(DOMREC?.timer);
+    const m = /^(L|R)(Win|Ctrl|Alt|Shift)$/.exec(name);
+    if (m) {
+      held[m[2]] = m[1];
+      lastMod = name;
+      presses += 1;
+      REC.onUpdate?.(K.format({ mods: mods(), key: '' }));
+      return;
+    }
+    // A Mac sends no key-up for a key pressed with ⌘, so the first regular key finishes it.
+    const shortcut = K.format({ mods: mods(), key: name });
+    end((t) => t.onDone?.(shortcut));
+  };
+  const up = (e) => {
+    if (!REC) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const m = /^(L|R)(Win|Ctrl|Alt|Shift)$/.exec(domKeyName(e.code));
+    if (!m) return;
+    delete held[m[2]];
+    if (!Object.keys(held).length) end((t) => t.onDone?.(presses === 1 ? lastMod : null));
+  };
+  window.addEventListener('keydown', down, true);
+  window.addEventListener('keyup', up, true);
+  DOMREC = { down, up, timer: setTimeout(() => end((t) => { t.onCancel?.(); toast('Stopped listening. Nothing was pressed.', { kind: 'warn' }); }), 10000) };
 }
 
 // ------------------------------------------------------------------ editor
@@ -1237,6 +1319,7 @@ function analyze(d) {
     if (m.Alt && m.Shift && !m.Ctrl && !m.Win) notes.push(['info', `Alt + Shift on its own switches your keyboard language. With ${K.keyLabel(tp.key)} added it's a normal shortcut, and your language stays put.`]);
     const pause = S.config.settings.pauseHotkey;
     if (pause && K.overlaps(pause, t)) notes.push(['warn', 'This is also your pause hotkey, which wins.']);
+    if (PLAT() === 'mac' && S.status?.keyboardAllowed === false) notes.push(['warn', 'Cat Key can’t use the keyboard yet, so this shortcut waits until you press Allow in the checkup (Privacy & Security → Accessibility).']);
     for (const r of rules()) {
       if (r.id === d.id || !r.enabled || !K.overlaps(r.trigger, t) || !scopesOverlap(r.scope, d.scope)) continue;
       const mineSpecific = d.scope.mode === 'only';
@@ -4484,8 +4567,8 @@ function renderCatGPT() {
   if (mac && !info.canCapture) {
     box.append(h('section', { class: 'wr-card cg-warn' },
       h('h3', { text: 'macOS needs your OK to see the screen' }),
-      h('p', { class: 'hint', text: 'Screenshots, the canvas and recordings need Screen & System Audio Recording. Allow Cat Key there, then open Cat Key again. Just updated? macOS sees the new version as a new app: select Cat Key, press −, and add it again with +.' }),
-      h('div', { class: 'row' }, h('button', { class: 'btn small strong', type: 'button', text: 'Allow screen recording', onclick: () => invoke('catgpt_ask_capture').then((ok) => toast(ok ? 'Allowed.' : 'Switch Cat Key on in that list, then open Cat Key again.', { ms: 8000 })).catch(() => {}) }))));
+      h('p', { class: 'hint', text: 'Screenshots, the canvas and recordings need Screen & System Audio Recording. Press the button, switch on Cat Key in the list, then choose Quit & Reopen. Already on from an earlier version? The button clears that old switch and asks again.' }),
+      h('div', { class: 'row' }, h('button', { class: 'btn small strong', type: 'button', text: 'Allow screen recording', onclick: () => invoke('mac_allow', { what: 'screen' }).then((ok) => toast(ok ? 'Allowed.' : 'Switch on Cat Key in that list, then choose Quit & Reopen.', { ms: 10000 })).catch((e) => toast(String(e), { kind: 'err' })) }))));
   }
 
   // ---- the keys, the apps, how it sends
@@ -5126,7 +5209,7 @@ function paintDock() {
   b.setAttribute('aria-pressed', String(on));
   b.dataset.tip = on ? 'Cat Dock: on' : 'Cat Dock: off';
 }
-const DOCK_DEFAULT = { on: false, edge: 'right', y: 0.62, clipboard: true, keepClips: false, vitals: true };
+const DOCK_DEFAULT = { on: true, edge: 'right', y: 0.62, clipboard: true, keepClips: false, vitals: true };
 function setDock(on, patch = {}) {
   const dock = { ...DOCK_DEFAULT, ...(S.config.settings.dock || {}), ...patch, on };
   return commitSettings({ dock }).then(() => {

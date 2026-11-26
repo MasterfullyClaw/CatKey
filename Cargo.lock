@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "catkey"
-version = "1.10.0"
+version = "1.10.1"
 dependencies = [
  "catkey-core",
  "core-foundation",

@@ -386,16 +386,23 @@ fn xml_escape(s: &str) -> String {
 
 /// The command our login item runs, written the same way as `autostart_command`.
 pub fn get_run_entry() -> Option<String> {
-    let text = std::fs::read_to_string(agent_path()).ok()?;
-    let args: Vec<String> = text
+    run_entry_from_plist(&std::fs::read_to_string(agent_path()).ok()?)
+}
+
+/// Reads only the ProgramArguments array: the plist has other strings too (its Label,
+/// ProcessType), and counting those made the login item look missing forever.
+fn run_entry_from_plist(text: &str) -> Option<String> {
+    let after = text.split("<key>ProgramArguments</key>").nth(1)?;
+    let array = after.split("<array>").nth(1)?.split("</array>").next()?;
+    let args: Vec<String> = array
         .split("<string>")
         .skip(1)
         .filter_map(|part| part.split("</string>").next())
         .map(|s| s.replace("&quot;", "\"").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&"))
         .collect();
-    // [label, exe, --autostart]
-    let exe = args.get(1)?;
-    let rest: Vec<&str> = args.iter().skip(2).map(String::as_str).collect();
+    // [exe, --autostart]
+    let exe = args.first()?;
+    let rest: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
     Some(format!("\"{}\"{}{}", exe, if rest.is_empty() { "" } else { " " }, rest.join(" ")))
 }
 
@@ -608,6 +615,9 @@ pub fn is_elevated() -> bool {
 pub fn admin_task_exists() -> bool {
     false
 }
+pub fn admin_task_is_ours() -> bool {
+    true
+}
 pub fn create_admin_task() -> Result<(), String> {
     Err("Not needed on a Mac".into())
 }
@@ -640,8 +650,40 @@ pub fn keyboard_allowed() -> bool {
     unsafe { AXIsProcessTrusted() }
 }
 
+/// Clear Cat Key's own entries in Privacy & Security so macOS asks again. An update
+/// signed without an Apple developer ID counts as a new app: the old version's switch
+/// stays on in the list but no longer works, and macOS won't ask while it's there.
+/// Only Cat Key's own entries are touched, and nothing is switched on here.
+pub fn reset_permissions(services: &[&str]) {
+    let id = NSBundle::mainBundle()
+        .bundleIdentifier()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| AGENT_LABEL.to_string());
+    for service in services {
+        let r = Command::new("/usr/bin/tccutil").args(["reset", service, &id]).stdin(Stdio::null()).output();
+        match r {
+            Ok(o) if o.status.success() => crate::log(&format!("permissions: cleared the old {service} entry")),
+            Ok(o) => crate::log(&format!("permissions: tccutil {service}: {}", String::from_utf8_lossy(&o.stderr).trim())),
+            Err(e) => crate::log(&format!("permissions: tccutil {service}: {e}")),
+        }
+    }
+}
+
 /// Where the app runs from: a disk image or a quarantine copy can't keep permissions.
 pub fn running_from_temp_place() -> bool {
     let exe = std::env::current_exe().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
     exe.starts_with("/Volumes/") || exe.contains("/AppTranslocation/")
+}
+
+#[cfg(test)]
+mod login_item_tests {
+    #[test]
+    fn login_item_reads_its_own_command() {
+        let plist = "<?xml version=\"1.0\"?>\n<plist version=\"1.0\">\n<dict>\n  <key>Label</key>\n  <string>com.masterfully.catkey</string>\n  <key>ProgramArguments</key>\n  <array>\n    <string>/Applications/Cat Key.app/Contents/MacOS/CatKey</string>\n    <string>--autostart</string>\n  </array>\n  <key>RunAtLoad</key>\n  <true/>\n  <key>ProcessType</key>\n  <string>Interactive</string>\n</dict>\n</plist>\n";
+        assert_eq!(
+            super::run_entry_from_plist(plist).as_deref(),
+            Some("\"/Applications/Cat Key.app/Contents/MacOS/CatKey\" --autostart")
+        );
+        assert_eq!(super::run_entry_from_plist("<plist></plist>"), None);
+    }
 }

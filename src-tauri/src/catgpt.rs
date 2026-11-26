@@ -896,11 +896,7 @@ pub async fn catgpt_info() -> Result<Info, String> {
 pub fn catgpt_ask_capture() -> bool {
     #[cfg(target_os = "macos")]
     {
-        let ok = crate::cg::ask_to_record();
-        if !ok {
-            crate::cg::open_record_settings();
-        }
-        ok
+        crate::commands::mac_allow("screen".into()).unwrap_or(false)
     }
     #[cfg(windows)]
     true
@@ -1120,6 +1116,7 @@ pub fn ci_test() {
     }
     crate::log(&format!("catgpt: wheel shown {shown} after {} ms", t.elapsed().as_millis()));
     std::thread::sleep(Duration::from_millis(800));
+    ci_picture("wheel");
     CI.store(false, Ordering::Relaxed);
     catgpt_wheel_hide(false);
     CI.store(true, Ordering::Relaxed);
@@ -1143,6 +1140,22 @@ pub fn ci_test() {
     }
     let apps = detect_apps();
     crate::log(&format!("catgpt: apps {}", apps.iter().map(|a| format!("{}={}", a.id, a.installed)).collect::<Vec<_>>().join(" ")));
+}
+
+/// The release check only: a picture of the whole screen (the wheel, the Dock…), kept for
+/// the run's artifacts so the look can be checked on a real Windows PC.
+fn ci_picture(name: &str) {
+    #[cfg(windows)]
+    {
+        let dir = crate::app::config_dir().join("ci");
+        let _ = std::fs::create_dir_all(&dir);
+        match crate::cg::screenshot(&dir.join(format!("{name}.jpg")), 1600, 88) {
+            Ok((w, h)) => crate::log(&format!("catgpt: picture {name} {w}x{h}")),
+            Err(e) => crate::log(&format!("catgpt: picture {name} failed: {e}")),
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = name;
 }
 
 /// What a test run checks: the folder works and a note goes in and out of the basket.

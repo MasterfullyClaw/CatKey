@@ -412,6 +412,45 @@ pub async fn open_system_page(page: String) -> Result<(), String> {
     }
 }
 
+/// Mac: ask again for a permission ("keyboard" = Accessibility, "screen" = Screen & System
+/// Audio Recording). Clears Cat Key's own stale entry first (an update leaves the old
+/// version's switch on, which macOS no longer accepts and won't ask past), then shows
+/// macOS's prompt and its page in System Settings. The switch itself is the user's.
+/// Returns whether it's allowed right now.
+#[tauri::command]
+pub fn mac_allow(what: String) -> Result<bool, String> {
+    #[cfg(target_os = "macos")]
+    {
+        match what.as_str() {
+            "keyboard" => {
+                if win::keyboard_allowed() {
+                    return Ok(true);
+                }
+                win::reset_permissions(&["Accessibility", "ListenEvent", "PostEvent"]);
+                let _ = win::launch("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility", "");
+                Ok(crate::hook::ask_permission())
+            }
+            "screen" => {
+                if crate::cg::can_record() {
+                    return Ok(true);
+                }
+                win::reset_permissions(&["ScreenCapture"]);
+                let ok = crate::cg::ask_to_record();
+                if !ok {
+                    crate::cg::open_record_settings();
+                }
+                Ok(ok)
+            }
+            _ => Err("unknown permission".into()),
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = what;
+        Ok(true)
+    }
+}
+
 /// Re-apply "start with Windows" (fixes a missing startup entry).
 #[tauri::command]
 pub async fn repair_startup(app: AppHandle) -> Result<String, String> {

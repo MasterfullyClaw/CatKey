@@ -508,7 +508,7 @@ fn recover() {
 // ---------------------------------------------------------------- starting
 
 /// Ask for the Accessibility permission (shows the system prompt once).
-fn ask_permission() -> bool {
+pub fn ask_permission() -> bool {
     use core_foundation::base::TCFType;
     use core_foundation::boolean::CFBoolean;
     use core_foundation::dictionary::CFDictionary;

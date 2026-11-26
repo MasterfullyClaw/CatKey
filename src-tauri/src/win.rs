@@ -952,6 +952,34 @@ pub fn admin_task_exists() -> bool {
     exists
 }
 
+/// The program our admin task starts, read from the task's file (an admin copy can read it).
+pub fn admin_task_command() -> Option<String> {
+    let root = std::env::var("SystemRoot").ok()?;
+    let bytes = std::fs::read(std::path::Path::new(&root).join("System32").join("Tasks").join(TASK_NAME)).ok()?;
+    let text = if bytes.starts_with(&[0xFF, 0xFE]) {
+        let units: Vec<u16> = bytes[2..].chunks_exact(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect();
+        String::from_utf16_lossy(&units)
+    } else {
+        String::from_utf8_lossy(&bytes).to_string()
+    };
+    task_command_from_xml(&text)
+}
+
+fn task_command_from_xml(text: &str) -> Option<String> {
+    let cmd = text.split("<Command>").nth(1)?.split("</Command>").next()?;
+    let cmd = cmd.replace("&quot;", "\"").replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&");
+    Some(cmd.trim().trim_matches('"').to_string())
+}
+
+/// The admin task starts this very copy, not an older one somewhere else (a portable
+/// copy before an install, say). When the task can't be read, assume it's fine.
+pub fn admin_task_is_ours() -> bool {
+    match (admin_task_command(), std::env::current_exe()) {
+        (Some(cmd), Ok(exe)) => cmd.eq_ignore_ascii_case(&exe.to_string_lossy()),
+        _ => true,
+    }
+}
+
 fn forget_task_cache() {
     *TASK_CACHE.lock().unwrap_or_else(|e| e.into_inner()) = None;
 }
@@ -1424,4 +1452,14 @@ pub fn running_from_temp_place() -> bool {
     let exe = std::env::current_exe().map(|p| p.to_string_lossy().to_lowercase()).unwrap_or_default();
     let tmp = std::env::temp_dir().to_string_lossy().to_lowercase();
     !tmp.is_empty() && exe.starts_with(tmp.trim_end_matches('\\'))
+}
+
+#[cfg(test)]
+mod task_tests {
+    #[test]
+    fn task_command_reads_the_exe() {
+        let xml = "<Actions Context=\"Author\"><Exec><Command>C:\\Users\\me\\AppData\\Local\\Cat Key\\CatKey.exe</Command><Arguments>--autostart</Arguments></Exec></Actions>";
+        assert_eq!(super::task_command_from_xml(xml).as_deref(), Some("C:\\Users\\me\\AppData\\Local\\Cat Key\\CatKey.exe"));
+        assert_eq!(super::task_command_from_xml("<Task/>"), None);
+    }
 }
