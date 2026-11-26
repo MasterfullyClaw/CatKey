@@ -25,4 +25,10 @@ APPS = {
   "terminal":    ("Terminals", "code", ["windowsterminal.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "conhost.exe", "wezterm-gui.exe", "alacritty.exe"],
                   ["com.apple.Terminal", "com.googlecode.iterm2", "dev.warp.Warp-Stable", "com.github.wez.wezterm"]),
   "notepad":     ("Notepad", "work", ["notepad.exe"], []),
+  "word":        ("Word", "work", ["winword.exe"], ["com.microsoft.Word"]),
+  "excel":       ("Excel", "work", ["excel.exe"], ["com.microsoft.Excel"]),
+  "powerpoint":  ("PowerPoint", "work", ["powerpnt.exe"], ["com.microsoft.Powerpoint"]),
+  "finalcut":    ("Final Cut Pro", "video", [], ["com.apple.FinalCut"]),
+  "ableton":     ("Ableton Live", "audio", ["ableton live*"], ["com.ableton.live"]),
+  "unity":       ("Unity", "3d", ["unity.exe"], ["com.unity3d.UnityEditor5.x"]),
 }

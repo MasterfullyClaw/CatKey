@@ -1,0 +1,162 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "unity",
+  "name": "Unity",
+  "kind": "cheatsheet",
+  "category": "3d",
+  "platform": "both",
+  "description": "The Unity Editor's default keys (Edit → Shortcuts to see yours).",
+  "author": "Cat Key",
+  "app": "unity",
+  "sources": [
+    {
+      "title": "Unity Manual: Unity shortcuts",
+      "url": "https://docs.unity3d.com/2018.4/Documentation/Manual/UnityHotkeys.html"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Tools",
+      "items": [
+        {
+          "name": "Pan (hand)",
+          "keys": "Q"
+        },
+        {
+          "name": "Move",
+          "keys": "W",
+          "fav": true
+        },
+        {
+          "name": "Rotate",
+          "keys": "E",
+          "fav": true
+        },
+        {
+          "name": "Scale",
+          "keys": "R",
+          "fav": true
+        },
+        {
+          "name": "Rect",
+          "keys": "T",
+          "fav": true
+        },
+        {
+          "name": "Pivot / centre",
+          "keys": "Z"
+        },
+        {
+          "name": "Local / global",
+          "keys": "X"
+        },
+        {
+          "name": "Vertex snap",
+          "keys": "V"
+        },
+        {
+          "name": "Frame the selection",
+          "keys": "F",
+          "fav": true
+        },
+        {
+          "name": "Follow the selection",
+          "keys": "Shift+F"
+        }
+      ]
+    },
+    {
+      "name": "GameObjects",
+      "items": [
+        {
+          "name": "New empty GameObject",
+          "keys": "Mod+Shift+N",
+          "fav": true
+        },
+        {
+          "name": "New empty child",
+          "keys": "Opt+Shift+N"
+        },
+        {
+          "name": "Duplicate",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Move to the view",
+          "keys": "Mod+Opt+F"
+        },
+        {
+          "name": "Align with the view",
+          "keys": "Mod+Shift+F"
+        }
+      ]
+    },
+    {
+      "name": "Play",
+      "items": [
+        {
+          "name": "Play",
+          "keys": "Mod+P",
+          "fav": true
+        },
+        {
+          "name": "Pause",
+          "keys": "Mod+Shift+P",
+          "fav": true
+        },
+        {
+          "name": "Step one frame",
+          "keys": "Mod+Opt+P"
+        }
+      ]
+    },
+    {
+      "name": "Windows",
+      "items": [
+        {
+          "name": "Scene",
+          "keys": "Mod+1"
+        },
+        {
+          "name": "Game",
+          "keys": "Mod+2"
+        },
+        {
+          "name": "Inspector",
+          "keys": "Mod+3"
+        },
+        {
+          "name": "Hierarchy",
+          "keys": "Mod+4"
+        },
+        {
+          "name": "Project",
+          "keys": "Mod+5"
+        },
+        {
+          "name": "Animation",
+          "keys": "Mod+6"
+        },
+        {
+          "name": "Profiler",
+          "keys": "Mod+7"
+        },
+        {
+          "name": "Console",
+          "keys": "Mod+Shift+C",
+          "fav": true
+        },
+        {
+          "name": "Refresh assets",
+          "keys": "Mod+R"
+        },
+        {
+          "name": "Search",
+          "keys": "Mod+F"
+        }
+      ]
+    }
+  ]
+}

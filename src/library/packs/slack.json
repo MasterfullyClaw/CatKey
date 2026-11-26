@@ -1,0 +1,170 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "slack",
+  "name": "Slack",
+  "kind": "cheatsheet",
+  "category": "work",
+  "platform": "both",
+  "description": "Get around Slack and write faster.",
+  "author": "Cat Key",
+  "app": "slack",
+  "sources": [
+    {
+      "title": "Slack Help: Slack keyboard shortcuts",
+      "url": "https://slack.com/help/articles/201374536-Slack-keyboard-shortcuts"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Get around",
+      "items": [
+        {
+          "name": "Jump to a conversation",
+          "keys": "Mod+K",
+          "fav": true
+        },
+        {
+          "name": "Jump to the newest unread",
+          "keys": "Mod+J",
+          "fav": true
+        },
+        {
+          "name": "All unreads",
+          "keys": "Mod+Shift+A",
+          "fav": true
+        },
+        {
+          "name": "Threads",
+          "keys": "Mod+Shift+T"
+        },
+        {
+          "name": "Direct messages",
+          "keys": "Mod+Shift+2",
+          "mac": "Cmd+Shift+K"
+        },
+        {
+          "name": "Activity",
+          "keys": "Mod+Shift+M"
+        },
+        {
+          "name": "Home",
+          "keys": "Mod+Shift+1",
+          "mac": "Control+1"
+        },
+        {
+          "name": "Browse channels",
+          "keys": "Mod+Shift+L"
+        },
+        {
+          "name": "Conversation details",
+          "keys": "Mod+Shift+I"
+        },
+        {
+          "name": "Back",
+          "keys": "Opt+Left",
+          "mac": "Cmd+LBracket"
+        },
+        {
+          "name": "Forward",
+          "keys": "Opt+Right",
+          "mac": "Cmd+RBracket"
+        },
+        {
+          "name": "Next unread conversation",
+          "keys": "Opt+Shift+Down",
+          "fav": true
+        },
+        {
+          "name": "Search",
+          "keys": "Mod+G",
+          "fav": true
+        },
+        {
+          "name": "Search this conversation",
+          "keys": "Mod+F"
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "items": [
+        {
+          "name": "Edit your last message",
+          "keys": "Up",
+          "fav": true
+        },
+        {
+          "name": "Mark this conversation read",
+          "keys": "Esc",
+          "fav": true
+        },
+        {
+          "name": "Mark everything read",
+          "keys": "Shift+Esc"
+        },
+        {
+          "name": "Upload a file",
+          "keys": "Mod+O"
+        },
+        {
+          "name": "Bold",
+          "keys": "Mod+B"
+        },
+        {
+          "name": "Italic",
+          "keys": "Mod+I"
+        },
+        {
+          "name": "Strikethrough",
+          "keys": "Mod+Shift+X"
+        },
+        {
+          "name": "Code",
+          "keys": "Mod+Shift+C"
+        },
+        {
+          "name": "Code block",
+          "keys": "Mod+Opt+Shift+C"
+        },
+        {
+          "name": "Link the selected text",
+          "keys": "Mod+Shift+U",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Huddles and you",
+      "items": [
+        {
+          "name": "Start, join or leave a huddle",
+          "keys": "Mod+Shift+H",
+          "fav": true
+        },
+        {
+          "name": "Mute in a huddle",
+          "keys": "Mod+Shift+Space",
+          "fav": true
+        },
+        {
+          "name": "Set your status",
+          "keys": "Mod+Shift+Y"
+        },
+        {
+          "name": "Hide the right sidebar",
+          "keys": "Mod+Period"
+        },
+        {
+          "name": "Preferences",
+          "keys": "Mod+Comma"
+        },
+        {
+          "name": "Full screen",
+          "keys": "F11",
+          "mac": "Control+Cmd+F"
+        }
+      ]
+    }
+  ]
+}

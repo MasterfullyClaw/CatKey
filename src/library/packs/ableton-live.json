@@ -1,0 +1,218 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "ableton-live",
+  "name": "Ableton Live",
+  "kind": "cheatsheet",
+  "category": "audio",
+  "platform": "both",
+  "description": "Views, clips and MIDI in Live without hunting through menus.",
+  "author": "Cat Key",
+  "app": "ableton",
+  "sources": [
+    {
+      "title": "Ableton Live 12 Manual: Live Keyboard Shortcuts",
+      "url": "https://www.ableton.com/en/live-manual/12/live-keyboard-shortcuts/"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Views",
+      "items": [
+        {
+          "name": "Session / Arrangement",
+          "keys": "Tab",
+          "fav": true
+        },
+        {
+          "name": "Device / clip view",
+          "keys": "Shift+Tab",
+          "fav": true
+        },
+        {
+          "name": "Browser",
+          "keys": "Mod+Opt+B",
+          "fav": true
+        },
+        {
+          "name": "Mixer",
+          "keys": "Mod+Opt+M"
+        },
+        {
+          "name": "Clip view",
+          "keys": "Mod+Opt+3"
+        },
+        {
+          "name": "Device view",
+          "keys": "Mod+Opt+4"
+        },
+        {
+          "name": "Second window",
+          "keys": "Mod+Shift+W"
+        },
+        {
+          "name": "Full screen",
+          "keys": "F11",
+          "mac": "Control+Cmd+F"
+        },
+        {
+          "name": "Settings",
+          "keys": "Mod+Comma"
+        }
+      ]
+    },
+    {
+      "name": "Sets",
+      "items": [
+        {
+          "name": "New Live Set",
+          "keys": "Mod+N"
+        },
+        {
+          "name": "Open",
+          "keys": "Mod+O"
+        },
+        {
+          "name": "Save",
+          "keys": "Mod+S",
+          "fav": true
+        },
+        {
+          "name": "Save as",
+          "keys": "Mod+Shift+S"
+        },
+        {
+          "name": "Export audio / video",
+          "keys": "Mod+Shift+R",
+          "fav": true
+        },
+        {
+          "name": "Export MIDI",
+          "keys": "Mod+Shift+E"
+        }
+      ]
+    },
+    {
+      "name": "Editing",
+      "items": [
+        {
+          "name": "Duplicate",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Rename",
+          "keys": "Mod+R"
+        },
+        {
+          "name": "Redo",
+          "keys": "Mod+Y",
+          "mac": "Cmd+Shift+Z"
+        },
+        {
+          "name": "Split the clip",
+          "keys": "Mod+E",
+          "fav": true
+        },
+        {
+          "name": "Consolidate",
+          "keys": "Mod+J",
+          "fav": true
+        },
+        {
+          "name": "Crop clips",
+          "keys": "Mod+Shift+J"
+        },
+        {
+          "name": "Fade / crossfade",
+          "keys": "Mod+Opt+F"
+        },
+        {
+          "name": "Loop the selection",
+          "keys": "Mod+L",
+          "fav": true
+        },
+        {
+          "name": "Insert silence (or a scene)",
+          "keys": "Mod+I"
+        },
+        {
+          "name": "New MIDI clip",
+          "keys": "Mod+Shift+M",
+          "fav": true
+        },
+        {
+          "name": "Group devices",
+          "keys": "Mod+G"
+        },
+        {
+          "name": "Ungroup devices",
+          "keys": "Mod+Shift+G"
+        }
+      ]
+    },
+    {
+      "name": "Play and record",
+      "items": [
+        {
+          "name": "Play / stop",
+          "keys": "Space",
+          "fav": true
+        },
+        {
+          "name": "Carry on from where it stopped",
+          "keys": "Shift+Space"
+        },
+        {
+          "name": "Record",
+          "keys": "F9",
+          "fav": true
+        },
+        {
+          "name": "Back to Arrangement",
+          "keys": "F10"
+        },
+        {
+          "name": "Metronome",
+          "keys": "O",
+          "fav": true
+        },
+        {
+          "name": "Hot-swap the device",
+          "keys": "Q"
+        }
+      ]
+    },
+    {
+      "name": "MIDI",
+      "items": [
+        {
+          "name": "Draw mode",
+          "keys": "B",
+          "fav": true
+        },
+        {
+          "name": "Quantise",
+          "keys": "Mod+U",
+          "fav": true
+        },
+        {
+          "name": "Invert the note selection",
+          "keys": "Mod+Shift+A"
+        },
+        {
+          "name": "Fit notes to the time range",
+          "keys": "Mod+Opt+J"
+        },
+        {
+          "name": "Highlight the scale",
+          "keys": "K"
+        },
+        {
+          "name": "Search the browser",
+          "keys": "Mod+F"
+        }
+      ]
+    }
+  ]
+}

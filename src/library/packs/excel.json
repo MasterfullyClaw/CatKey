@@ -1,0 +1,221 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "excel",
+  "name": "Excel",
+  "kind": "cheatsheet",
+  "category": "work",
+  "platform": "windows",
+  "description": "Move, select, enter and format in Excel for Windows.",
+  "author": "Cat Key",
+  "app": "excel",
+  "sources": [
+    {
+      "title": "Microsoft Support: Keyboard shortcuts in Excel",
+      "url": "https://support.microsoft.com/office/keyboard-shortcuts-in-excel-1798d9d5-842a-42b8-9c99-9b7213f0040f"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Move and select",
+      "items": [
+        {
+          "name": "Jump to the edge of the data (any arrow)",
+          "keys": "Ctrl+Right",
+          "fav": true
+        },
+        {
+          "name": "Top of the sheet",
+          "keys": "Ctrl+Home"
+        },
+        {
+          "name": "Last used cell",
+          "keys": "Ctrl+End"
+        },
+        {
+          "name": "Next sheet",
+          "keys": "Ctrl+PageDown",
+          "fav": true
+        },
+        {
+          "name": "Previous sheet",
+          "keys": "Ctrl+PageUp",
+          "fav": true
+        },
+        {
+          "name": "Select the column",
+          "keys": "Ctrl+Space",
+          "fav": true
+        },
+        {
+          "name": "Select the row",
+          "keys": "Shift+Space",
+          "fav": true
+        },
+        {
+          "name": "Select the table around the cell",
+          "keys": "Ctrl+Shift+8",
+          "fav": true
+        },
+        {
+          "name": "Select to the last used cell",
+          "keys": "Ctrl+Shift+End"
+        }
+      ]
+    },
+    {
+      "name": "Enter and edit",
+      "items": [
+        {
+          "name": "Edit the cell",
+          "keys": "F2",
+          "fav": true
+        },
+        {
+          "name": "New line in the cell",
+          "keys": "Alt+Enter",
+          "fav": true
+        },
+        {
+          "name": "Fill the selection with this entry",
+          "keys": "Ctrl+Enter"
+        },
+        {
+          "name": "Fill down",
+          "keys": "Ctrl+D",
+          "fav": true
+        },
+        {
+          "name": "Insert cells",
+          "keys": "Ctrl+Shift+Equals"
+        },
+        {
+          "name": "Delete cells",
+          "keys": "Ctrl+Minus"
+        },
+        {
+          "name": "Today's date",
+          "keys": "Ctrl+Semicolon",
+          "fav": true
+        },
+        {
+          "name": "Time now",
+          "keys": "Ctrl+Shift+Semicolon"
+        },
+        {
+          "name": "AutoSum",
+          "keys": "Alt+Equals",
+          "fav": true
+        },
+        {
+          "name": "Flash Fill",
+          "keys": "Ctrl+E",
+          "fav": true
+        },
+        {
+          "name": "Make a table",
+          "keys": "Ctrl+T",
+          "fav": true
+        },
+        {
+          "name": "Insert a function",
+          "keys": "Shift+F3"
+        },
+        {
+          "name": "Switch $A$1 / A1 references",
+          "keys": "F4",
+          "fav": true
+        },
+        {
+          "name": "Show formulas",
+          "keys": "Ctrl+Backtick"
+        },
+        {
+          "name": "Calculate everything",
+          "keys": "F9"
+        }
+      ]
+    },
+    {
+      "name": "Format",
+      "items": [
+        {
+          "name": "Format Cells",
+          "keys": "Ctrl+1",
+          "fav": true
+        },
+        {
+          "name": "General number format",
+          "keys": "Ctrl+Shift+Backtick"
+        },
+        {
+          "name": "Currency",
+          "keys": "Ctrl+Shift+4"
+        },
+        {
+          "name": "Percentage",
+          "keys": "Ctrl+Shift+5",
+          "fav": true
+        },
+        {
+          "name": "Date",
+          "keys": "Ctrl+Shift+3"
+        },
+        {
+          "name": "Time",
+          "keys": "Ctrl+Shift+2"
+        },
+        {
+          "name": "Number with separators",
+          "keys": "Ctrl+Shift+1"
+        },
+        {
+          "name": "Outline border",
+          "keys": "Ctrl+Shift+7"
+        },
+        {
+          "name": "Remove borders",
+          "keys": "Ctrl+Shift+Minus"
+        },
+        {
+          "name": "Hide rows",
+          "keys": "Ctrl+9"
+        },
+        {
+          "name": "Hide columns",
+          "keys": "Ctrl+0"
+        }
+      ]
+    },
+    {
+      "name": "Insert",
+      "items": [
+        {
+          "name": "Chart here",
+          "keys": "Alt+F1",
+          "fav": true
+        },
+        {
+          "name": "Chart on its own sheet",
+          "keys": "F11"
+        },
+        {
+          "name": "Note",
+          "keys": "Shift+F2"
+        },
+        {
+          "name": "Comment",
+          "keys": "Ctrl+Shift+F2"
+        },
+        {
+          "name": "New sheet",
+          "keys": "Alt+Shift+F1"
+        },
+        {
+          "name": "Link",
+          "keys": "Ctrl+K"
+        }
+      ]
+    }
+  ]
+}

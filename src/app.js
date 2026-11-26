@@ -143,6 +143,7 @@ const MAC_APP_NAMES = {
   'com.adobe.photoshop': 'Photoshop', 'com.adobe.illustrator': 'Illustrator', 'com.adobe.aftereffects': 'After Effects',
   'com.adobe.premierepro*': 'Premiere Pro', 'org.blenderfoundation.blender': 'Blender', 'com.microsoft.word': 'Word',
   'com.microsoft.excel': 'Excel', 'com.microsoft.powerpoint': 'PowerPoint', 'com.lemon.lvoverseas': 'CapCut',
+  'com.ableton.live': 'Ableton Live', 'com.unity3d.unityeditor5.x': 'Unity',
 };
 const appNames = new Map([...Object.entries(KNOWN_APPS), ...Object.entries(MAC_APP_NAMES)]);
 function appName(exeOrPath) {
@@ -2203,7 +2204,7 @@ boot().catch((e) => {
 
 const PLAT = () => (S.status.platform === 'mac' ? 'mac' : 'windows');
 const LIB_CATS = [
-  ['all', 'Everything'], ['switch', 'Switching OS'], ['system', 'System'], ['video', 'Video & motion'], ['design', 'Design & photo'],
+  ['all', 'Everything'], ['switch', 'Switching OS'], ['system', 'System'], ['video', 'Video & motion'], ['audio', 'Music & audio'], ['design', 'Design & photo'],
   ['3d', '3D'], ['code', 'Code'], ['browser', 'Browsers'], ['work', 'Work & notes'], ['mine', 'Yours'], ['community', 'Community'],
 ];
 const L = { data: null, loading: null, cat: 'all', q: '', community: null, communityState: 'idle' };

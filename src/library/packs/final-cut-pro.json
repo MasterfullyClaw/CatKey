@@ -1,0 +1,278 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "final-cut-pro",
+  "name": "Final Cut Pro",
+  "kind": "cheatsheet",
+  "category": "video",
+  "platform": "mac",
+  "description": "Edit at the speed of the keyboard in Final Cut Pro.",
+  "author": "Cat Key",
+  "app": "finalcut",
+  "sources": [
+    {
+      "title": "Apple: Keyboard shortcuts in Final Cut Pro for Mac",
+      "url": "https://support.apple.com/guide/final-cut-pro/ver90ba5929/mac"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Tools",
+      "items": [
+        {
+          "name": "Select",
+          "keys": "A",
+          "fav": true
+        },
+        {
+          "name": "Trim",
+          "keys": "T",
+          "fav": true
+        },
+        {
+          "name": "Position",
+          "keys": "P"
+        },
+        {
+          "name": "Range selection",
+          "keys": "R"
+        },
+        {
+          "name": "Blade",
+          "keys": "B",
+          "fav": true
+        },
+        {
+          "name": "Zoom",
+          "keys": "Z"
+        },
+        {
+          "name": "Hand",
+          "keys": "H"
+        }
+      ]
+    },
+    {
+      "name": "Editing",
+      "items": [
+        {
+          "name": "Blade at the playhead",
+          "keys": "Cmd+B",
+          "fav": true
+        },
+        {
+          "name": "Blade all",
+          "keys": "Cmd+Shift+B"
+        },
+        {
+          "name": "Append to the storyline",
+          "keys": "E",
+          "fav": true
+        },
+        {
+          "name": "Insert",
+          "keys": "W",
+          "fav": true
+        },
+        {
+          "name": "Connect",
+          "keys": "Q",
+          "fav": true
+        },
+        {
+          "name": "Overwrite",
+          "keys": "D"
+        },
+        {
+          "name": "Replace",
+          "keys": "Shift+R"
+        },
+        {
+          "name": "Select the clip",
+          "keys": "C"
+        },
+        {
+          "name": "Snapping",
+          "keys": "N",
+          "fav": true
+        },
+        {
+          "name": "Trim start",
+          "keys": "Option+LBracket",
+          "fav": true
+        },
+        {
+          "name": "Trim end",
+          "keys": "Option+RBracket",
+          "fav": true
+        },
+        {
+          "name": "Trim to selection",
+          "keys": "Option+Backslash"
+        },
+        {
+          "name": "Detach audio",
+          "keys": "Control+Shift+S"
+        },
+        {
+          "name": "Create a storyline",
+          "keys": "Cmd+G"
+        },
+        {
+          "name": "New compound clip",
+          "keys": "Option+G"
+        },
+        {
+          "name": "Paste as connected",
+          "keys": "Option+V"
+        },
+        {
+          "name": "Lift from the storyline",
+          "keys": "Cmd+Option+Up"
+        },
+        {
+          "name": "Nudge left",
+          "keys": "Comma"
+        },
+        {
+          "name": "Nudge right",
+          "keys": "Period"
+        },
+        {
+          "name": "Enable / disable the clip",
+          "keys": "V"
+        },
+        {
+          "name": "Freeze frame",
+          "keys": "Option+F"
+        },
+        {
+          "name": "Insert a gap",
+          "keys": "Option+W"
+        },
+        {
+          "name": "Change duration",
+          "keys": "Control+D"
+        }
+      ]
+    },
+    {
+      "name": "Effects",
+      "items": [
+        {
+          "name": "Default transition",
+          "keys": "Cmd+T",
+          "fav": true
+        },
+        {
+          "name": "Paste effects",
+          "keys": "Cmd+Option+V",
+          "fav": true
+        },
+        {
+          "name": "Match colour",
+          "keys": "Cmd+Option+M"
+        },
+        {
+          "name": "Video animation",
+          "keys": "Control+V"
+        }
+      ]
+    },
+    {
+      "name": "Marking and playing",
+      "items": [
+        {
+          "name": "Range start",
+          "keys": "I",
+          "fav": true
+        },
+        {
+          "name": "Range end",
+          "keys": "O",
+          "fav": true
+        },
+        {
+          "name": "Add a marker",
+          "keys": "M",
+          "fav": true
+        },
+        {
+          "name": "Clear the range",
+          "keys": "Option+X"
+        },
+        {
+          "name": "Favourite",
+          "keys": "F"
+        },
+        {
+          "name": "Play / pause",
+          "keys": "Space"
+        },
+        {
+          "name": "Play backwards",
+          "keys": "J"
+        },
+        {
+          "name": "Stop",
+          "keys": "K"
+        },
+        {
+          "name": "Play forwards",
+          "keys": "L"
+        },
+        {
+          "name": "Play around",
+          "keys": "Shift+Slash"
+        },
+        {
+          "name": "Loop playback",
+          "keys": "Cmd+L"
+        },
+        {
+          "name": "Next edit",
+          "keys": "Quote"
+        },
+        {
+          "name": "Previous edit",
+          "keys": "Semicolon"
+        }
+      ]
+    },
+    {
+      "name": "General",
+      "items": [
+        {
+          "name": "Import media",
+          "keys": "Cmd+I",
+          "fav": true
+        },
+        {
+          "name": "Render the selection",
+          "keys": "Control+R"
+        },
+        {
+          "name": "Render all",
+          "keys": "Control+Shift+R"
+        },
+        {
+          "name": "Share to the default destination",
+          "keys": "Cmd+E",
+          "fav": true
+        },
+        {
+          "name": "Zoom in",
+          "keys": "Cmd+Equals"
+        },
+        {
+          "name": "Zoom out",
+          "keys": "Cmd+Minus"
+        },
+        {
+          "name": "Command Editor (your own keys)",
+          "keys": "Cmd+Option+K"
+        }
+      ]
+    }
+  ]
+}

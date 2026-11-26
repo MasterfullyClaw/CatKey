@@ -503,4 +503,174 @@ P("premiere-keys-in-capcut", "Premiere keys in CapCut", "remap", "video", "both"
    S("Single keys", [rm("C", "B", "Split mode", 1), rm("V", "A", "Select mode", 1), rm("\\", "Shift+Z", "Zoom to fit the timeline")],
      note="Single keys pause by themselves while you type in a text box."),
   ], app="capcut", tags=["premiere", "capcut", "switcher"]),
+
+P("notion", "Notion", "cheatsheet", "work", "both", "Pages, blocks and search without the mouse.", [
+   S("Find and open", [
+     cs("Mod+P", "Search, or jump to a recent page", 1), cs("Mod+N", "New page", 1), cs("Mod+T", "New tab"), cs("Mod+Shift+T", "Reopen the last closed tab"),
+     cs("Mod+Shift+N", "New Notion window"), cs("Mod+[", "Back", 1), cs("Mod+]", "Forward"), cs("Mod+Shift+U", "Up one level", 1),
+     cs("Mod+L", "Copy the page link", 1), cs("Mod+F", "Find in page"), cs("Mod+Shift+L", "Dark / light mode"),
+   ]),
+   S("Text", [
+     cs("Mod+B", "Bold"), cs("Mod+I", "Italic"), cs("Mod+U", "Underline"), cs("Mod+Shift+S", "Strikethrough"), cs("Mod+E", "Inline code", 1),
+     cs("Mod+K", "Add a link", 1), cs("Mod+Shift+H", "Last text or highlight colour", 1), cs("Mod+Shift+M", "Comment", 1),
+   ]),
+   S("Make blocks", [
+     cs("Mod+Shift+0", "Text", mac="Cmd+Option+0"), cs("Mod+Shift+1", "Heading 1", 1, mac="Cmd+Option+1"), cs("Mod+Shift+2", "Heading 2", 1, mac="Cmd+Option+2"),
+     cs("Mod+Shift+3", "Heading 3", mac="Cmd+Option+3"), cs("Mod+Shift+4", "To-do checkbox", 1, mac="Cmd+Option+4"), cs("Mod+Shift+5", "Bulleted list", mac="Cmd+Option+5"),
+     cs("Mod+Shift+6", "Numbered list", mac="Cmd+Option+6"), cs("Mod+Shift+7", "Toggle list", mac="Cmd+Option+7"), cs("Mod+Shift+8", "Code block", mac="Cmd+Option+8"),
+     cs("Mod+Shift+9", "New page, or turn the line into one", mac="Cmd+Option+9"),
+   ]),
+   S("Move blocks", [
+     cs("Esc", "Select the block you're in", 1), cs("Mod+D", "Duplicate", 1), cs("Mod+/", "Turn into / change", 1), cs("Mod+Shift+Up", "Move up", 1),
+     cs("Mod+Shift+Down", "Move down"), cs("Mod+Opt+T", "Open or close all toggles"), cs("Mod+Enter", "Open the page, or tick the to-do"),
+   ]),
+  ], app="notion", sources=[{"title": "Notion Help: Keyboard shortcuts", "url": "https://www.notion.com/help/keyboard-shortcuts"}]),
+
+P("slack", "Slack", "cheatsheet", "work", "both", "Get around Slack and write faster.", [
+   S("Get around", [
+     cs("Mod+K", "Jump to a conversation", 1), cs("Mod+J", "Jump to the newest unread", 1), cs("Mod+Shift+A", "All unreads", 1), cs("Mod+Shift+T", "Threads"),
+     cs("Mod+Shift+2", "Direct messages", mac="Cmd+Shift+K"), cs("Mod+Shift+M", "Activity"), cs("Mod+Shift+1", "Home", mac="Control+1"),
+     cs("Mod+Shift+L", "Browse channels"), cs("Mod+Shift+I", "Conversation details"), cs("Opt+Left", "Back", mac="Cmd+LBracket"),
+     cs("Opt+Right", "Forward", mac="Cmd+RBracket"), cs("Opt+Shift+Down", "Next unread conversation", 1), cs("Mod+G", "Search", 1), cs("Mod+F", "Search this conversation"),
+   ]),
+   S("Messages", [
+     cs("Up", "Edit your last message", 1), cs("Esc", "Mark this conversation read", 1), cs("Shift+Esc", "Mark everything read"), cs("Mod+O", "Upload a file"),
+     cs("Mod+B", "Bold"), cs("Mod+I", "Italic"), cs("Mod+Shift+X", "Strikethrough"), cs("Mod+Shift+C", "Code"), cs("Mod+Opt+Shift+C", "Code block"),
+     cs("Mod+Shift+U", "Link the selected text", 1),
+   ]),
+   S("Huddles and you", [
+     cs("Mod+Shift+H", "Start, join or leave a huddle", 1), cs("Mod+Shift+Space", "Mute in a huddle", 1), cs("Mod+Shift+Y", "Set your status"),
+     cs("Mod+Period", "Hide the right sidebar"), cs("Mod+Comma", "Preferences"), cs("F11", "Full screen", mac="Control+Cmd+F"),
+   ]),
+  ], app="slack", sources=[{"title": "Slack Help: Slack keyboard shortcuts", "url": "https://slack.com/help/articles/201374536-Slack-keyboard-shortcuts"}]),
+
+P("word", "Word", "cheatsheet", "work", "windows", "Styles, layout and review in Word for Windows.", [
+   S("Styles and text", [
+     cs("Ctrl+Alt+1", "Heading 1", 1), cs("Ctrl+Alt+2", "Heading 2", 1), cs("Ctrl+Alt+3", "Heading 3"), cs("Ctrl+Shift+N", "Normal text", 1),
+     cs("Ctrl+Shift+L", "Bulleted list"), cs("Ctrl+]", "Font one point bigger"), cs("Ctrl+[", "Font one point smaller"), cs("Ctrl+Shift+A", "ALL CAPS"),
+     cs("Shift+F3", "Cycle upper, lower and title case", 1), cs("Ctrl+Space", "Clear character formatting", 1), cs("Ctrl+Q", "Clear paragraph formatting"),
+   ]),
+   S("Layout", [
+     cs("Ctrl+L", "Align left"), cs("Ctrl+E", "Centre", 1), cs("Ctrl+R", "Align right"), cs("Ctrl+J", "Justify"), cs("Ctrl+1", "Single line spacing"),
+     cs("Ctrl+5", "1.5 line spacing"), cs("Ctrl+2", "Double line spacing"), cs("Ctrl+Enter", "Page break", 1),
+   ]),
+   S("Edit and move", [
+     cs("Ctrl+Backspace", "Delete the word before", 1), cs("Ctrl+Shift+V", "Paste as plain text", 1, note="Word for Microsoft 365."),
+     cs("Ctrl+Alt+C", "Copy formatting"), cs("Ctrl+Alt+V", "Paste formatting only"), cs("Ctrl+G", "Go to a page", 1),
+     cs("Ctrl+Home", "Start of the document"), cs("Ctrl+End", "End of the document"), cs("Ctrl+PageDown", "Next page"), cs("Ctrl+PageUp", "Previous page"),
+   ]),
+   S("Insert and review", [
+     cs("Ctrl+K", "Link", 1), cs("Ctrl+Alt+M", "Comment", 1), cs("Ctrl+Alt+F", "Footnote"), cs("Alt+Shift+D", "Today's date"),
+     cs("Ctrl+Shift+E", "Track changes on or off", 1), cs("F7", "Spelling and grammar", 1), cs("Ctrl+Alt+I", "Print preview"),
+     cs("Ctrl+Alt+S", "Split the window"), cs("Ctrl+Alt+O", "Outline view"),
+   ]),
+  ], app="word", sources=[{"title": "Microsoft Support: Keyboard shortcuts in Word", "url": "https://support.microsoft.com/office/keyboard-shortcuts-in-word-95ef89dd-7142-4b50-afb2-f762f663ceb2"}]),
+
+P("excel", "Excel", "cheatsheet", "work", "windows", "Move, select, enter and format in Excel for Windows.", [
+   S("Move and select", [
+     cs("Ctrl+Right", "Jump to the edge of the data (any arrow)", 1), cs("Ctrl+Home", "Top of the sheet"), cs("Ctrl+End", "Last used cell"),
+     cs("Ctrl+PageDown", "Next sheet", 1), cs("Ctrl+PageUp", "Previous sheet", 1), cs("Ctrl+Space", "Select the column", 1),
+     cs("Shift+Space", "Select the row", 1), cs("Ctrl+Shift+8", "Select the table around the cell", 1), cs("Ctrl+Shift+End", "Select to the last used cell"),
+   ]),
+   S("Enter and edit", [
+     cs("F2", "Edit the cell", 1), cs("Alt+Enter", "New line in the cell", 1), cs("Ctrl+Enter", "Fill the selection with this entry"), cs("Ctrl+D", "Fill down", 1),
+     cs("Ctrl+Shift+Equals", "Insert cells"), cs("Ctrl+Minus", "Delete cells"), cs("Ctrl+Semicolon", "Today's date", 1), cs("Ctrl+Shift+Semicolon", "Time now"),
+     cs("Alt+Equals", "AutoSum", 1), cs("Ctrl+E", "Flash Fill", 1), cs("Ctrl+T", "Make a table", 1), cs("Shift+F3", "Insert a function"),
+     cs("F4", "Switch $A$1 / A1 references", 1), cs("Ctrl+Backtick", "Show formulas"), cs("F9", "Calculate everything"),
+   ]),
+   S("Format", [
+     cs("Ctrl+1", "Format Cells", 1), cs("Ctrl+Shift+Backtick", "General number format"), cs("Ctrl+Shift+4", "Currency"), cs("Ctrl+Shift+5", "Percentage", 1),
+     cs("Ctrl+Shift+3", "Date"), cs("Ctrl+Shift+2", "Time"), cs("Ctrl+Shift+1", "Number with separators"), cs("Ctrl+Shift+7", "Outline border"),
+     cs("Ctrl+Shift+Minus", "Remove borders"), cs("Ctrl+9", "Hide rows"), cs("Ctrl+0", "Hide columns"),
+   ]),
+   S("Insert", [
+     cs("Alt+F1", "Chart here", 1), cs("F11", "Chart on its own sheet"), cs("Shift+F2", "Note"), cs("Ctrl+Shift+F2", "Comment"),
+     cs("Alt+Shift+F1", "New sheet"), cs("Ctrl+K", "Link"),
+   ]),
+  ], app="excel", sources=[{"title": "Microsoft Support: Keyboard shortcuts in Excel", "url": "https://support.microsoft.com/office/keyboard-shortcuts-in-excel-1798d9d5-842a-42b8-9c99-9b7213f0040f"}]),
+
+P("powerpoint", "PowerPoint", "cheatsheet", "work", "windows", "Build slides quickly in PowerPoint for Windows.", [
+   S("Slides", [
+     cs("Ctrl+M", "New slide", 1), cs("Ctrl+D", "Duplicate the selected slide or object", 1), cs("Ctrl+Up", "Move the slide up"), cs("Ctrl+Down", "Move the slide down"),
+     cs("F5", "Present from the start", 1), cs("Shift+F5", "Present from this slide", 1), cs("Alt+F5", "Presenter view"),
+   ]),
+   S("Objects", [
+     cs("Ctrl+G", "Group", 1), cs("Ctrl+Shift+G", "Ungroup"), cs("Ctrl+Shift+J", "Regroup"), cs("Ctrl+Shift+C", "Copy formatting", 1),
+     cs("Ctrl+Shift+V", "Paste formatting", 1), cs("Alt+Right", "Rotate 15° clockwise"), cs("Alt+Left", "Rotate 15° anticlockwise"), cs("Alt+F10", "Selection pane", 1),
+   ]),
+   S("Text", [
+     cs("Ctrl+Shift+Period", "Bigger font", 1), cs("Ctrl+Shift+Comma", "Smaller font"), cs("Shift+F3", "Cycle sentence, lower and upper case"),
+     cs("Ctrl+E", "Centre"), cs("Ctrl+L", "Align left"), cs("Ctrl+R", "Align right"),
+   ]),
+   S("View and insert", [
+     cs("Ctrl+Alt+O", "Fit the slide to the window"), cs("Shift+F9", "Grid"), cs("Alt+F9", "Guides", 1), cs("Ctrl+K", "Link"), cs("Ctrl+Alt+M", "Comment"),
+   ]),
+  ], app="powerpoint", sources=[{"title": "Microsoft Support: Keyboard shortcuts to create PowerPoint presentations", "url": "https://support.microsoft.com/office/use-keyboard-shortcuts-to-create-powerpoint-presentations-ebb3d20e-dcd4-444f-a38e-bb5c5ed180f4"}]),
+
+P("final-cut-pro", "Final Cut Pro", "cheatsheet", "video", "mac", "Edit at the speed of the keyboard in Final Cut Pro.", [
+   S("Tools", [
+     cs("A", "Select", 1), cs("T", "Trim", 1), cs("P", "Position"), cs("R", "Range selection"), cs("B", "Blade", 1), cs("Z", "Zoom"), cs("H", "Hand"),
+   ]),
+   S("Editing", [
+     cs("Cmd+B", "Blade at the playhead", 1), cs("Cmd+Shift+B", "Blade all"), cs("E", "Append to the storyline", 1), cs("W", "Insert", 1),
+     cs("Q", "Connect", 1), cs("D", "Overwrite"), cs("Shift+R", "Replace"), cs("C", "Select the clip"), cs("N", "Snapping", 1),
+     cs("Option+LBracket", "Trim start", 1), cs("Option+RBracket", "Trim end", 1), cs("Option+Backslash", "Trim to selection"),
+     cs("Control+Shift+S", "Detach audio"), cs("Cmd+G", "Create a storyline"), cs("Option+G", "New compound clip"), cs("Option+V", "Paste as connected"),
+     cs("Cmd+Option+Up", "Lift from the storyline"), cs("Comma", "Nudge left"), cs("Period", "Nudge right"), cs("V", "Enable / disable the clip"),
+     cs("Option+F", "Freeze frame"), cs("Option+W", "Insert a gap"), cs("Control+D", "Change duration"),
+   ]),
+   S("Effects", [
+     cs("Cmd+T", "Default transition", 1), cs("Cmd+Option+V", "Paste effects", 1), cs("Cmd+Option+M", "Match colour"), cs("Control+V", "Video animation"),
+   ]),
+   S("Marking and playing", [
+     cs("I", "Range start", 1), cs("O", "Range end", 1), cs("M", "Add a marker", 1), cs("Option+X", "Clear the range"), cs("F", "Favourite"),
+     cs("Space", "Play / pause"), cs("J", "Play backwards"), cs("K", "Stop"), cs("L", "Play forwards"), cs("Shift+Slash", "Play around"),
+     cs("Cmd+L", "Loop playback"), cs("Quote", "Next edit"), cs("Semicolon", "Previous edit"),
+   ]),
+   S("General", [
+     cs("Cmd+I", "Import media", 1), cs("Control+R", "Render the selection"), cs("Control+Shift+R", "Render all"), cs("Cmd+E", "Share to the default destination", 1),
+     cs("Cmd+Equals", "Zoom in"), cs("Cmd+Minus", "Zoom out"), cs("Cmd+Option+K", "Command Editor (your own keys)"),
+   ]),
+  ], app="finalcut", sources=[{"title": "Apple: Keyboard shortcuts in Final Cut Pro for Mac", "url": "https://support.apple.com/guide/final-cut-pro/ver90ba5929/mac"}]),
+
+P("ableton-live", "Ableton Live", "cheatsheet", "audio", "both", "Views, clips and MIDI in Live without hunting through menus.", [
+   S("Views", [
+     cs("Tab", "Session / Arrangement", 1), cs("Shift+Tab", "Device / clip view", 1), cs("Mod+Opt+B", "Browser", 1), cs("Mod+Opt+M", "Mixer"),
+     cs("Mod+Opt+3", "Clip view"), cs("Mod+Opt+4", "Device view"), cs("Mod+Shift+W", "Second window"), cs("F11", "Full screen", mac="Control+Cmd+F"),
+     cs("Mod+Comma", "Settings"),
+   ]),
+   S("Sets", [
+     cs("Mod+N", "New Live Set"), cs("Mod+O", "Open"), cs("Mod+S", "Save", 1), cs("Mod+Shift+S", "Save as"), cs("Mod+Shift+R", "Export audio / video", 1),
+     cs("Mod+Shift+E", "Export MIDI"),
+   ]),
+   S("Editing", [
+     cs("Mod+D", "Duplicate", 1), cs("Mod+R", "Rename"), cs("Mod+Y", "Redo", mac="Cmd+Shift+Z"), cs("Mod+E", "Split the clip", 1), cs("Mod+J", "Consolidate", 1),
+     cs("Mod+Shift+J", "Crop clips"), cs("Mod+Opt+F", "Fade / crossfade"), cs("Mod+L", "Loop the selection", 1), cs("Mod+I", "Insert silence (or a scene)"),
+     cs("Mod+Shift+M", "New MIDI clip", 1), cs("Mod+G", "Group devices"), cs("Mod+Shift+G", "Ungroup devices"),
+   ]),
+   S("Play and record", [
+     cs("Space", "Play / stop", 1), cs("Shift+Space", "Carry on from where it stopped"), cs("F9", "Record", 1), cs("F10", "Back to Arrangement"),
+     cs("O", "Metronome", 1), cs("Q", "Hot-swap the device"),
+   ]),
+   S("MIDI", [
+     cs("B", "Draw mode", 1), cs("Mod+U", "Quantise", 1), cs("Mod+Shift+A", "Invert the note selection"), cs("Mod+Opt+J", "Fit notes to the time range"),
+     cs("K", "Highlight the scale"), cs("Mod+F", "Search the browser"),
+   ]),
+  ], app="ableton", sources=[{"title": "Ableton Live 12 Manual: Live Keyboard Shortcuts", "url": "https://www.ableton.com/en/live-manual/12/live-keyboard-shortcuts/"}]),
+
+P("unity", "Unity", "cheatsheet", "3d", "both", "The Unity Editor's default keys (Edit → Shortcuts to see yours).", [
+   S("Tools", [
+     cs("Q", "Pan (hand)"), cs("W", "Move", 1), cs("E", "Rotate", 1), cs("R", "Scale", 1), cs("T", "Rect", 1), cs("Z", "Pivot / centre"),
+     cs("X", "Local / global"), cs("V", "Vertex snap"), cs("F", "Frame the selection", 1), cs("Shift+F", "Follow the selection"),
+   ]),
+   S("GameObjects", [
+     cs("Mod+Shift+N", "New empty GameObject", 1), cs("Opt+Shift+N", "New empty child"), cs("Mod+D", "Duplicate", 1), cs("Mod+Opt+F", "Move to the view"),
+     cs("Mod+Shift+F", "Align with the view"),
+   ]),
+   S("Play", [cs("Mod+P", "Play", 1), cs("Mod+Shift+P", "Pause", 1), cs("Mod+Opt+P", "Step one frame")]),
+   S("Windows", [
+     cs("Mod+1", "Scene"), cs("Mod+2", "Game"), cs("Mod+3", "Inspector"), cs("Mod+4", "Hierarchy"), cs("Mod+5", "Project"), cs("Mod+6", "Animation"),
+     cs("Mod+7", "Profiler"), cs("Mod+Shift+C", "Console", 1), cs("Mod+R", "Refresh assets"), cs("Mod+F", "Search"),
+   ]),
+  ], app="unity", sources=[{"title": "Unity Manual: Unity shortcuts", "url": "https://docs.unity3d.com/2018.4/Documentation/Manual/UnityHotkeys.html"}]),
 ]

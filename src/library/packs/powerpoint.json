@@ -1,0 +1,154 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "powerpoint",
+  "name": "PowerPoint",
+  "kind": "cheatsheet",
+  "category": "work",
+  "platform": "windows",
+  "description": "Build slides quickly in PowerPoint for Windows.",
+  "author": "Cat Key",
+  "app": "powerpoint",
+  "sources": [
+    {
+      "title": "Microsoft Support: Keyboard shortcuts to create PowerPoint presentations",
+      "url": "https://support.microsoft.com/office/use-keyboard-shortcuts-to-create-powerpoint-presentations-ebb3d20e-dcd4-444f-a38e-bb5c5ed180f4"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Slides",
+      "items": [
+        {
+          "name": "New slide",
+          "keys": "Ctrl+M",
+          "fav": true
+        },
+        {
+          "name": "Duplicate the selected slide or object",
+          "keys": "Ctrl+D",
+          "fav": true
+        },
+        {
+          "name": "Move the slide up",
+          "keys": "Ctrl+Up"
+        },
+        {
+          "name": "Move the slide down",
+          "keys": "Ctrl+Down"
+        },
+        {
+          "name": "Present from the start",
+          "keys": "F5",
+          "fav": true
+        },
+        {
+          "name": "Present from this slide",
+          "keys": "Shift+F5",
+          "fav": true
+        },
+        {
+          "name": "Presenter view",
+          "keys": "Alt+F5"
+        }
+      ]
+    },
+    {
+      "name": "Objects",
+      "items": [
+        {
+          "name": "Group",
+          "keys": "Ctrl+G",
+          "fav": true
+        },
+        {
+          "name": "Ungroup",
+          "keys": "Ctrl+Shift+G"
+        },
+        {
+          "name": "Regroup",
+          "keys": "Ctrl+Shift+J"
+        },
+        {
+          "name": "Copy formatting",
+          "keys": "Ctrl+Shift+C",
+          "fav": true
+        },
+        {
+          "name": "Paste formatting",
+          "keys": "Ctrl+Shift+V",
+          "fav": true
+        },
+        {
+          "name": "Rotate 15° clockwise",
+          "keys": "Alt+Right"
+        },
+        {
+          "name": "Rotate 15° anticlockwise",
+          "keys": "Alt+Left"
+        },
+        {
+          "name": "Selection pane",
+          "keys": "Alt+F10",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Text",
+      "items": [
+        {
+          "name": "Bigger font",
+          "keys": "Ctrl+Shift+Period",
+          "fav": true
+        },
+        {
+          "name": "Smaller font",
+          "keys": "Ctrl+Shift+Comma"
+        },
+        {
+          "name": "Cycle sentence, lower and upper case",
+          "keys": "Shift+F3"
+        },
+        {
+          "name": "Centre",
+          "keys": "Ctrl+E"
+        },
+        {
+          "name": "Align left",
+          "keys": "Ctrl+L"
+        },
+        {
+          "name": "Align right",
+          "keys": "Ctrl+R"
+        }
+      ]
+    },
+    {
+      "name": "View and insert",
+      "items": [
+        {
+          "name": "Fit the slide to the window",
+          "keys": "Ctrl+Alt+O"
+        },
+        {
+          "name": "Grid",
+          "keys": "Shift+F9"
+        },
+        {
+          "name": "Guides",
+          "keys": "Alt+F9",
+          "fav": true
+        },
+        {
+          "name": "Link",
+          "keys": "Ctrl+K"
+        },
+        {
+          "name": "Comment",
+          "keys": "Ctrl+Alt+M"
+        }
+      ]
+    }
+  ]
+}

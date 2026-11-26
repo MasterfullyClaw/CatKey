@@ -1,0 +1,203 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "word",
+  "name": "Word",
+  "kind": "cheatsheet",
+  "category": "work",
+  "platform": "windows",
+  "description": "Styles, layout and review in Word for Windows.",
+  "author": "Cat Key",
+  "app": "word",
+  "sources": [
+    {
+      "title": "Microsoft Support: Keyboard shortcuts in Word",
+      "url": "https://support.microsoft.com/office/keyboard-shortcuts-in-word-95ef89dd-7142-4b50-afb2-f762f663ceb2"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Styles and text",
+      "items": [
+        {
+          "name": "Heading 1",
+          "keys": "Ctrl+Alt+1",
+          "fav": true
+        },
+        {
+          "name": "Heading 2",
+          "keys": "Ctrl+Alt+2",
+          "fav": true
+        },
+        {
+          "name": "Heading 3",
+          "keys": "Ctrl+Alt+3"
+        },
+        {
+          "name": "Normal text",
+          "keys": "Ctrl+Shift+N",
+          "fav": true
+        },
+        {
+          "name": "Bulleted list",
+          "keys": "Ctrl+Shift+L"
+        },
+        {
+          "name": "Font one point bigger",
+          "keys": "Ctrl+RBracket"
+        },
+        {
+          "name": "Font one point smaller",
+          "keys": "Ctrl+LBracket"
+        },
+        {
+          "name": "ALL CAPS",
+          "keys": "Ctrl+Shift+A"
+        },
+        {
+          "name": "Cycle upper, lower and title case",
+          "keys": "Shift+F3",
+          "fav": true
+        },
+        {
+          "name": "Clear character formatting",
+          "keys": "Ctrl+Space",
+          "fav": true
+        },
+        {
+          "name": "Clear paragraph formatting",
+          "keys": "Ctrl+Q"
+        }
+      ]
+    },
+    {
+      "name": "Layout",
+      "items": [
+        {
+          "name": "Align left",
+          "keys": "Ctrl+L"
+        },
+        {
+          "name": "Centre",
+          "keys": "Ctrl+E",
+          "fav": true
+        },
+        {
+          "name": "Align right",
+          "keys": "Ctrl+R"
+        },
+        {
+          "name": "Justify",
+          "keys": "Ctrl+J"
+        },
+        {
+          "name": "Single line spacing",
+          "keys": "Ctrl+1"
+        },
+        {
+          "name": "1.5 line spacing",
+          "keys": "Ctrl+5"
+        },
+        {
+          "name": "Double line spacing",
+          "keys": "Ctrl+2"
+        },
+        {
+          "name": "Page break",
+          "keys": "Ctrl+Enter",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Edit and move",
+      "items": [
+        {
+          "name": "Delete the word before",
+          "keys": "Ctrl+Backspace",
+          "fav": true
+        },
+        {
+          "name": "Paste as plain text",
+          "keys": "Ctrl+Shift+V",
+          "fav": true,
+          "note": "Word for Microsoft 365."
+        },
+        {
+          "name": "Copy formatting",
+          "keys": "Ctrl+Alt+C"
+        },
+        {
+          "name": "Paste formatting only",
+          "keys": "Ctrl+Alt+V"
+        },
+        {
+          "name": "Go to a page",
+          "keys": "Ctrl+G",
+          "fav": true
+        },
+        {
+          "name": "Start of the document",
+          "keys": "Ctrl+Home"
+        },
+        {
+          "name": "End of the document",
+          "keys": "Ctrl+End"
+        },
+        {
+          "name": "Next page",
+          "keys": "Ctrl+PageDown"
+        },
+        {
+          "name": "Previous page",
+          "keys": "Ctrl+PageUp"
+        }
+      ]
+    },
+    {
+      "name": "Insert and review",
+      "items": [
+        {
+          "name": "Link",
+          "keys": "Ctrl+K",
+          "fav": true
+        },
+        {
+          "name": "Comment",
+          "keys": "Ctrl+Alt+M",
+          "fav": true
+        },
+        {
+          "name": "Footnote",
+          "keys": "Ctrl+Alt+F"
+        },
+        {
+          "name": "Today's date",
+          "keys": "Alt+Shift+D"
+        },
+        {
+          "name": "Track changes on or off",
+          "keys": "Ctrl+Shift+E",
+          "fav": true
+        },
+        {
+          "name": "Spelling and grammar",
+          "keys": "F7",
+          "fav": true
+        },
+        {
+          "name": "Print preview",
+          "keys": "Ctrl+Alt+I"
+        },
+        {
+          "name": "Split the window",
+          "keys": "Ctrl+Alt+S"
+        },
+        {
+          "name": "Outline view",
+          "keys": "Ctrl+Alt+O"
+        }
+      ]
+    }
+  ]
+}

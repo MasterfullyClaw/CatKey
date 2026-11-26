@@ -1,0 +1,210 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "notion",
+  "name": "Notion",
+  "kind": "cheatsheet",
+  "category": "work",
+  "platform": "both",
+  "description": "Pages, blocks and search without the mouse.",
+  "author": "Cat Key",
+  "app": "notion",
+  "sources": [
+    {
+      "title": "Notion Help: Keyboard shortcuts",
+      "url": "https://www.notion.com/help/keyboard-shortcuts"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Find and open",
+      "items": [
+        {
+          "name": "Search, or jump to a recent page",
+          "keys": "Mod+P",
+          "fav": true
+        },
+        {
+          "name": "New page",
+          "keys": "Mod+N",
+          "fav": true
+        },
+        {
+          "name": "New tab",
+          "keys": "Mod+T"
+        },
+        {
+          "name": "Reopen the last closed tab",
+          "keys": "Mod+Shift+T"
+        },
+        {
+          "name": "New Notion window",
+          "keys": "Mod+Shift+N"
+        },
+        {
+          "name": "Back",
+          "keys": "Mod+LBracket",
+          "fav": true
+        },
+        {
+          "name": "Forward",
+          "keys": "Mod+RBracket"
+        },
+        {
+          "name": "Up one level",
+          "keys": "Mod+Shift+U",
+          "fav": true
+        },
+        {
+          "name": "Copy the page link",
+          "keys": "Mod+L",
+          "fav": true
+        },
+        {
+          "name": "Find in page",
+          "keys": "Mod+F"
+        },
+        {
+          "name": "Dark / light mode",
+          "keys": "Mod+Shift+L"
+        }
+      ]
+    },
+    {
+      "name": "Text",
+      "items": [
+        {
+          "name": "Bold",
+          "keys": "Mod+B"
+        },
+        {
+          "name": "Italic",
+          "keys": "Mod+I"
+        },
+        {
+          "name": "Underline",
+          "keys": "Mod+U"
+        },
+        {
+          "name": "Strikethrough",
+          "keys": "Mod+Shift+S"
+        },
+        {
+          "name": "Inline code",
+          "keys": "Mod+E",
+          "fav": true
+        },
+        {
+          "name": "Add a link",
+          "keys": "Mod+K",
+          "fav": true
+        },
+        {
+          "name": "Last text or highlight colour",
+          "keys": "Mod+Shift+H",
+          "fav": true
+        },
+        {
+          "name": "Comment",
+          "keys": "Mod+Shift+M",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Make blocks",
+      "items": [
+        {
+          "name": "Text",
+          "keys": "Mod+Shift+0",
+          "mac": "Cmd+Option+0"
+        },
+        {
+          "name": "Heading 1",
+          "keys": "Mod+Shift+1",
+          "mac": "Cmd+Option+1",
+          "fav": true
+        },
+        {
+          "name": "Heading 2",
+          "keys": "Mod+Shift+2",
+          "mac": "Cmd+Option+2",
+          "fav": true
+        },
+        {
+          "name": "Heading 3",
+          "keys": "Mod+Shift+3",
+          "mac": "Cmd+Option+3"
+        },
+        {
+          "name": "To-do checkbox",
+          "keys": "Mod+Shift+4",
+          "mac": "Cmd+Option+4",
+          "fav": true
+        },
+        {
+          "name": "Bulleted list",
+          "keys": "Mod+Shift+5",
+          "mac": "Cmd+Option+5"
+        },
+        {
+          "name": "Numbered list",
+          "keys": "Mod+Shift+6",
+          "mac": "Cmd+Option+6"
+        },
+        {
+          "name": "Toggle list",
+          "keys": "Mod+Shift+7",
+          "mac": "Cmd+Option+7"
+        },
+        {
+          "name": "Code block",
+          "keys": "Mod+Shift+8",
+          "mac": "Cmd+Option+8"
+        },
+        {
+          "name": "New page, or turn the line into one",
+          "keys": "Mod+Shift+9",
+          "mac": "Cmd+Option+9"
+        }
+      ]
+    },
+    {
+      "name": "Move blocks",
+      "items": [
+        {
+          "name": "Select the block you're in",
+          "keys": "Esc",
+          "fav": true
+        },
+        {
+          "name": "Duplicate",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Turn into / change",
+          "keys": "Mod+Slash",
+          "fav": true
+        },
+        {
+          "name": "Move up",
+          "keys": "Mod+Shift+Up",
+          "fav": true
+        },
+        {
+          "name": "Move down",
+          "keys": "Mod+Shift+Down"
+        },
+        {
+          "name": "Open or close all toggles",
+          "keys": "Mod+Opt+T"
+        },
+        {
+          "name": "Open the page, or tick the to-do",
+          "keys": "Mod+Enter"
+        }
+      ]
+    }
+  ]
+}
