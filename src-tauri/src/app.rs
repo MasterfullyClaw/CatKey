@@ -418,6 +418,7 @@ pub fn run(args: Vec<String>) {
             crate::commands::start_recording,
             crate::commands::stop_recording,
             crate::commands::running_apps,
+            crate::commands::installed_apps,
             crate::commands::app_icon,
             crate::commands::pick_program,
             crate::commands::import_powertoys,
@@ -460,6 +461,10 @@ pub fn run(args: Vec<String>) {
             crate::commands::backup_now,
             crate::commands::restore_backup,
             crate::commands::set_capture,
+            crate::commands::coach_hide,
+            crate::commands::coach_ignore,
+            crate::commands::coach_adjust,
+            crate::commands::coach_take_adjust,
         ])
         .setup(move |app| {
             if second {

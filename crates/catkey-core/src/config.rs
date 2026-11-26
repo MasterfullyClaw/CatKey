@@ -111,6 +111,72 @@ pub struct Settings {
     /// Quick setting: Alt works as Ctrl and Ctrl as Alt, everywhere (off unless chosen).
     #[serde(default)]
     pub swap_alt_ctrl: bool,
+    /// Where the coach's tips appear on screen.
+    #[serde(default)]
+    pub coach_pos: CoachPos,
+    /// Sounds by part ("ui", "cat", "training", "tips", "tools"): false = that part is quiet.
+    /// Missing parts are on. The master switch is `sounds`.
+    #[serde(default)]
+    pub sound_parts: std::collections::BTreeMap<String, bool>,
+}
+
+/// Where a coach tip shows up: a spot on the screen, or anywhere the user dragged it.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CoachPos {
+    /// "bottom-right", "bottom-center", "bottom-left", "top-center" (the island),
+    /// "top-left", "top-right", "left", "right", "center", or "custom".
+    #[serde(default = "default_anchor")]
+    pub anchor: String,
+    /// For "custom": the tip's centre as a share of the screen's width and height (0–1).
+    #[serde(default = "half")]
+    pub x: f64,
+    #[serde(default = "half")]
+    pub y: f64,
+}
+
+fn default_anchor() -> String {
+    "bottom-right".into()
+}
+fn half() -> f64 {
+    0.5
+}
+
+impl Default for CoachPos {
+    fn default() -> Self {
+        CoachPos { anchor: default_anchor(), x: 0.5, y: 0.5 }
+    }
+}
+
+impl CoachPos {
+    pub const ANCHORS: [&'static str; 10] =
+        ["bottom-right", "bottom-center", "bottom-left", "top-center", "top-left", "top-right", "left", "right", "center", "custom"];
+
+    /// Top-left corner for a tip of `w`×`h` inside the work area (`left`, `top`, `width`, `height`),
+    /// `margin` away from the edges, never off screen.
+    pub fn place(&self, area: (i32, i32, i32, i32), w: i32, h: i32, margin: i32) -> (i32, i32) {
+        let (l, t, aw, ah) = area;
+        let (r, b) = (l + aw, t + ah);
+        let cx = l + (aw - w) / 2;
+        let cy = t + (ah - h) / 2;
+        let (x, y) = match self.anchor.as_str() {
+            "bottom-center" => (cx, b - h - margin),
+            "bottom-left" => (l + margin, b - h - margin),
+            "top-center" => (cx, t + margin),
+            "top-left" => (l + margin, t + margin),
+            "top-right" => (r - w - margin, t + margin),
+            "left" => (l + margin, cy),
+            "right" => (r - w - margin, cy),
+            "center" => (cx, cy),
+            "custom" => {
+                let fx = if self.x.is_finite() { self.x.clamp(0.0, 1.0) } else { 0.5 };
+                let fy = if self.y.is_finite() { self.y.clamp(0.0, 1.0) } else { 0.5 };
+                (l + (fx * aw as f64) as i32 - w / 2, t + (fy * ah as f64) as i32 - h / 2)
+            }
+            _ => (r - w - margin, b - h - margin),
+        };
+        (x.clamp(l, (r - w).max(l)), y.clamp(t, (b - h).max(t)))
+    }
 }
 
 impl Default for Settings {
@@ -131,6 +197,8 @@ impl Default for Settings {
             purr_volume: default_purr_volume(),
             cat_look: None,
             swap_alt_ctrl: false,
+            coach_pos: CoachPos::default(),
+            sound_parts: Default::default(),
         }
     }
 }
@@ -800,6 +868,23 @@ mod tests {
         cfg.settings.sounds = false; // turned off again later: stays off
         assert!(!cfg.migrate());
         assert!(!cfg.settings.sounds);
+    }
+
+    #[test]
+    fn tips_land_where_asked_and_stay_on_screen() {
+        let area = (0, 0, 1920, 1040);
+        let p = |anchor: &str| CoachPos { anchor: anchor.into(), x: 0.5, y: 0.5 };
+        assert_eq!(p("bottom-right").place(area, 400, 120, 14), (1506, 906));
+        assert_eq!(p("top-center").place(area, 400, 120, 14), (760, 14));
+        assert_eq!(p("left").place(area, 400, 120, 14), (14, 460));
+        assert_eq!(p("center").place(area, 400, 120, 14), (760, 460));
+        // A dragged spot near the corner is pulled back inside the screen.
+        let c = CoachPos { anchor: "custom".into(), x: 0.99, y: 0.01 };
+        assert_eq!(c.place(area, 400, 120, 14), (1520, 0));
+        // A second screen to the left of the first.
+        assert_eq!(p("bottom-left").place((-1280, 0, 1280, 984), 400, 120, 14), (-1266, 850));
+        // Unknown spots fall back to the bottom right.
+        assert_eq!(p("somewhere").place(area, 400, 120, 14), (1506, 906));
     }
 
     #[test]

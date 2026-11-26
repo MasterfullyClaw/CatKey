@@ -71,7 +71,10 @@ export function createMock() {
     { exe: 'discord.exe', name: 'Discord', path: 'C:\\Users\\me\\AppData\\Local\\Discord\\Discord.exe', icon: null },
   ];
   const listeners = {};
+  let pendingAdjust = null;
+  const nowS = Math.floor(Date.now() / 1000);
   window.__mockEmit = (event, payload) => (listeners[event] || []).forEach((f) => f({ payload }));
+  window.__mockAdjust = (tip) => { pendingAdjust = tip; window.__mockEmit('ck://coach-adjust', tip); };
   return {
     listen: async (event, fn) => {
       (listeners[event] ||= []).push(fn);
@@ -102,6 +105,19 @@ export function createMock() {
           return null;
         case 'running_apps':
           return apps;
+        case 'installed_apps':
+          return params.get('scan') === '0' ? [] : [
+            ...apps,
+            { exe: 'photoshop.exe', name: 'Adobe Photoshop 2025', path: 'C:\\Program Files\\Adobe\\Adobe Photoshop 2025\\Photoshop.exe', title: '' },
+            { exe: 'blender.exe', name: 'Blender 4.2', path: 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe', title: '' },
+            { exe: 'ableton live 12 suite.exe', name: 'Ableton Live 12 Suite', path: 'C:\\ProgramData\\Ableton\\Live 12 Suite\\Program\\Ableton Live 12 Suite.exe', title: '' },
+            { exe: 'reaper.exe', name: 'REAPER', path: 'C:\\Program Files\\REAPER (x64)\\reaper.exe', title: '' },
+            { exe: 'obs64.exe', name: 'OBS Studio', path: 'C:\\Program Files\\obs-studio\\bin\\64bit\\obs64.exe', title: '' },
+            { exe: 'krita.exe', name: 'Krita', path: 'C:\\Program Files\\Krita (x64)\\bin\\krita.exe', title: '' },
+            { exe: 'notion.exe', name: 'Notion', path: 'C:\\Users\\me\\AppData\\Local\\Programs\\Notion\\Notion.exe', title: '' },
+            { exe: 'affinity photo 2.exe', name: 'Affinity Photo 2', path: 'C:\\Program Files\\Affinity\\Photo 2\\Photo.exe', title: '' },
+            { exe: 'houdini.exe', name: 'Houdini 20.5', path: 'C:\\Program Files\\Side Effects Software\\Houdini 20.5\\bin\\houdini.exe', title: '' },
+          ];
         case 'restore_defaults':
           config.rules = structuredClone(DEFAULT_RULES);
           return structuredClone(config);
@@ -140,10 +156,10 @@ export function createMock() {
               [k(3)]: { 'photoshop.exe': { used: 90, caught: 5, lostMs: 11000 } },
             },
             tips: params.get('coach') === '0' ? {} : {
-              'explorer.exe|back': { app: 'explorer.exe', name: 'Back', keys: 'Alt+Left Arrow', kind: 'button', n: 7, last: 1 },
-              'adobe premiere pro.exe|ripple delete': { app: 'adobe premiere pro.exe', name: 'Ripple Delete', keys: 'Shift+Delete', kind: 'menu', n: 5, last: 2 },
-              '*|window-close': { app: 'notepad.exe', name: 'Close the window', keys: 'Alt+F4', kind: 'window', n: 4, last: 3 },
-              '*|habit-backspace': { app: 'code.exe', name: 'Delete a whole word', keys: 'Ctrl+Backspace', kind: 'habit', n: 3, last: 4 },
+              'explorer.exe|back': { app: 'explorer.exe', name: 'Back', keys: 'Alt+Left Arrow', kind: 'button', n: 7, last: nowS - 120 },
+              'adobe premiere pro.exe|ripple delete': { app: 'adobe premiere pro.exe', name: 'Ripple Delete', keys: 'Shift+Delete', kind: 'menu', n: 5, last: nowS - 3 * 3600 },
+              '*|window-close': { app: 'notepad.exe', name: 'Close the window', keys: 'Alt+F4', kind: 'window', n: 4, last: nowS - 26 * 3600 },
+              '*|habit-backspace': { app: 'code.exe', name: 'Delete a whole word', keys: 'Ctrl+Backspace', kind: 'habit', n: 3, last: nowS - 4 * 86400 },
             },
             savedPerShortcutMs: 1600, lostMenuMs: 2900, lostButtonMs: 1600,
           };
@@ -151,7 +167,25 @@ export function createMock() {
         case 'set_coach_dict':
         case 'coach_demo':
         case 'coach_forget':
+        case 'coach_hide':
+          (window.__coachCalls ||= []).push(cmd);
           return null;
+        case 'coach_ignore': {
+          const id = String(args.id).toLowerCase();
+          const list = config.settings.coachMuted || (config.settings.coachMuted = []);
+          if (!list.includes(id)) list.push(id);
+          setTimeout(() => window.__mockEmit('ck://coach-muted', [...list]), 0);
+          return [...list];
+        }
+        case 'coach_adjust':
+          pendingAdjust = { id: args.id, app: 'explorer.exe', appName: 'File Explorer', name: 'Back', keys: 'Alt+Left Arrow', savesMs: 1600, times: 7, seq: 1, demo: false, anchor: 'bottom-right' };
+          setTimeout(() => window.__mockEmit('ck://coach-adjust', pendingAdjust), 0);
+          return null;
+        case 'coach_take_adjust': {
+          const t = pendingAdjust;
+          pendingAdjust = null;
+          return t;
+        }
         case 'coach_last':
           return null;
         case 'purr_set':

@@ -1,17 +1,21 @@
-## Cat Key 1.3.0: now on Mac
+## Cat Key 1.4.0: a Coach page, your apps, and sounds your way
 
-**⬇ [Download for Mac](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-mac.dmg)** (Apple Silicon and Intel, macOS 11+) · **[Download for Windows](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe)** or the [portable exe](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-portable-x64.exe).
+**⬇ [Download for Windows](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe)** or the [portable exe](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-portable-x64.exe) · **[Download for Mac](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-mac.dmg)** (Apple Silicon and Intel, macOS 11+).
 
-### New: Cat Key for Mac
-- **The same app on your Mac:** your shortcuts, per app if you like, the Library, Templates, Train yourself, Cat Warrior, Cat Builder, the cats and the purr.
-- **Mac keys, Mac names:** keys show as ⌘ ⌥ ⌃ ⇧, apps are matched by their Mac app id, and packs use their Mac keys where they differ.
-- **Starts clean:** a Mac already has ⌘, so Cat Key starts with no remaps. Coming from Windows? Templates → *Windows keys on a Mac* makes Ctrl do what ⌘ does (terminals keep their Ctrl).
-- **Swap ⌘ and Control:** the quick setting at the top of Settings, off unless you turn it on.
-- **Checkup for Mac:** one button opens Privacy & Security → Accessibility, where you let Cat Key use the keyboard. Cat Key opens at login and lives in the menu bar.
-- The shortcut coach's tips are Windows-only for now; the Mac counts your shortcuts for Cat Warrior.
+### The shortcut coach learns with you (Windows)
+- **Ignore, Dismiss or Adjust, right on the tip.** *Ignore* means that tip never comes back. *Dismiss* closes it for now. *Adjust* opens a new shortcut of your own that does that exact action, only in that app.
+- **Its own page:** a new **Coach** tab has everything in one place: the on/off switch, recent catches with Ignore and Adjust, the list of tips you ignored (give one back, or all of them), and a switch per app.
+- **Tips where you want them:** bottom right, top centre like an island, any corner or side, the middle, or drag the note to any spot on the little screen. Hover a tip to keep it.
+
+### Your apps
+- **Scan my apps** (Library) lists the apps on your computer: the ones with shortcuts in the Library open in one click.
+- **The rest, even rare apps:** tick up to six and Cat Builder writes one request for all of them. The AI's answer comes back as one pack per app, straight into your Library.
+
+### Sounds, part by part
+- Settings → **Sounds** has a switch for each part: clicks, the cat's voice, the training game and coach tips (a soft mrrp when a tip pops up, off unless you want it). One switch still mutes everything.
 
 ### Also
-- **Real cat sounds:** a recorded purr and real meows (from 1.2.3).
-- **Apps with versions in their id** (like Premiere on a Mac) are recognised by the start of their id.
+- If Cat Key ever stops by itself, the reason is now written in its log (Settings → your data folder).
+- Each release is started on a real Mac and Windows machine before it's published.
 
-**Mac, first open:** Cat Key isn't notarized by Apple yet. If macOS says it can't check the app, open System Settings → Privacy & Security and click **Open Anyway**.
+**Mac, first open:** Cat Key isn't notarized by Apple yet. Open it once, then System Settings → Privacy & Security → **Open Anyway**. If that goes round in circles, paste this into Terminal: `xattr -dr com.apple.quarantine "/Applications/Cat Key.app" && open "/Applications/Cat Key.app"`.

@@ -161,6 +161,78 @@ unsafe extern "system" fn collect_windows(hwnd: HWND, lparam: LPARAM) -> BOOL {
 }
 
 /// Apps with a visible window right now (for the app picker).
+/// Apps in the Start menu (yours and everyone's): their name, exe and where they live.
+pub fn installed_apps() -> Vec<AppInfo> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows::core::{Interface, PCWSTR};
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, IPersistFile, CLSCTX_INPROC_SERVER,
+        COINIT_APARTMENTTHREADED, STGM_READ,
+    };
+    use windows::Win32::UI::Shell::{
+        IShellLinkW, SHGetKnownFolderPath, ShellLink, FOLDERID_CommonPrograms, FOLDERID_Programs, KF_FLAG_DEFAULT,
+    };
+
+    fn links(dir: &Path, depth: u32, out: &mut Vec<std::path::PathBuf>) {
+        let Ok(rd) = std::fs::read_dir(dir) else { return };
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                let name = e.file_name().to_string_lossy().to_string();
+                if depth < 3 && !catkey_core::appscan::skip_folder(&name) {
+                    links(&p, depth + 1, out);
+                }
+            } else if p.extension().is_some_and(|x| x.eq_ignore_ascii_case("lnk")) {
+                out.push(p);
+            }
+        }
+    }
+
+    let mut out: Vec<AppInfo> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    unsafe {
+        let inited = CoInitializeEx(None, COINIT_APARTMENTTHREADED).is_ok();
+        let made: windows::core::Result<IShellLinkW> = CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER);
+        if let Ok(link) = made {
+            if let Ok(file) = link.cast::<IPersistFile>() {
+                for id in [&FOLDERID_Programs, &FOLDERID_CommonPrograms] {
+                    let Ok(p) = SHGetKnownFolderPath(id, KF_FLAG_DEFAULT, None) else { continue };
+                    let dir = p.to_string().unwrap_or_default();
+                    CoTaskMemFree(Some(p.0 as *const c_void));
+                    let mut found = Vec::new();
+                    links(Path::new(&dir), 0, &mut found);
+                    for lnk in found {
+                        let w: Vec<u16> = lnk.as_os_str().encode_wide().chain(Some(0)).collect();
+                        if file.Load(PCWSTR(w.as_ptr()), STGM_READ).is_err() {
+                            continue;
+                        }
+                        let mut target = [0u16; 1024];
+                        if link.GetPath(&mut target, null_mut(), 0).is_err() {
+                            continue;
+                        }
+                        let target = from_wide(&target);
+                        let mut args = [0u16; 1024];
+                        let _ = link.GetArguments(&mut args);
+                        let name = lnk.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+                        let Some((name, exe)) = catkey_core::appscan::from_shortcut(&name, &target, &from_wide(&args)) else {
+                            continue;
+                        };
+                        if !Path::new(&target).exists() || !seen.insert(exe.clone()) {
+                            continue;
+                        }
+                        out.push(AppInfo { exe, name, path: target, title: String::new() });
+                    }
+                }
+            }
+        }
+        if inited {
+            CoUninitialize();
+        }
+    }
+    out.sort_by_key(|a| a.name.to_lowercase());
+    out
+}
+
 pub fn running_apps() -> Vec<AppInfo> {
     let mut hwnds: Vec<usize> = Vec::new();
     unsafe {

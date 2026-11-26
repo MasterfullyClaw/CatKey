@@ -24,6 +24,8 @@ pub struct TipPayload {
     pub times: u32,
     pub seq: u32,
     pub demo: bool,
+    pub anchor: String,
+    pub sound: bool,
 }
 
 static DIR: Mutex<Option<PathBuf>> = Mutex::new(None);
@@ -126,3 +128,9 @@ pub fn last_tip() -> Option<TipPayload> {
 }
 
 pub fn demo() {}
+
+pub fn hide() {}
+
+pub fn tip_info(_id: &str) -> Option<TipPayload> {
+    None
+}

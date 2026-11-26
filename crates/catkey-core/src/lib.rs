@@ -1,6 +1,7 @@
 //! Cat Key core: key names, the config model, the remapping engine and the
 //! PowerToys importer. No OS calls live here, so all of it is unit-tested.
 
+pub mod appscan;
 pub mod coachtext;
 pub mod config;
 pub mod engine;

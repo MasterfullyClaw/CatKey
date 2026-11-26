@@ -176,6 +176,12 @@ pub async fn app_icon(app: AppHandle, path: String) -> Option<String> {
     found
 }
 
+/// Apps installed on this computer: the Start menu on Windows, Applications on a Mac.
+#[tauri::command]
+pub async fn installed_apps() -> Vec<win::AppInfo> {
+    tauri::async_runtime::spawn_blocking(win::installed_apps).await.unwrap_or_default()
+}
+
 #[derive(Serialize)]
 pub struct Picked {
     path: String,
@@ -761,6 +767,48 @@ pub async fn restore_backup(app: AppHandle) -> Result<bool, String> {
     }
     let _ = std::fs::write(dir.join("restored.flag"), "1");
     Ok(true)
+}
+
+/// The tip's Dismiss (and its own timer): hide it for now.
+#[tauri::command]
+pub fn coach_hide() {
+    crate::coach::hide();
+}
+
+/// The tip's Ignore: never show this one again (kept in the Ignored list, which can give it back).
+#[tauri::command]
+pub fn coach_ignore(app: AppHandle, id: String) -> Result<Vec<String>, String> {
+    crate::coach::hide();
+    let state = app.state::<AppState>();
+    let mut cfg = state.config.lock().unwrap().clone();
+    let id = id.to_lowercase();
+    if !cfg.settings.coach_muted.iter().any(|m| m.to_lowercase() == id) {
+        cfg.settings.coach_muted.push(id);
+    }
+    let cfg = app::apply_config(&app, cfg)?;
+    let _ = app.emit("ck://coach-muted", &cfg.settings.coach_muted);
+    Ok(cfg.settings.coach_muted)
+}
+
+static PENDING_ADJUST: std::sync::Mutex<Option<crate::coach::TipPayload>> = std::sync::Mutex::new(None);
+
+/// The tip's Adjust: open Cat Key with a new shortcut for that action, in that app.
+#[tauri::command]
+pub fn coach_adjust(app: AppHandle, id: String) -> Result<(), String> {
+    crate::coach::hide();
+    let tip = crate::coach::tip_info(&id).ok_or("That tip isn't known any more.")?;
+    if let Ok(mut g) = PENDING_ADJUST.lock() {
+        *g = Some(tip.clone());
+    }
+    app::show_main(&app);
+    let _ = app.emit_to("main", "ck://coach-adjust", &tip);
+    Ok(())
+}
+
+/// An Adjust that arrived while the window was still opening.
+#[tauri::command]
+pub fn coach_take_adjust() -> Option<crate::coach::TipPayload> {
+    PENDING_ADJUST.lock().ok().and_then(|mut g| g.take())
 }
 
 /// Training: keep every key for the trainer while a round runs (see hook::set_capture).

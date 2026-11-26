@@ -67,6 +67,52 @@ fn bundle_at(path: &str) -> Option<Retained<NSBundle>> {
     NSBundle::bundleWithPath(&ns(path))
 }
 
+/// Apps in Applications (yours, everyone's and the Mac's own): name, bundle id and where they live.
+pub fn installed_apps() -> Vec<AppInfo> {
+    let home = std::env::var("HOME").unwrap_or_default();
+    let roots = [
+        "/Applications".to_string(),
+        "/Applications/Utilities".to_string(),
+        format!("{home}/Applications"),
+        "/System/Applications".to_string(),
+        "/System/Applications/Utilities".to_string(),
+    ];
+    let mut apps: Vec<std::path::PathBuf> = Vec::new();
+    for root in &roots {
+        let Ok(rd) = std::fs::read_dir(root) else { continue };
+        for e in rd.flatten() {
+            let p = e.path();
+            let name = e.file_name().to_string_lossy().to_string();
+            if name.ends_with(".app") {
+                apps.push(p);
+            } else if p.is_dir() && !name.starts_with('.') {
+                // Apps kept in a folder of their own (Adobe, Microsoft…).
+                if let Ok(sub) = std::fs::read_dir(&p) {
+                    apps.extend(sub.flatten().map(|x| x.path()).filter(|x| x.extension().is_some_and(|e| e == "app")));
+                }
+            }
+        }
+    }
+    let mut out: Vec<AppInfo> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    autoreleasepool(|_| {
+        for p in apps {
+            let path = p.to_string_lossy().to_string();
+            let name = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
+            if name.to_lowercase().contains("uninstall") {
+                continue;
+            }
+            let Some(id) = bundle_at(&path).and_then(|b| b.bundleIdentifier()) else { continue };
+            let exe = id.to_string().to_lowercase();
+            if seen.insert(exe.clone()) {
+                out.push(AppInfo { exe, name, path, title: String::new() });
+            }
+        }
+    });
+    out.sort_by_key(|a| a.name.to_lowercase());
+    out
+}
+
 /// For a picked file: an app's bundle id (lower case), otherwise the file name.
 pub fn file_name_lower(path: &str) -> String {
     autoreleasepool(|_| {

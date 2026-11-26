@@ -41,6 +41,19 @@ jobs:
           Copy-Item target/release/CatKey.exe out/CatKey-portable-x64.exe
           Copy-Item (Get-ChildItem target/release/bundle/nsis/*.exe | Select-Object -First 1).FullName out/CatKey-Setup-x64.exe
           Get-ChildItem out
+      - name: Make sure it starts
+        shell: pwsh
+        run: |
+          $exe = (Resolve-Path target/release/CatKey.exe).Path
+          Start-Process -Wait -FilePath $exe -ArgumentList '--list-apps', "$PWD\apps.json"
+          $apps = Get-Content apps.json -Raw | ConvertFrom-Json
+          "Your apps would list $($apps.Count) apps, like: $(($apps | Select-Object -First 12 | ForEach-Object { $_.name + ' (' + $_.exe + ')' }) -join ', ')"
+          $p = Start-Process -FilePath $exe -PassThru
+          Start-Sleep -Seconds 15
+          if ($p.HasExited) { Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue; throw "Cat Key stopped by itself (exit code $($p.ExitCode))" }
+          "Still running after 15 s"
+          Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue
+          Stop-Process -Id $p.Id -Force
       - uses: actions/upload-artifact@v4
         with:
           name: CatKey-windows
@@ -72,6 +85,17 @@ jobs:
           hdiutil create -volname "Cat Key" -srcfolder dmg -ov -format UDZO out/CatKey-mac.dmg
           ditto -c -k --keepParent "$APP" out/CatKey-mac.zip
           ls -la out
+      - name: Make sure it starts
+        run: |
+          APP="target/universal-apple-darwin/release/bundle/macos/Cat Key.app"
+          "$APP/Contents/MacOS/CatKey" --list-apps apps.json
+          python3 -c "import json; a = json.load(open('apps.json')); print(f'Your apps would list {len(a)} apps, like:', ', '.join(f\"{x['name']} ({x['exe']})\" for x in a[:12]))"
+          open "$APP"
+          sleep 20
+          if ! pgrep -x CatKey > /dev/null; then cat "$HOME/Library/Application Support/CatKey/catkey.log" || true; echo "Cat Key stopped by itself"; exit 1; fi
+          echo "Still running after 20 s"
+          cat "$HOME/Library/Application Support/CatKey/catkey.log" || true
+          pkill -x CatKey || true
       - uses: actions/upload-artifact@v4
         with:
           name: CatKey-mac

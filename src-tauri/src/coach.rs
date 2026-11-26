@@ -57,7 +57,8 @@ const SAME_TIP_MS: u64 = 30 * 60_000;
 const GAP_MS: u64 = 8_000;
 const PER_HOUR: usize = 10;
 /// How long a tip stays up (the page fades it out just before).
-const SHOW_MS: u64 = 5_600;
+/// The tip hides itself (it waits while the pointer is on it); this is only the backstop.
+const SHOW_MS: u64 = 45_000;
 
 /// Time the long way costs, from the Keystroke-Level Model (Card, Moran & Newell):
 /// reaching for the mouse and back (0.4 s each), pointing (1.1 s) and clicking (0.2 s),
@@ -75,10 +76,13 @@ pub struct CoachSettings {
     pub chromium: bool,
     pub muted: Vec<String>,
     pub excluded: Vec<String>,
+    pub pos: Option<catkey_core::config::CoachPos>,
+    /// A soft mrrp when a tip pops up (Settings → Sounds → Coach tips; off unless chosen).
+    pub tip_sound: bool,
 }
 
 static SETTINGS: Mutex<CoachSettings> =
-    Mutex::new(CoachSettings { on: false, chromium: false, muted: Vec::new(), excluded: Vec::new() });
+    Mutex::new(CoachSettings { on: false, chromium: false, muted: Vec::new(), excluded: Vec::new(), pos: None, tip_sound: false });
 
 pub fn set_settings(s: &catkey_core::Settings) {
     if let Ok(mut g) = SETTINGS.lock() {
@@ -86,6 +90,8 @@ pub fn set_settings(s: &catkey_core::Settings) {
         g.chromium = s.coach_chromium;
         g.muted = s.coach_muted.iter().map(|m| m.to_lowercase()).collect();
         g.excluded = s.excluded_apps.iter().map(|a| a.to_lowercase()).collect();
+        g.pos = Some(s.coach_pos.clone());
+        g.tip_sound = s.sounds && s.sound_parts.get("tips").copied().unwrap_or(false);
     }
 }
 
@@ -333,6 +339,10 @@ pub struct TipPayload {
     pub times: u32,
     pub seq: u32,
     pub demo: bool,
+    /// Where on the screen it shows ("bottom-right", "top-center"…), so it slides in from that side.
+    pub anchor: String,
+    /// Whether the tip makes its little sound.
+    pub sound: bool,
 }
 
 static LAST_TIP: Mutex<Option<TipPayload>> = Mutex::new(None);
@@ -418,14 +428,41 @@ pub fn demo() {
         times: 1,
         seq: 0,
         demo: true,
+        anchor: String::new(),
+        sound: false,
     };
     show(p);
+}
+
+/// The tip's own buttons, the window's Dismiss and the timer all end here.
+pub fn hide() {
+    let Some(app) = APP.lock().ok().and_then(|g| g.clone()) else { return };
+    std::thread::spawn(move || {
+        if let Some(w) = app.get_webview_window("coach") {
+            if let Ok(h) = w.hwnd() {
+                unsafe { ShowWindow(h.0 as HWND, SW_HIDE) };
+            }
+        }
+    });
+}
+
+/// What a tip was about, for Adjust (the last tip, or one from the list of catches).
+pub fn tip_info(id: &str) -> Option<TipPayload> {
+    if let Some(t) = last_tip().filter(|t| t.id == id) {
+        return Some(t);
+    }
+    let g = STATS.lock().ok()?;
+    let t = g.as_ref()?.tips.get(id)?.clone();
+    Some(TipPayload { id: id.to_string(), app_name: app_name(&t.app), app: t.app, name: t.name, keys: t.keys, ..Default::default() })
 }
 
 fn show(mut p: TipPayload) {
     let Some(app) = APP.lock().ok().and_then(|g| g.clone()) else { return };
     let seq = SEQ.fetch_add(1, Ordering::SeqCst) + 1;
     p.seq = seq;
+    let s = settings();
+    p.anchor = s.pos.map(|q| q.anchor).unwrap_or_else(|| "bottom-right".into());
+    p.sound = s.tip_sound;
     if let Ok(mut g) = LAST_TIP.lock() {
         *g = Some(p.clone());
     }
@@ -458,7 +495,7 @@ fn show(mut p: TipPayload) {
 fn build(app: &AppHandle) -> Option<WebviewWindow> {
     let w = WebviewWindowBuilder::new(app, "coach", WebviewUrl::App("coach.html".into()))
         .title("Cat Key tip")
-        .inner_size(420.0, 112.0)
+        .inner_size(TIP_W, TIP_H)
         .decorations(false)
         .transparent(true)
         .shadow(false)
@@ -470,7 +507,8 @@ fn build(app: &AppHandle) -> Option<WebviewWindow> {
         .build()
         .map_err(|e| crate::log(&format!("coach window: {e}")))
         .ok()?;
-    let _ = w.set_ignore_cursor_events(true);
+    // The tip has buttons now (Ignore, Dismiss, Adjust), so it takes clicks, but it
+    // never takes the keyboard from the app you're in (no activation).
     if let Ok(h) = w.hwnd() {
         unsafe {
             let hwnd = h.0 as HWND;
@@ -483,7 +521,10 @@ fn build(app: &AppHandle) -> Option<WebviewWindow> {
     Some(w)
 }
 
-/// Bottom right of the screen the pointer is on, above the taskbar.
+const TIP_W: f64 = 440.0;
+const TIP_H: f64 = 156.0;
+
+/// Where the user wants tips (bottom right unless chosen), on the screen the pointer is on.
 fn place(w: &WebviewWindow, pt: POINT) {
     unsafe {
         let mon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
@@ -498,10 +539,12 @@ fn place(w: &WebviewWindow, pt: POINT) {
             .flatten()
             .map(|m| m.scale_factor())
             .unwrap_or(1.0);
-        let (cw, ch) = ((420.0 * scale) as i32, (112.0 * scale) as i32);
-        let margin = (14.0 * scale) as i32;
-        let x = mi.rcWork.right - cw - margin;
-        let y = mi.rcWork.bottom - ch - margin;
+        let (cw, ch) = ((TIP_W * scale) as i32, (TIP_H * scale) as i32);
+        let margin = (10.0 * scale) as i32;
+        let work = mi.rcWork;
+        let area = (work.left, work.top, work.right - work.left, work.bottom - work.top);
+        let pos = settings().pos.unwrap_or_default();
+        let (x, y) = pos.place(area, cw, ch, margin);
         let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
         let _ = w.set_size(tauri::PhysicalSize::new(cw as u32, ch as u32));
     }
@@ -800,6 +843,8 @@ fn deliver(tip: Tip) {
         times,
         seq: 0,
         demo: false,
+        anchor: String::new(),
+        sound: false,
     });
 }
 

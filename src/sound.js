@@ -11,6 +11,19 @@ let purrBuf = null;
 let lastVoice = 0;
 let lastPick = '';
 
+/**
+ * Each part of Cat Key has its own sound switch (Settings → Sounds); the main switch
+ * mutes them all. ui: paw taps on clicks · cat: the cat's mews, chirps and purrs ·
+ * training: the game · tips: the coach's note popping up.
+ */
+export const PART_DEFAULTS = { ui: true, cat: true, training: true, tips: false };
+const parts = { ...PART_DEFAULTS };
+export function setSoundParts(p) {
+  for (const k of Object.keys(PART_DEFAULTS)) parts[k] = typeof p?.[k] === 'boolean' ? p[k] : PART_DEFAULTS[k];
+}
+/** Whether a part makes sound right now. */
+export const soundOn = (part) => enabled && parts[part] !== false;
+
 export function setSoundsEnabled(on) {
   enabled = !!on;
 }
@@ -258,8 +271,8 @@ function pick(names) {
 
 /** Every click: a paw tap, and now and then a little voice (never two at once). */
 export function clickSound() {
-  if (!enabled) return;
-  tap(0.045);
+  if (soundOn('ui')) tap(0.045);
+  if (!soundOn('cat')) return;
   const now = performance.now();
   if (now - lastVoice > 900 && Math.random() < 0.3) {
     lastVoice = now;
@@ -271,45 +284,41 @@ export function clickSound() {
 
 export const sounds = {
   on() {
-    if (!enabled) return;
-    tap(0.05);
-    VOICES.chirp(0.9, 0.03);
+    if (soundOn('ui')) tap(0.05);
+    if (soundOn('cat')) VOICES.chirp(0.9, 0.03);
   },
   off() {
-    if (!enabled) return;
-    tap(0.05);
-    VOICES.mrrp(0.6, 0.03);
+    if (soundOn('ui')) tap(0.05);
+    if (soundOn('cat')) VOICES.mrrp(0.6, 0.03);
   },
   pop() {
-    if (enabled) tap(0.05);
+    if (soundOn('ui')) tap(0.05);
   },
   mew() {
-    if (!enabled) return;
+    if (!soundOn('cat')) return;
     lastVoice = performance.now();
     if (Math.random() < 0.75 && sample('meow', { gain: 0.32, rate: rnd(0.95, 1.2) })) return;
     pick(['mew', 'nya', 'mrrp', 'meow', 'trill'])();
   },
   saved() {
-    if (!enabled) return;
-    VOICES.trill(0.9);
+    if (soundOn('cat')) VOICES.trill(0.9);
   },
   /** Petting the cat: making biscuits on the keyboard. */
   knead() {
-    if (!enabled) return;
+    if (!soundOn('cat')) return;
     if (!sample('purr', { gain: 0.55, rate: rnd(0.95, 1.05) })) purr(1700, 0.3);
     for (let i = 0; i < 4; i++) setTimeout(() => tap(0.03), 60 + i * 230);
     if (Math.random() < 0.6 && !sample('meow', { gain: 0.26, rate: rnd(1.05, 1.3), delay: 1.0 })) pick(['mew', 'nya', 'mrrp', 'trill'])(0.7, 0.9);
   },
+  /** A coach tip popping up: one soft, short mrrp. */
+  tip() {
+    if (soundOn('tips')) VOICES.mrrp(0.45, 0.02);
+  },
 };
 
 // ------------------------------------------------------------------ training sounds
-// Train yourself has its own switch: these are the point of the game, so they play
-// even when the everyday sounds are off.
 
-let trainOn = true;
-export function setTrainSounds(on) {
-  trainOn = !!on;
-}
+const trainOn = () => soundOn('training');
 
 function wobble(from, to, ms, { type = 'sine', gain = 0.07, vib = 0, vibHz = 0, delay = 0 } = {}) {
   const a = audio();
@@ -343,27 +352,27 @@ let rightRun = 0;
 export const trainSounds = {
   /** Right answer: a springy "boing", and every so often a happy chirp. */
   boing() {
-    if (!trainOn) return;
+    if (!trainOn()) return;
     wobble(190, 560, 230, { gain: 0.08, vib: 60, vibHz: 22 });
     wobble(380, 1120, 160, { gain: 0.02, delay: 0.01 });
     if (++rightRun % 3 === 0 && !sample('meow', { gain: 0.24, rate: rnd(1.25, 1.45), delay: 0.2 })) pick(['chirp', 'nya', 'mrrp'])(0.7, 0.2);
   },
   /** Wrong answer: a soft, short sad mew (never a buzzer). */
   meow() {
-    if (!trainOn) return;
+    if (!trainOn()) return;
     rightRun = 0;
     if (!sample('meow', { gain: 0.26, rate: rnd(0.78, 0.86) })) VOICES.sad(0.85);
   },
   /** Every few in a row: a trill and a sparkly run. */
   streak(level = 1) {
-    if (!trainOn) return;
+    if (!trainOn()) return;
     VOICES.trill(0.8);
     const base = 660 * Math.pow(1.06, Math.min(level, 6));
     [1, 1.25, 1.5, 2].forEach((m, i) => wobble(base * m, base * m * 1.01, 120, { gain: 0.03, delay: 0.3 + 0.06 * i }));
   },
   /** End of a round: "mrrp… nya!" */
   done() {
-    if (!trainOn) return;
+    if (!trainOn()) return;
     if (!sample('meow', { gain: 0.3, rate: 1.15 })) {
       VOICES.mrrp(0.9);
       VOICES.nya(0.9, 0.38);
@@ -372,7 +381,7 @@ export const trainSounds = {
   },
   /** A key typed right in the typing trainer: the softest tap. */
   key() {
-    if (trainOn) tap(0.03);
+    if (trainOn()) tap(0.03);
   },
 };
 

@@ -3,7 +3,7 @@
 
 import * as K from './keys.js';
 import { Mascot, SKINS, CATS, GEAR, RANKS, rankFor, gearById } from './mascot.js';
-import { sounds, setSoundsEnabled, trainSounds, setTrainSounds, clickSound } from './sound.js';
+import { sounds, setSoundsEnabled, setSoundParts, soundOn, PART_DEFAULTS, trainSounds, clickSound } from './sound.js';
 
 const backend = window.__TAURI__
   ? { invoke: window.__TAURI__.core.invoke, listen: window.__TAURI__.event.listen }
@@ -258,6 +258,7 @@ async function boot() {
   S.stats = st.stats || S.stats;
   S.templates = st.templates || [];
   setSoundsEnabled(S.config.settings.sounds);
+  setSoundParts(S.config.settings.soundParts);
   await restoreProgress();
   const newTab = st.upgraded && rules().find((r) => r.trigger === 'LAlt+T' && r.action.keys === 'LCtrl+T');
   if (newTab) markFresh(newTab.id);
@@ -278,6 +279,10 @@ async function boot() {
   renderAll();
   wire();
   await invoke('ui_ready').catch(() => {});
+  takeAdjust();
+  // The training game's own sound switch now lives with the other sound switches.
+  if (readLS('catkey.train.sound') === 0 && typeof S.config.settings.soundParts?.training !== 'boolean') setSoundPart('training', false);
+  try { localStorage.removeItem('catkey.train.sound'); } catch { /* fine */ }
 
   if (S.status.firstRun) {
     setTimeout(() => toast(rules().length
@@ -294,7 +299,7 @@ async function boot() {
   PURR.on = await invoke('purr_state').catch(() => false);
   paintPurr();
   coachStats().then(() => { checkRankUp(); if (S.view === 'warrior') renderWarrior(); });
-  setInterval(() => { if (!document.hidden) coachStats(true).then(() => { checkRankUp(); if (S.view === 'warrior' && !document.activeElement?.closest?.('#warrior input')) renderWarrior(); }); }, 30000);
+  setInterval(() => { if (!document.hidden) coachStats(true).then(() => { checkRankUp(); if (S.view === 'warrior' && !document.activeElement?.closest?.('#warrior input')) renderWarrior(); refreshCoachPage(); }); }, 30000);
   setInterval(refreshStatus, 6000);
   setInterval(async () => {
     if (document.hidden) return;
@@ -354,13 +359,14 @@ function renderTabs() {
   box.textContent = '';
   const libN = L.data ? libPacks().filter((p) => p._origin !== 'community').length : null;
   for (const [id, label, n, ic] of [['shortcuts', 'Your shortcuts', rules().length, 'keyboard'], ['library', 'Library', libN, 'book'],
-    ['templates', 'Templates', allTemplates().length, 'layers'], ['train', 'Train yourself', null, 'target'], ['warrior', 'Cat Warrior', null, 'star'], ['ai', 'Cat Builder', null, 'wand']]) {
+    ['templates', 'Templates', allTemplates().length, 'layers'], ['train', 'Train', null, 'target'], ['warrior', 'Cat Warrior', null, 'star'],
+    ...(PLAT() === 'mac' ? [] : [['coach', 'Coach', null, 'sparkle']]), ['ai', 'Cat Builder', null, 'wand']]) {
     box.append(h('button', { class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(S.view === id), onclick: () => setView(id) },
       h('span', { class: 'ic', html: icon(ic) }), h('span', { text: label }), n == null ? null : h('span', { class: 'count', text: String(n) })));
   }
 }
 
-const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train', warrior: '#warrior', about: '#about-page' };
+const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train', warrior: '#warrior', coach: '#coach-page', about: '#about-page' };
 function applyView() {
   for (const v of Object.keys(VIEW_BOX)) $('#app').classList.toggle(`view-${v}`, S.view === v);
   if (S.view !== 'shortcuts' && SEL.on) setSelecting(false);
@@ -370,6 +376,7 @@ function applyView() {
   if (S.view !== 'train') { trainStop(); typingStop(); }
   if (S.view === 'warrior') renderWarrior();
   if (S.view === 'about') renderAbout();
+  if (S.view === 'coach') renderCoach();
   $('#btn-about')?.setAttribute('aria-pressed', String(S.view === 'about'));
 }
 
@@ -847,11 +854,30 @@ function commit(next) {
   });
   return saving;
 }
+// Every part of Cat Key has its own sound switch; "sounds" mutes them all.
+const soundParts = () => ({ ...PART_DEFAULTS, ...(S.config.settings.soundParts || {}) });
+function setSoundPart(id, on) {
+  return commitSettings({ soundParts: { ...soundParts(), [id]: !!on } });
+}
+const SOUND_PART_TEXT = [
+  ['ui', 'Clicks', 'A soft paw tap when you click a button or switch pages.'],
+  ['cat', 'The cat’s voice', 'A little mew now and then, a chirp when something turns on, and a purr when you pet the cat.'],
+  ['training', 'Training game', 'A boing for a right answer, a sad mew for a wrong one, and a cheer when a round ends.'],
+  ['tips', 'Coach tips', 'One soft mrrp when a tip pops up. Off unless you want it.'],
+];
+function previewSound(id) {
+  if (id === 'ui') sounds.pop();
+  else if (id === 'cat') sounds.mew();
+  else if (id === 'training') trainSounds.boing();
+  else if (id === 'tips') sounds.tip();
+}
+
 function commitSettings(patch) {
   const next = { ...S.config, settings: { ...S.config.settings, ...patch } };
   const p = commit(next);
   applyLook();
   setSoundsEnabled(next.settings.sounds);
+  setSoundParts(next.settings.soundParts);
   if (SETTINGS_OPEN) renderSettings();
   return p;
 }
@@ -948,7 +974,15 @@ function wire() {
   $('#hero-profile').onclick = () => setView('warrior');
   $('#btn-purr').oncontextmenu = (e) => { e.preventDefault(); purrMenu(e.currentTarget); };
   backend.listen('ck://purr', (e) => { PURR.on = !!e.payload; paintPurr(); });
-  backend.listen('ck://coach-tip', () => { coachStats(true).then(() => { if (S.view === 'warrior') renderWarrior(); }); });
+  backend.listen('ck://coach-tip', () => { coachStats(true).then(() => { if (S.view === 'warrior') renderWarrior(); refreshCoachPage(); }); });
+  // A tip's Ignore was pressed: keep this window's copy of the list in step.
+  backend.listen('ck://coach-muted', (e) => {
+    S.config = { ...S.config, settings: { ...S.config.settings, coachMuted: Array.isArray(e.payload) ? e.payload : [] } };
+    if (S.view === 'warrior') renderWarrior();
+    refreshCoachPage();
+  });
+  // A tip's Adjust was pressed: open a new shortcut for it.
+  backend.listen('ck://coach-adjust', takeAdjust);
   // Every click gets a soft paw tap (and now and then a little mew).
   document.addEventListener('click', (e) => { if (e.target.closest?.('button, [role="button"], summary, label')) clickSound(); }, true);
   $('#btn-min').onclick = () => invoke('window_minimize');
@@ -1850,17 +1884,17 @@ function renderSettings() {
           ? settingRow('Open at login', 'Wakes up quietly in the menu bar when you log in.', switchEl(s.launchAtStartup, 'Open at login', () => commitSettings({ launchAtStartup: !s.launchAtStartup }).then(() => setTimeout(refreshStatusNow, 900))))
           : settingRow('Start with Windows', 'Wakes up quietly in the tray when you sign in.', switchEl(s.launchAtStartup, 'Start with Windows', () => commitSettings({ launchAtStartup: !s.launchAtStartup }).then(() => setTimeout(refreshStatusNow, 900)))),
         mac ? null : settingRow('Work in admin apps', adminDesc, switchEl(s.adminMode, 'Work in admin apps', () => setAdmin(!s.adminMode))),
-        settingRow('Cat sounds', 'A soft paw tap on every click, a little mew now and then, and a purr when you pet the cat.', switchEl(s.sounds, 'Cat sounds', () => { commitSettings({ sounds: !s.sounds }); setSoundsEnabled(!s.sounds); sounds.on(); })),
-        settingRow('Purr volume', 'For the background purr (the paw button at the top, or the tray menu).', purrVol),
         settingRow('Pause hotkey', 'One shortcut that pauses every remap. Handy for games.', pauseCtl)),
+      h('section', { style: { gap: '0' } }, h('h2', { text: 'Sounds', style: { marginBottom: '4px' } }),
+        settingRow('All sounds', 'One switch for every sound Cat Key makes. Each part also has its own, below.',
+          switchEl(s.sounds, 'All sounds', () => { const on = !s.sounds; commitSettings({ sounds: on }); if (on) sounds.on(); })),
+        h('div', { class: `sound-parts${s.sounds ? '' : ' muted'}`, title: s.sounds ? null : 'All sounds are off' },
+          ...SOUND_PART_TEXT.filter(([id]) => !(mac && id === 'tips')).map(([id, title, desc]) => settingRow(title, desc,
+            switchEl(soundParts()[id], title, () => { const on = !soundParts()[id]; setSoundPart(id, on); if (on && s.sounds) previewSound(id); })))),
+        settingRow('Purr volume', 'For the background purr (the paw button at the top, or the tray menu).', purrVol)),
       mac ? null : h('section', { style: { gap: '0' } }, h('h2', { text: 'Shortcut coach', style: { marginBottom: '4px' } }),
-        settingRow('Tips when you do it the long way', `When you click something that has a shortcut, ${cat()} shows its keys in a small note that fades away. Nothing is recorded: only the name of what you clicked is read, the way screen readers do.`,
-          switchEl(s.coach, 'Shortcut coach', () => commitSettings({ coach: !s.coach }))),
-        settingRow('Also in Chrome-based apps', 'Chrome, Edge, VS Code, Slack and Discord do a little extra work each time they’re asked what’s under the pointer, so they’re left out unless you want them.',
-          switchEl(s.coachChromium, 'Coach in Chrome-based apps', () => commitSettings({ coachChromium: !s.coachChromium }))),
-        h('div', { class: 'row-between', style: { paddingTop: '10px' } },
-          h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Show me a tip</span>`, onclick: () => invoke('coach_demo').catch((e) => toast(String(e), { kind: 'warn' })) }),
-          (s.coachMuted || []).length ? h('button', { class: 'link', type: 'button', text: `Turn ${s.coachMuted.length} muted tip${s.coachMuted.length === 1 ? '' : 's'} back on`, onclick: () => commitSettings({ coachMuted: [] }) }) : null)),
+        settingRow('Tips when you do it the long way', `Where tips appear, what you ignored, and what ${cat()} caught: all on the Coach page.`,
+          h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Open the Coach page</span>`, onclick: () => { closeSettings(); setView('coach'); } }))),
       h('section', {}, h('h2', { text: 'Nap zones' }),
         h('p', { class: 'hint', style: { margin: '0', fontSize: '13px' }, text: `${cat()} naps while these apps are in front, so every key works as normal there.` }), nap),
       h('section', {}, h('h2', { text: 'Your shortcuts' }),
@@ -2121,6 +2155,7 @@ function renderLibrary() {
       h('button', { class: 'btn strong', type: 'button', html: `${icon('wand')}<span>Make your own with AI</span>`, onclick: () => makeWithAI('cheatsheet') }),
       h('button', { class: 'btn', type: 'button', html: `${icon('folder')}<span>Import…</span>`, onclick: importFile }),
       h('button', { class: 'btn', type: 'button', html: `${icon('link')}<span>Paste a share code</span>`, onclick: pasteShareCode }))));
+  box.append(yourAppsCard());
   box.append(youDontNeed());
   const search = h('input', { id: 'lib-search', class: 'field', type: 'search', placeholder: 'Search apps, packs or actions (e.g. “ripple”, “Figma”)', value: L.q, autocomplete: 'off', spellcheck: 'false',
     oninput: (e) => { L.q = e.target.value; renderLibGrid(); } });
@@ -2133,6 +2168,99 @@ function renderLibrary() {
   box.append(h('div', { id: 'lib-grid', class: 'lib-grid' }));
   renderLibGrid();
   if (keepFocus) { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
+}
+
+// ------------------------------------------------------------------ Your apps: what's installed, what has a pack, and the rest via AI
+
+const SCAN = { apps: null, busy: false, open: false, pick: new Set(), q: '' };
+const SCAN_MAX = 6;
+const idMatch = (pat, id) => { const p = String(pat).toLowerCase(); return p.endsWith('*') ? id.startsWith(p.slice(0, -1)) : p === id; };
+function packsFor(exe) {
+  const id = String(exe).toLowerCase();
+  return libPacks().filter((p) => packApps(p).some((pat) => idMatch(pat, id)));
+}
+async function scanApps() {
+  if (SCAN.busy) return;
+  SCAN.open = true;
+  if (!SCAN.apps) {
+    SCAN.busy = true;
+    renderAppsCard();
+    const [inst, run] = await Promise.all([invoke('installed_apps').catch(() => []), invoke('running_apps').catch(() => [])]);
+    const seen = new Map();
+    for (const a of [...(inst || []), ...(run || [])]) {
+      if (!a?.exe || seen.has(a.exe) || /^catkey\.exe$|^com\.masterfully\.catkey$/.test(a.exe)) continue;
+      seen.set(a.exe, { exe: a.exe, name: a.name || appName(a.exe), path: a.path || '' });
+    }
+    SCAN.apps = [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
+    SCAN.busy = false;
+  }
+  renderAppsCard();
+}
+function renderAppsCard() {
+  const old = $('#apps-card');
+  if (old) old.replaceWith(yourAppsCard());
+}
+function yourAppsCard() {
+  const card = h('section', { class: `apps-card${SCAN.open ? ' open' : ''}`, id: 'apps-card', 'aria-label': 'Your apps' });
+  if (!SCAN.open || SCAN.busy) {
+    card.append(h('div', { class: 'apps-head' }, h('span', { class: 'ic', html: icon('search') }),
+      h('div', { class: 'txt' }, h('b', { text: 'Your apps' }),
+        h('span', { class: 'hint', text: SCAN.busy ? ` ${cat()} is looking through your apps…` : ' See which of your apps already have shortcuts here, and get the rest, even rare apps, from an AI.' })),
+      h('button', { class: 'btn small strong', type: 'button', disabled: SCAN.busy, html: `${icon('search')}<span>${SCAN.busy ? 'Looking…' : SCAN.apps ? 'Show my apps' : 'Scan my apps'}</span>`, onclick: scanApps })));
+    return card;
+  }
+  const apps = SCAN.apps || [];
+  const ready = [];
+  const rest = [];
+  for (const a of apps) { const ps = packsFor(a.exe); (ps.length ? ready : rest).push({ ...a, packs: ps }); }
+  for (const exe of [...SCAN.pick]) if (!rest.some((a) => a.exe === exe)) SCAN.pick.delete(exe);
+  card.append(h('div', { class: 'apps-head' }, h('span', { class: 'ic', html: icon('search') }),
+    h('div', { class: 'txt' }, h('b', { text: 'Your apps' }),
+      h('span', { class: 'hint', text: ` ${apps.length} on this ${PLAT() === 'mac' ? 'Mac' : 'PC'} · ${ready.length} with shortcuts here` })),
+    h('button', { class: 'link', type: 'button', text: 'Scan again', onclick: () => { SCAN.apps = null; scanApps(); } }),
+    h('button', { class: 'tbtn', type: 'button', 'aria-label': 'Hide your apps', title: 'Hide', html: icon('x'), onclick: () => { SCAN.open = false; renderAppsCard(); } })));
+  if (!apps.length) {
+    card.append(h('p', { class: 'hint', text: 'No apps found. Open the apps you use and scan again: running apps are listed too.' }));
+    return card;
+  }
+  if (ready.length) {
+    card.append(h('div', { class: 'apps-sub', text: 'Ready here: open one to add or train its shortcuts' }),
+      h('div', { class: 'apps-ready' }, ...ready.map((a) => h('button', { class: 'app-chip', type: 'button', title: a.packs.map((p) => p.name).join(' · '),
+        onclick: () => openPack(a.packs[0], { origin: a.packs[0]._origin }) }, appIcon(a.path || a.exe), h('span', { text: a.name }),
+        a.packs.length > 1 ? h('span', { class: 'n', text: String(a.packs.length) }) : null))));
+  }
+  if (rest.length) {
+    const q = SCAN.q.trim().toLowerCase();
+    const shown = rest.filter((a) => !q || a.name.toLowerCase().includes(q) || a.exe.includes(q));
+    const n = SCAN.pick.size;
+    const grid = h('div', { class: 'apps-pick', role: 'group', 'aria-label': 'Apps without shortcuts here' },
+      ...shown.map((a) => h('label', { class: `app-pick${SCAN.pick.has(a.exe) ? ' on' : ''}`, title: a.path || a.exe },
+        h('input', { type: 'checkbox', class: 'cb', checked: SCAN.pick.has(a.exe), onchange: (e) => {
+          if (e.target.checked && SCAN.pick.size >= SCAN_MAX) { e.target.checked = false; toast(`${SCAN_MAX} at a time keeps the answers good. Ask for these first.`, { kind: 'warn' }); return; }
+          if (e.target.checked) SCAN.pick.add(a.exe); else SCAN.pick.delete(a.exe);
+          renderAppsCard();
+        } }), appIcon(a.path || a.exe), h('span', { class: 'nm', text: a.name }))));
+    if (!shown.length) grid.append(h('p', { class: 'hint', text: `No app matches “${SCAN.q}”.` }));
+    card.append(h('div', { class: 'apps-sub' }, h('span', { text: `No shortcuts here yet (${rest.length}): tick up to ${SCAN_MAX} and an AI looks theirs up` }),
+      h('input', { class: 'field apps-q', id: 'apps-q', type: 'search', placeholder: 'Find an app', value: SCAN.q, autocomplete: 'off', spellcheck: 'false',
+        oninput: (e) => { SCAN.q = e.target.value; renderAppsCard(); const f = $('#apps-q'); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } } })),
+      grid,
+      h('div', { class: 'apps-foot' },
+        h('button', { class: 'btn small strong', type: 'button', disabled: !n, html: `${icon('wand')}<span>${n ? `Ask an AI for ${n === 1 ? 'its' : 'their'} shortcuts (${n})` : 'Tick the apps you want'}</span>`,
+          onclick: () => askAiForApps(rest.filter((a) => SCAN.pick.has(a.exe))) }),
+        n ? h('button', { class: 'link', type: 'button', text: 'Clear', onclick: () => { SCAN.pick.clear(); renderAppsCard(); } }) : null,
+        h('span', { class: 'hint', text: 'Only the app names go in the request.' })));
+  }
+  return card;
+}
+/** Send the ticked apps to the Cat Builder: one request, one pack per app. */
+function askAiForApps(list) {
+  if (!list.length) return;
+  setAiKind('cheatsheet');
+  AI.multi = list.map((a) => ({ name: a.name, exe: a.exe, path: a.path }));
+  AI.plat = PLAT();
+  setView('ai');
+  renderAI();
 }
 
 function renderLibGrid() {
@@ -2583,6 +2711,8 @@ async function parseAnything(text) {
 async function importText(text, from = 'file') {
   let data;
   try { data = await parseAnything(text); } catch (e) { toast(e.message || String(e), { kind: 'warn', ms: 7000 }); return false; }
+  if (Array.isArray(data) && data.some((x) => x && Array.isArray(x.sections))) data = { format: 'catkey-packs', packs: data };
+  if (data && (data.format === 'catkey-packs' || (Array.isArray(data.packs) && !data.rules && !data.sections))) return importPackBundle(data.packs, from);
   if (data && (data.format === 'catkey-profile' || (Array.isArray(data.rules) && !data.sections))) return importProfile(data);
   if (data && (data.format === 'catkey-cat' || (data.colors && !data.sections && !data.rules))) return importCat(data);
   if (data && (data.remapKeys || data.remapShortcuts || data.properties?.remapKeys || data.properties?.remapShortcuts)) {
@@ -2595,6 +2725,35 @@ async function importText(text, from = 'file') {
   }
   setView('library');
   openPack(pack, { origin: 'new', problems });
+  return true;
+}
+
+/** Several packs in one answer (from "Your apps"): all of them go into the Library, under Yours. */
+async function importPackBundle(list, from = 'answer') {
+  const good = [];
+  let empty = 0;
+  for (const raw of Array.isArray(list) ? list : []) {
+    const { pack } = checkPack(raw);
+    if (pack.sections.length) good.push(pack); else empty++;
+  }
+  if (!good.length) { toast(`Nothing usable in that ${from}: no pack had shortcuts Cat Key can read.`, { kind: 'warn', ms: 8000 }); return false; }
+  await libData().catch(() => null);
+  const before = S.config.packs || [];
+  const taken = new Set([...before.map((p) => p.id), ...(L.data?.PACKS || []).map((p) => p.id)]);
+  const added = good.map((p) => {
+    const c = stripPack(p);
+    if (!c.id || taken.has(c.id)) c.id = `my-${slug(c.name)}-${Math.random().toString(36).slice(2, 6)}`;
+    taken.add(c.id);
+    return c;
+  });
+  await commit({ ...S.config, packs: [...before, ...added] });
+  if (AI.multi) { AI.multi = null; SCAN.pick.clear(); }
+  L.cat = 'mine';
+  setView('library');
+  renderLibrary();
+  const names = added.map((p) => p.app || p.name);
+  toast(`${added.length} new pack${added.length === 1 ? '' : 's'} in your Library, under Yours: ${names.join(', ')}.${empty ? ` ${empty} came back empty.` : ''}`,
+    { ms: 9000, action: { label: 'Undo', fn: () => commit({ ...S.config, packs: before }).then(() => { if (S.view === 'library') renderLibrary(); }) } });
   return true;
 }
 
@@ -2768,6 +2927,7 @@ function catPrompt() {
 
 function aiPrompt() {
   if (AI.kind === 'cat') return catPrompt();
+  if (AI.kind === 'cheatsheet' && AI.multi?.length) return appsPrompt();
   const plat = AI.plat || PLAT();
   const platText = plat === 'both' ? 'both Windows and macOS' : plat === 'mac' ? 'macOS' : 'Windows';
   const want = AI.want.trim() || (AI.kind === 'remap' ? 'Useful shortcuts for this app.' : 'The shortcuts professionals use most.');
@@ -2805,6 +2965,14 @@ function aiPrompt() {
     }, null, 2),
     '```',
     '',
+    ...keyNameRules(),
+    ...(remap && AI.context ? aiContext() : []),
+  ].join('\n');
+}
+
+/** How Cat Key spells keys: the same for every request. */
+function keyNameRules() {
+  return [
     '## Key names (exact spelling)',
     '- Modifiers: Mod = Ctrl on Windows and ⌘ Command on Mac. Opt = Alt on Windows and ⌥ Option on Mac. Shift. Ctrl = Control on both. In a Windows-only pack you may also use Alt and Win; in a Mac-only pack Cmd, Option and Control.',
     '- Keys: A–Z, 0–9, F1–F24, Esc, Tab, CapsLock, Space, Enter, Backspace (the Mac “delete” key), Delete (forward delete), Insert, Home, End, PageUp, PageDown, Left, Right, Up, Down, Backtick, Minus, Equals, LBracket, RBracket, Backslash, Semicolon, Quote, Comma, Period, Slash, Num0–Num9, NumAdd, NumSubtract, NumMultiply, NumDivide, NumDecimal, PrintScreen, MediaPlayPause, MediaNext, MediaPrev, VolumeUp, VolumeDown, VolumeMute.',
@@ -2813,7 +2981,41 @@ function aiPrompt() {
     '- "apps": the app’s Windows .exe file name(s) and macOS bundle id(s), so the pack only acts inside that app. Leave it out for packs that work everywhere.',
     '- Optional per entry: "note", "fav": true, "off": true (not ticked by default).',
     '- Never use as "press": Win+L, Ctrl+Alt+Delete, Cmd+Option+Esc.',
-    ...(remap && AI.context ? aiContext() : []),
+  ];
+}
+
+/** Several apps from "Your apps" in one request: one cheat sheet per app, in one answer. */
+function appsPrompt() {
+  const plat = AI.plat === 'mac' ? 'mac' : 'windows';
+  const idName = plat === 'mac' ? 'bundle id' : 'exe';
+  const want = AI.want.trim() || 'The shortcuts professionals use most.';
+  const first = AI.multi[0];
+  return [
+    'You are helping me make keyboard-shortcut packs for Cat Key, a keyboard-remapping app for Windows and macOS. Cat Key imports the JSON you write.',
+    '',
+    '## What I want',
+    `A cheat sheet of each app’s own default shortcuts, one pack per app, for these apps on my ${plat === 'mac' ? 'Mac' : 'Windows PC'}:`,
+    ...AI.multi.map((a) => `- ${a.name} (${idName}: ${a.exe})`),
+    want,
+    '',
+    '## How to do it well',
+    '1. Research each app first: its official keyboard-shortcut documentation for the current version, then trusted sources pros use (official manuals and help pages, well-known cheat sheets). If you can browse the web, do it. Never invent a shortcut: if you aren’t sure a default exists in the current version, leave it out. If you can’t find reliable shortcuts for an app at all, leave that app out instead of guessing.',
+    '2. For each app, list its real default shortcuts ("keys"), grouped into clear sections (tools, editing, view…), about 15–40 entries: the ones professionals really use, not every menu item. Mark the 8–12 most valuable with "fav": true.',
+    '3. Names are short and plain, like a menu item: "Split clip at playhead". Add a "note" only when it helps (under 12 words).',
+    '4. Do your due diligence: check every shortcut against the official documentation for the current version, drop anything you can’t confirm, and cite your sources in each pack’s "sources".',
+    `5. Give each pack "apps": { "${plat}": ["<the ${idName} above>"] } exactly as listed, so it only acts inside that app.`,
+    '',
+    '## Output',
+    'Reply with exactly one JSON code block and nothing after it, with one pack per app in "packs":',
+    '```json',
+    JSON.stringify({ format: 'catkey-packs', version: 1, packs: [{
+      format: 'catkey-pack', version: 1, name: `${first.name} essentials`, kind: 'cheatsheet', platform: plat, app: first.name,
+      description: 'One sentence about what this pack covers.', apps: { [plat]: [first.exe] },
+      sources: [{ title: 'Official keyboard shortcuts', url: 'https://example.com/shortcuts' }],
+      sections: [{ name: 'Editing', items: [{ name: 'Undo', keys: 'Mod+Z', fav: true }, { name: 'Redo', keys: 'Mod+Shift+Z' }] }] }] }, null, 2),
+    '```',
+    '',
+    ...keyNameRules(),
   ].join('\n');
 }
 
@@ -2869,7 +3071,7 @@ async function sendRequest(t = aiTarget()) {
     return;
   }
   if (t.where === 'file') {
-    try { if (await invoke('save_text', { name: `Cat Builder request${AI.kind !== 'cat' && AI.app ? ` - ${AI.app}` : ''}.txt`, text: q })) { bridgeStart(); toast('Saved. Drop it into your AI chat.'); } } catch (e) { toast(String(e), { kind: 'err' }); }
+    try { if (await invoke('save_text', { name: `Cat Builder request${AI.kind === 'cheatsheet' && AI.multi?.length ? ` - ${AI.multi.length} apps` : AI.kind !== 'cat' && AI.app ? ` - ${AI.app}` : ''}.txt`, text: q })) { bridgeStart(); toast('Saved. Drop it into your AI chat.'); } } catch (e) { toast(String(e), { kind: 'err' }); }
     return;
   }
   const ok = await confirmBox(`${targetVerb(t)}?`, `${targetHint(t, q)} When the answer is ready, click Copy on it: ${cat()} brings it back and sets it up.`, targetVerb(t));
@@ -2912,6 +3114,9 @@ const partEl = (x) => h('span', { class: 'part', role: 'listitem' }, h('span', {
 
 /** What goes into the request, shown before it's sent. */
 function requestParts() {
+  if (AI.kind === 'cheatsheet' && AI.multi?.length) {
+    return ['Your words', `${AI.multi.length} app${AI.multi.length === 1 ? '' : 's'} from your ${AI.plat === 'mac' ? 'Mac' : 'PC'}`, 'Research the official docs', 'Due diligence and sources', 'Exact key names', 'One pack per app'];
+  }
   if (AI.kind === 'cat') {
     const name = AI.catName.trim();
     return ['Your description', name ? `The name ${name}` : 'Pick a new name', 'Colour tips', `${GEAR.length} pieces of gear`, 'Names already taken', 'The format Cat Key reads'];
@@ -2988,6 +3193,15 @@ function renderAI() {
     step2.append(h('div', { class: 'step-title' }, h('span', { class: 'n', text: '2' }), 'Describe your new cat'),
       h('div', { class: 'ai-row' }, name), want, ideas,
       h('p', { class: 'hint', text: `Cat Key’s own cats keep their names. This makes a new cat that’s all yours, and you can switch back any time.` }));
+  } else if (AI.kind === 'cheatsheet' && AI.multi?.length) {
+    // These apps were found on this computer, so the request is for this computer's system.
+    AI.plat = PLAT();
+    step2.append(h('div', { class: 'step-title' }, h('span', { class: 'n', text: '2' }), 'Your apps, and what you want to learn'),
+      h('div', { class: 'ai-multi' }, ...AI.multi.map((a, i) => h('span', { class: 'ai-app-chip' }, appIcon(a.path || a.exe), h('span', { text: a.name }),
+        h('button', { class: 'x', type: 'button', 'aria-label': `Leave out ${a.name}`, title: 'Leave out', html: icon('x'), onclick: () => { AI.multi.splice(i, 1); if (!AI.multi.length) AI.multi = null; renderAI(); } })))),
+      h('div', { class: 'ai-row' }, h('button', { class: 'link', type: 'button', text: 'Just one app instead', onclick: () => { AI.multi = null; renderAI(); } })),
+      want,
+      h('p', { class: 'hint', text: `One request for all of them. The answer comes back as one pack per app, and ${cat()} puts them in your Library under Yours.` }));
   } else {
     const app = h('input', { id: 'ai-app', class: 'field', type: 'text', list: 'ai-apps', placeholder: 'Which app? Premiere Pro, Blender, Unreal Engine…', 'aria-label': 'Which app', value: AI.app,
       oninput: (e) => { AI.app = e.target.value; refreshPrompt(); } });
@@ -3145,8 +3359,6 @@ function trainDb() {
   try { const d = JSON.parse(localStorage.getItem(TRAIN_KEY) || '{}'); return { items: d.items || {}, days: d.days || {}, sessions: d.sessions || [], track: d.track !== false }; } catch { return { items: {}, days: {}, sessions: [], track: true }; }
 }
 function trainSave(db) { try { localStorage.setItem(TRAIN_KEY, JSON.stringify(db)); } catch { /* storage full or private: progress just isn't kept */ } scheduleProgress(); }
-try { TR.sound = localStorage.getItem('catkey.train.sound') !== '0'; } catch { /* default on */ }
-setTrainSounds(TR.sound);
 
 function trainItems(p) {
   return packItems(p).map((x) => {
@@ -3198,8 +3410,13 @@ function renderTrain() {
       h('p', { class: 'hint', text: `Pick an app. ${cat()} names an action, you press its keys. While a round runs, every key stays inside the trainer: nothing reaches your apps or the system, so nothing closes by accident (keys that close windows aren’t drilled at all). Each shortcut comes back right before you'd forget it, until it's automatic.` })),
     h('div', { class: 'lib-actions' },
       h('button', { class: 'btn strong', type: 'button', html: `${icon('wand')}<span>Make your own with AI</span>`, onclick: () => makeWithAI('cheatsheet') }),
-      h('button', { class: `chipbtn${TR.sound ? ' on' : ''}`, type: 'button', 'aria-pressed': String(TR.sound), html: `${icon('paw')}<span>Sounds ${TR.sound ? 'on' : 'off'}</span>`,
-        onclick: () => { TR.sound = !TR.sound; setTrainSounds(TR.sound); try { localStorage.setItem('catkey.train.sound', TR.sound ? '1' : '0'); } catch { /* fine */ } renderTrain(); } }))));
+      h('button', { class: `chipbtn${soundOn('training') ? ' on' : ''}`, type: 'button', 'aria-pressed': String(soundOn('training')), title: 'The game’s sounds. Every other sound has its own switch in Settings → Sounds.',
+        html: `${icon('paw')}<span>Sounds ${soundOn('training') ? 'on' : 'off'}</span>`,
+        onclick: () => {
+          const on = !soundOn('training');
+          // Turning the game's sound on also unmutes Cat Key, if everything was muted.
+          (on && !S.config.settings.sounds ? commitSettings({ sounds: true, soundParts: { ...soundParts(), training: true } }) : setSoundPart('training', on)).then(renderTrain);
+        } }))));
   // the progress dashboard
   const t = db.days[today()] || {};
   const week = Object.entries(db.days).filter(([k]) => Date.now() - new Date(k).getTime() < 7 * 864e5).reduce((n, [, v]) => n + (v.real || 0), 0);
@@ -3839,6 +4056,257 @@ function coachPack(tips = coachTips()) {
   return { id: 'coach-misses', name: 'Caught by the coach', kind: 'cheatsheet', platform: 'both', description: 'Things you did with the mouse that have a shortcut.', sections: [{ name: 'Done the long way', items: items.slice(0, 40) }], _origin: 'coach' };
 }
 
+// ------------------------------------------------------------------ Coach page
+
+/** Where a tip can sit, as on the tip window: the anchor and how to say it. */
+const COACH_SPOTS = [
+  ['top-left', 'Top left'], ['top-center', 'Top, like an island'], ['top-right', 'Top right'],
+  ['left', 'Left'], ['center', 'Middle'], ['right', 'Right'],
+  ['bottom-left', 'Bottom left'], ['bottom-center', 'Bottom'], ['bottom-right', 'Bottom right'],
+];
+const spotName = (pos) => pos.anchor === 'custom' ? 'Your own spot' : (COACH_SPOTS.find(([a]) => a === pos.anchor) || COACH_SPOTS[8])[1];
+// A tip is 440 × 156 on a 1920 × 1032 work area, 10 px from the edges.
+const TIP_FW = 440 / 1920, TIP_FH = 156 / 1032, TIP_MX = 10 / 1920, TIP_MY = 10 / 1032;
+/** The tip's centre for an anchor, as a share of the work area. */
+function spotCentre(anchor) {
+  const l = TIP_MX + TIP_FW / 2, r = 1 - l, t = TIP_MY + TIP_FH / 2, b = 1 - t;
+  return ({ 'top-left': [l, t], 'top-center': [0.5, t], 'top-right': [r, t], left: [l, 0.5], center: [0.5, 0.5], right: [r, 0.5],
+    'bottom-left': [l, b], 'bottom-center': [0.5, b], 'bottom-right': [r, b] })[anchor] || [r, b];
+}
+const coachPos = () => ({ anchor: 'bottom-right', x: 0.5, y: 0.5, ...(S.config.settings.coachPos || {}) });
+const mutedList = () => (S.config.settings.coachMuted || []).map((m) => String(m).toLowerCase());
+const isMuted = (id) => mutedList().includes(String(id).toLowerCase());
+function setMuted(id, on) {
+  const list = new Set(mutedList());
+  if (on) list.add(String(id).toLowerCase()); else list.delete(String(id).toLowerCase());
+  return commitSettings({ coachMuted: [...list] });
+}
+function agoText(secs) {
+  if (!secs || secs < 1e9) return '';
+  const m = Math.max(0, Math.round((Date.now() / 1000 - secs) / 60));
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  if (m < 60 * 24) return `${Math.round(m / 60)} h ago`;
+  const d = Math.round(m / 1440);
+  return d === 1 ? 'yesterday' : `${d} days ago`;
+}
+
+/** Adjust: a new shortcut of your own that does what the tip said, in the app it was seen in. */
+function adjustFromTip(t) {
+  if (!t || !t.name) return;
+  const anyApp = String(t.id || '').startsWith('*|') || !t.app;
+  const where = anyApp ? '' : ` in ${t.appName || appName(t.app)}`;
+  openEditor({ id: newId(), enabled: true, name: t.name, trigger: '', action: { type: 'keys', keys: coachCombo(t.keys) || '' },
+    scope: anyApp ? { mode: 'all', apps: [] } : { mode: 'only', apps: [t.app] } }, { isNew: true });
+  toast(`Press the keys you’d like for “${t.name}”${where}. ${cat()} sends ${t.keys} for you.`, { ms: 7000 });
+}
+
+const CP = { drag: null, cat: null, key: '' };
+function renderCoach() {
+  const box = $('#coach-page');
+  if (!box) return;
+  if (!COACH.stats && !COACH.loading) coachStats().then(() => { if (S.view === 'coach') renderCoach(); });
+  CP.cat?.destroy();
+  const keepScroll = $('#scroll').scrollTop;
+  box.textContent = '';
+  const s = S.config.settings;
+  const on = s.coach !== false;
+  const tips = coachTips();
+  const t = timeStats();
+
+  // ---- on or off
+  const holder = h('span', { class: 'cp-cat' });
+  box.append(h('div', { class: 'cp-hero' }, holder,
+    h('div', { class: 'txt' },
+      h('h2', { class: 'display', text: 'Shortcut coach' }),
+      h('p', { class: 'hint', text: `When you click something that has a shortcut, ${cat()} shows its keys in a small note. Ignore a tip and it never comes back, Dismiss it for now, or Adjust it into a shortcut of your own. Nothing is recorded: only the name of what you clicked is read, the way screen readers do.` }),
+      h('div', { class: 'row cp-acts' },
+        h('button', { class: 'btn small strong', type: 'button', html: `${icon('sparkle')}<span>Show me a tip</span>`, onclick: () => invoke('coach_demo').catch((e) => toast(String(e), { kind: 'warn' })) }),
+        h('span', { class: 'hint', text: on ? `${fmtCount(t.caught)} caught this week` : 'Off: no tips show up.' }))),
+    switchEl(on, 'Shortcut coach', () => commitSettings({ coach: !on }).then(renderCoach))));
+  CP.cat = new Mascot(holder, { size: 84, look: myLook() });
+
+  // ---- where tips show up
+  const pos = coachPos();
+  const work = h('div', { class: 'cp-work' });
+  const screen = h('div', { class: 'cp-screen', role: 'group', 'aria-label': 'Where tips show up' }, work,
+    h('div', { class: 'cp-taskbar', 'aria-hidden': 'true' }, h('i'), h('i'), h('i'), h('i')));
+  const label = h('b', { text: spotName(pos) });
+  let cur = [0.5, 0.5]; // where the note's centre is now (it may still be gliding there)
+  const place = (el, c) => { el.style.left = `${c[0] * 100}%`; el.style.top = `${c[1] * 100}%`; if (el.classList.contains('cp-chip')) cur = c; };
+  const save = (next) => {
+    label.textContent = spotName(next);
+    for (const b of work.querySelectorAll('.cp-slot')) b.classList.toggle('on', b.dataset.anchor === next.anchor);
+    chip.classList.toggle('island', next.anchor === 'top-center');
+    return commitSettings({ coachPos: next });
+  };
+  for (const [anchor, name] of COACH_SPOTS) {
+    const slot = h('button', { class: `cp-slot${pos.anchor === anchor ? ' on' : ''}`, type: 'button', 'data-anchor': anchor, 'aria-label': `Show tips: ${name}`, title: name,
+      onclick: (e) => { e.stopPropagation(); place(chip, spotCentre(anchor)); save({ anchor, x: pos.x, y: pos.y }); } });
+    place(slot, spotCentre(anchor));
+    work.append(slot);
+  }
+  const chip = h('button', { class: `cp-chip${pos.anchor === 'top-center' ? ' island' : ''}`, type: 'button', 'aria-label': `Tip position: ${spotName(pos)}. Drag it, or use the arrow keys.` },
+    h('span', { class: 'face', html: icon('paw') }), h('span', { class: 'txt' }, h('b', { text: 'Back' }), h('span', { text: 'Alt + ←' })));
+  place(chip, pos.anchor === 'custom' ? [pos.x, pos.y] : spotCentre(pos.anchor));
+  work.append(chip);
+
+  // Drag the note anywhere; near a spot it snaps there.
+  const clampC = ([x, y]) => [Math.min(1 - TIP_FW / 2, Math.max(TIP_FW / 2, x)), Math.min(1 - TIP_FH / 2, Math.max(TIP_FH / 2, y))];
+  const nearest = ([x, y], within = 0.06) => {
+    const r = work.getBoundingClientRect();
+    let best = null, bestD = Infinity;
+    for (const [a] of COACH_SPOTS) {
+      const [sx, sy] = spotCentre(a);
+      const d = Math.hypot((sx - x) * r.width, (sy - y) * r.height);
+      if (d < bestD) { best = a; bestD = d; }
+    }
+    return bestD <= r.width * within ? best : null;
+  };
+  const markNear = (a) => { for (const b of work.querySelectorAll('.cp-slot')) b.classList.toggle('near', b.dataset.anchor === a); };
+  const finish = (c, within) => {
+    markNear(null);
+    const a = nearest(c, within);
+    if (a) { place(chip, spotCentre(a)); return save({ anchor: a, x: pos.x, y: pos.y }); }
+    const [x, y] = c.map((v) => Math.round(v * 1000) / 1000);
+    pos.x = x; pos.y = y;
+    return save({ anchor: 'custom', x, y });
+  };
+  const fromPointer = (e, off = [0, 0]) => {
+    const r = work.getBoundingClientRect();
+    return clampC([(e.clientX - r.left - off[0]) / r.width, (e.clientY - r.top - off[1]) / r.height]);
+  };
+  chip.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    const cr = chip.getBoundingClientRect();
+    CP.drag = { off: [e.clientX - (cr.left + cr.width / 2), e.clientY - (cr.top + cr.height / 2)], moved: false, c: null };
+    chip.setPointerCapture(e.pointerId);
+    chip.classList.add('dragging');
+    e.preventDefault();
+  });
+  chip.addEventListener('pointermove', (e) => {
+    if (!CP.drag) return;
+    const c = fromPointer(e, CP.drag.off);
+    CP.drag.moved = true;
+    CP.drag.c = c;
+    place(chip, c);
+    chip.classList.toggle('island', false);
+    markNear(nearest(c));
+  });
+  const endDrag = () => {
+    if (!CP.drag) return;
+    const d = CP.drag;
+    CP.drag = null;
+    chip.classList.remove('dragging');
+    if (d.moved && d.c) finish(d.c);
+    else chip.classList.toggle('island', coachPos().anchor === 'top-center');
+  };
+  chip.addEventListener('pointerup', endDrag);
+  chip.addEventListener('pointercancel', endDrag);
+  let keyTimer = 0;
+  chip.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 0.08 : 0.02;
+    const dir = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key];
+    if (!dir) return;
+    e.preventDefault();
+    const c = clampC([cur[0] + dir[0], cur[1] + dir[1]]);
+    place(chip, c);
+    chip.classList.toggle('island', false);
+    markNear(nearest(c, 0.012));
+    clearTimeout(keyTimer);
+    // Arrow keys move in small steps, so they only land on a spot when they reach it.
+    keyTimer = setTimeout(() => finish(c, 0.012), 450);
+  });
+  // Or click anywhere on the little screen.
+  work.addEventListener('click', (e) => {
+    if (e.target !== work) return;
+    const c = fromPointer(e);
+    place(chip, c);
+    finish(c);
+  });
+  box.append(h('section', { class: 'wr-card' },
+    h('div', { class: 'row-between' }, h('h3', { text: 'Where tips show up' }),
+      h('span', { class: 'cp-now' }, 'Now: ', label)),
+    h('p', { class: 'hint', text: 'Drag the note anywhere, or click a spot. Top centre shows it like an island. Tips show up on the screen your mouse is on.' }),
+    screen,
+    h('div', { class: 'row' },
+      h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Show me a tip there</span>`, onclick: () => invoke('coach_demo').catch((e) => toast(String(e), { kind: 'warn' })) }))));
+
+  // ---- caught lately
+  const recent = [...tips].sort((a, b) => (b.last || 0) - (a.last || 0) || b.n - a.n);
+  const caught = h('section', { class: 'wr-card' },
+    h('div', { class: 'row-between' }, h('h3', { text: 'Caught lately' }),
+      tips.length ? h('button', { class: 'btn small strong', type: 'button', html: `${icon('target')}<span>Train these</span>`, onclick: () => { const p = coachPack(); if (p.sections[0].items.length) { setView('train'); startTrain(p, trainItems(p)); } else toast('Nothing to practise yet.', { kind: 'warn' }); } }) : null));
+  if (!recent.length) {
+    caught.append(h('p', { class: 'hint', text: on
+      ? `Nothing yet. When you do something the long way, ${cat()} shows the shortcut and it lands here.`
+      : 'The coach is off. Turn it on above to see what you still do with the mouse.' }));
+  }
+  for (const tip of recent.slice(0, 12)) {
+    const muted = isMuted(tip.id);
+    const when = agoText(tip.last);
+    caught.append(h('div', { class: `wr-tip${muted ? ' muted' : ''}` },
+      h('span', { class: 'what' }, h('b', { text: tip.name }),
+        h('span', { class: 'hint', text: [tip.id.startsWith('*|') ? 'Any app' : appName(tip.app), `${tip.n}×`, when].filter(Boolean).join(' · ') })),
+      kcaps(tip.keys),
+      h('div', { class: 'cp-row-acts' },
+        h('button', { class: 'btn small', type: 'button', title: 'Make a shortcut of your own for this', html: `${icon('edit')}<span>Adjust</span>`, onclick: () => adjustFromTip({ ...tip, appName: appName(tip.app) }) }),
+        h('button', { class: 'link', type: 'button', text: muted ? 'Give back' : 'Ignore', title: muted ? 'Show this tip again' : 'Never show this tip again', onclick: () => setMuted(tip.id, !muted).then(renderCoach) }),
+        h('button', { class: 'tbtn', type: 'button', 'aria-label': `Forget ${tip.name}`, title: 'Forget', html: icon('x'), onclick: async () => {
+          await invoke('coach_forget', { id: tip.id }).catch(() => {});
+          await coachStats(true);
+          renderCoach();
+        } }))));
+  }
+  box.append(caught);
+
+  // ---- ignored, and how to give them back
+  const tipById = new Map(tips.map((x) => [x.id.toLowerCase(), x]));
+  const muted = mutedList();
+  const ignored = h('section', { class: 'wr-card' },
+    h('div', { class: 'row-between' }, h('h3', { text: `Ignored${muted.length ? ` (${muted.length})` : ''}` }),
+      muted.length ? h('button', { class: 'link', type: 'button', text: 'Give them all back', onclick: () => commitSettings({ coachMuted: [] }).then(() => { toast('Every ignored tip can show up again.'); renderCoach(); }) }) : null));
+  if (!muted.length) ignored.append(h('p', { class: 'hint', text: 'Nothing ignored. Press Ignore on a tip and it lands here, so you can give it back any time.' }));
+  for (const id of muted) {
+    const tip = tipById.get(id);
+    const [exe, rest] = id.split('|');
+    const appWide = rest === '*';
+    const title = appWide ? `Every tip in ${appName(exe)}` : tip?.name || (rest || id).replace(/^habit-/, '').replace(/-/g, ' ');
+    const sub = appWide ? 'The whole app' : exe === '*' ? 'Any app' : appName(tip?.app || exe);
+    ignored.append(h('div', { class: 'wr-tip' },
+      h('span', { class: 'what' }, h('b', { text: title }), h('span', { class: 'hint', text: sub })),
+      tip && !appWide ? kcaps(tip.keys) : null,
+      h('button', { class: 'link', type: 'button', text: 'Give back', onclick: () => setMuted(id, false).then(renderCoach) })));
+  }
+  box.append(ignored);
+
+  // ---- app by app
+  const apps = new Map();
+  for (const a of t.apps) apps.set(a.exe, a.caught);
+  for (const x of tips) if (x.app && !apps.has(x.app)) apps.set(x.app, 0);
+  for (const m of muted) if (m.endsWith('|*') && !apps.has(m.slice(0, -2))) apps.set(m.slice(0, -2), 0);
+  const appRows = [...apps.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14).map(([exe, n]) => {
+    const quiet = isMuted(`${exe}|*`);
+    return h('div', { class: 'wr-tip' },
+      h('span', { class: 'nm cp-app' }, appIcon(exe), h('span', { class: 'what' }, h('b', { text: appName(exe) }), h('span', { class: 'hint', text: quiet ? 'No tips here' : n ? `${fmtCount(n)} caught this week` : 'Nothing caught this week' }))),
+      switchEl(!quiet, `Tips in ${appName(exe)}`, () => setMuted(`${exe}|*`, !quiet).then(renderCoach)));
+  });
+  box.append(h('section', { class: 'wr-card' }, h('h3', { text: 'App by app' }),
+    settingRow('Also in Chrome-based apps', 'Chrome, Edge, VS Code, Slack and Discord do a little extra work each time they’re asked what’s under the pointer, so they’re left out unless you want them.',
+      switchEl(s.coachChromium, 'Coach in Chrome-based apps', () => commitSettings({ coachChromium: !s.coachChromium }).then(renderCoach))),
+    ...(appRows.length ? appRows : [h('p', { class: 'hint', text: 'Apps show up here once the coach has seen them.' })])));
+
+  CP.key = coachKey();
+  $('#scroll').scrollTop = keepScroll;
+}
+function refreshCoachPage() {
+  if (S.view === 'coach' && !CP.drag && coachKey() !== CP.key) renderCoach();
+}
+function takeAdjust() {
+  invoke('coach_take_adjust').then((t) => { if (t) adjustFromTip(t); }).catch(() => {});
+}
+const coachKey = () => JSON.stringify([coachTips().map((x) => [x.id, x.n]), S.config.settings.coachMuted, S.config.settings.coachPos, S.config.settings.coach]);
+
 async function renderWarrior() {
   const box = $('#warrior');
   if (!box) return;
@@ -3901,20 +4369,19 @@ async function renderWarrior() {
       tips.length ? h('button', { class: 'btn small strong', type: 'button', html: `${icon('target')}<span>Train these</span>`, onclick: () => { const p = coachPack(); if (p.sections[0].items.length) { setView('train'); startTrain(p, trainItems(p)); } else toast('Nothing to practise yet.', { kind: 'warn' }); } }) : null));
   if (!tips.length) {
     caught.append(h('p', { class: 'hint', text: coachOn
-      ? `When you click something that has a shortcut, ${cat()} shows the keys in a little note at the bottom right and lists it here. Nothing yet: either you're already a warrior, or it's early days.`
-      : 'The shortcut coach is off. Turn it on in Settings to see what you still do with the mouse.' }),
-    h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Show me a tip</span>`, onclick: () => invoke('coach_demo').catch(() => {}) }));
+      ? `When you click something that has a shortcut, ${cat()} shows the keys in a little note and lists it here. Nothing yet: either you're already a warrior, or it's early days.`
+      : 'The shortcut coach is off. Turn it on from the Coach page to see what you still do with the mouse.' }),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Show me a tip</span>`, onclick: () => invoke('coach_demo').catch(() => {}) }),
+      PLAT() === 'mac' ? null : h('button', { class: 'link', type: 'button', text: 'Open the Coach page', onclick: () => setView('coach') })));
   }
   for (const tip of tips.slice(0, 10)) {
-    const muted = (S.config.settings.coachMuted || []).includes(tip.id.toLowerCase());
-    caught.append(h('div', { class: 'wr-tip' },
+    const muted = isMuted(tip.id);
+    caught.append(h('div', { class: `wr-tip${muted ? ' muted' : ''}` },
       h('span', { class: 'what' }, h('b', { text: tip.name }), h('span', { class: 'hint', text: `${tip.id.startsWith('*|') ? 'Any app' : appName(tip.app)} · ${tip.n}×` })),
       kcaps(tip.keys),
-      h('button', { class: 'link', type: 'button', text: muted ? 'Remind me again' : 'Don’t remind me', onclick: () => {
-        const list = new Set(S.config.settings.coachMuted || []);
-        if (muted) list.delete(tip.id.toLowerCase()); else list.add(tip.id.toLowerCase());
-        commitSettings({ coachMuted: [...list] }).then(renderWarrior);
-      } }),
+      h('button', { class: 'link', type: 'button', text: 'Adjust', title: 'Make a shortcut of your own for this', onclick: () => adjustFromTip({ ...tip, appName: appName(tip.app) }) }),
+      h('button', { class: 'link', type: 'button', text: muted ? 'Give back' : 'Ignore', title: muted ? 'Show this tip again' : 'Never show this tip again', onclick: () => setMuted(tip.id, !muted).then(renderWarrior) }),
       h('button', { class: 'tbtn', type: 'button', 'aria-label': `Forget ${tip.name}`, title: 'Forget', html: icon('x'), onclick: async () => {
         await invoke('coach_forget', { id: tip.id }).catch(() => {});
         await coachStats(true);
@@ -4476,7 +4943,7 @@ const readLS = (k) => { try { const v = localStorage.getItem(k); return v == nul
 
 function progressData() {
   return { format: 'catkey-progress', version: 1, savedAt: Date.now(), train: readLS(TRAIN_KEY), typing: readLS(TY_KEY), friends: readLS(FRIENDS_KEY),
-    rank: readLS('catkey.rank'), trainSound: readLS('catkey.train.sound') };
+    rank: readLS('catkey.rank') };
 }
 function scheduleProgress() {
   clearTimeout(progressTimer);
@@ -4500,7 +4967,6 @@ async function restoreProgress() {
   put('catkey.rank', d.rank);
   if (d.trainSound != null) put('catkey.train.sound', d.trainSound);
   put(PROGRESS_AT, d.savedAt || Date.now());
-  TR.sound = readLS('catkey.train.sound') !== 0;
   if (p.restored) setTimeout(() => toast('Your backup is back: shortcuts, your cat, training, typing and stats.', { ms: 8000 }), 800);
 }
 
