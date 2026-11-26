@@ -1,0 +1,84 @@
+name: Mac launch check
+
+# Starts the released Mac app on a real Mac and reports whether it stays up,
+# what it printed and why it stopped, as notes on the run.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/mac-check.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  launch:
+    runs-on: macos-latest
+    steps:
+      - name: Download the released Mac app
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh release download -R "$GITHUB_REPOSITORY" -p CatKey-mac.zip -D dl
+          ditto -x -k dl/CatKey-mac.zip app
+          ls -la app
+          cat > note.sh <<'EOF'
+          # note TITLE FILE: show a file as a note on the run.
+          note() { m=$(tr -d '\r' < "$2" | head -c 3800 | sed 's/%/%25/g' | awk 'BEGIN{ORS="%0A"}{print}'); echo "::notice title=$1::$m"; }
+          EOF
+          cat > windows.swift <<'EOF'
+          import CoreGraphics
+          let list = (CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]]) ?? []
+          var found = 0
+          for w in list {
+            let owner = w[kCGWindowOwnerName as String] as? String ?? ""
+            if owner.lowercased().contains("cat") {
+              found += 1
+              print("window of \(owner): onscreen=\(w[kCGWindowIsOnscreen as String] ?? false) layer=\(w[kCGWindowLayer as String] ?? -1) bounds=\(w[kCGWindowBounds as String] ?? "")")
+            }
+          }
+          if found == 0 { print("no Cat Key windows") }
+          EOF
+
+      - name: Look at the bundle
+        run: |
+          . ./note.sh
+          APP="app/Cat Key.app"
+          { sw_vers; uname -m; echo; plutil -p "$APP/Contents/Info.plist"; echo; ls -la "$APP/Contents/MacOS" "$APP/Contents/Resources"; lipo -info "$APP/Contents/MacOS/CatKey"; } > bundle.txt 2>&1 || true
+          { codesign -dv --verbose=4 "$APP"; echo; codesign --verify --deep --strict --verbose=2 "$APP"; echo; spctl -a -vvv -t exec "$APP"; } > sign.txt 2>&1 || true
+          cat bundle.txt sign.txt
+          note Bundle bundle.txt
+          note Signature sign.txt
+
+      - name: Open it the way Finder does
+        run: |
+          . ./note.sh
+          open "$PWD/app/Cat Key.app"
+          sleep 25
+          { pgrep -fl CatKey || echo "NOT RUNNING 25 s after open"; swift windows.swift; } > open.txt 2>&1 || true
+          cat open.txt
+          note "Opened like Finder" open.txt
+          pkill -x CatKey || true
+          sleep 3
+
+      - name: Start it from Terminal, to see any error
+        run: |
+          . ./note.sh
+          "$PWD/app/Cat Key.app/Contents/MacOS/CatKey" > out.txt 2>&1 &
+          PID=$!
+          sleep 25
+          if kill -0 $PID 2>/dev/null; then echo "still running after 25 s" > state.txt; else wait $PID; echo "exited with code $?" > state.txt; fi
+          swift windows.swift >> state.txt 2>&1 || true
+          echo "--- what it printed" >> state.txt
+          tail -c 3000 out.txt >> state.txt
+          cat state.txt
+          note "From Terminal" state.txt
+          kill $PID 2>/dev/null || true
+          LOG="$HOME/Library/Application Support/CatKey/catkey.log"
+          if [ -f "$LOG" ]; then cat "$LOG"; tail -c 3500 "$LOG" > applog.txt; note "catkey.log" applog.txt; fi
+          CRASH=$(ls -t ~/Library/Logs/DiagnosticReports/*CatKey* /Library/Logs/DiagnosticReports/*CatKey* 2>/dev/null | head -1)
+          if [ -n "$CRASH" ]; then cat "$CRASH" | head -200; head -c 3800 "$CRASH" > crash.txt; note "Crash report" crash.txt; fi
+          log show --last 3m --predicate 'process == "CatKey"' --style compact 2>/dev/null | grep -v -i "debug" | tail -60 > syslog.txt || true
+          cat syslog.txt
+          note "System log" syslog.txt
