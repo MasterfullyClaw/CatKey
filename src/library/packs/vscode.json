@@ -1,0 +1,204 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "vscode",
+  "name": "VS Code",
+  "kind": "cheatsheet",
+  "category": "code",
+  "platform": "both",
+  "description": "Get around code without the mouse.",
+  "author": "Cat Key",
+  "app": "vscode",
+  "sources": [
+    {
+      "title": "VS Code: keyboard shortcuts reference",
+      "url": "https://code.visualstudio.com/docs/getstarted/keybindings"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Find anything",
+      "items": [
+        {
+          "name": "Quick open a file",
+          "keys": "Mod+P",
+          "fav": true
+        },
+        {
+          "name": "Command palette",
+          "keys": "Mod+Shift+P",
+          "fav": true
+        },
+        {
+          "name": "Go to symbol",
+          "keys": "Mod+Shift+O",
+          "fav": true
+        },
+        {
+          "name": "Go to line",
+          "keys": "Mod+G",
+          "mac": "Control+G",
+          "fav": true
+        },
+        {
+          "name": "Search all files",
+          "keys": "Mod+Shift+F",
+          "fav": true
+        },
+        {
+          "name": "Go to definition",
+          "keys": "F12",
+          "fav": true
+        },
+        {
+          "name": "Peek definition",
+          "keys": "Opt+F12"
+        },
+        {
+          "name": "Find references",
+          "keys": "Shift+F12"
+        }
+      ]
+    },
+    {
+      "name": "Editing",
+      "items": [
+        {
+          "name": "Toggle comment",
+          "keys": "Mod+Slash",
+          "fav": true
+        },
+        {
+          "name": "Move line up",
+          "keys": "Opt+Up",
+          "fav": true
+        },
+        {
+          "name": "Move line down",
+          "keys": "Opt+Down",
+          "fav": true
+        },
+        {
+          "name": "Copy line down",
+          "keys": "Shift+Opt+Down",
+          "fav": true
+        },
+        {
+          "name": "Select next match",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Select all matches",
+          "keys": "Mod+Shift+L"
+        },
+        {
+          "name": "Delete line",
+          "keys": "Mod+Shift+K",
+          "fav": true
+        },
+        {
+          "name": "Rename symbol",
+          "keys": "F2",
+          "fav": true
+        },
+        {
+          "name": "Format document",
+          "keys": "Shift+Opt+F",
+          "fav": true
+        },
+        {
+          "name": "Add cursor above",
+          "keys": "Mod+Opt+Up",
+          "fav": true
+        },
+        {
+          "name": "Add cursor below",
+          "keys": "Mod+Opt+Down"
+        },
+        {
+          "name": "New line below",
+          "keys": "Mod+Enter",
+          "fav": true
+        },
+        {
+          "name": "New line above",
+          "keys": "Mod+Shift+Enter"
+        }
+      ]
+    },
+    {
+      "name": "Layout",
+      "items": [
+        {
+          "name": "Toggle sidebar",
+          "keys": "Mod+B",
+          "fav": true
+        },
+        {
+          "name": "Terminal",
+          "keys": "Ctrl+Backtick",
+          "fav": true
+        },
+        {
+          "name": "Toggle panel",
+          "keys": "Mod+J",
+          "fav": true
+        },
+        {
+          "name": "Split editor",
+          "keys": "Mod+Backslash",
+          "fav": true
+        },
+        {
+          "name": "Close editor",
+          "keys": "Mod+W"
+        },
+        {
+          "name": "Switch editor",
+          "keys": "Ctrl+Tab"
+        },
+        {
+          "name": "Explorer",
+          "keys": "Mod+Shift+E"
+        },
+        {
+          "name": "Source control",
+          "keys": "Mod+Shift+G",
+          "mac": "Control+Shift+G"
+        },
+        {
+          "name": "Extensions",
+          "keys": "Mod+Shift+X"
+        },
+        {
+          "name": "Settings",
+          "keys": "Mod+Comma"
+        }
+      ]
+    },
+    {
+      "name": "Debug",
+      "items": [
+        {
+          "name": "Start debugging",
+          "keys": "F5",
+          "fav": true
+        },
+        {
+          "name": "Toggle breakpoint",
+          "keys": "F9",
+          "fav": true
+        },
+        {
+          "name": "Step over",
+          "keys": "F10"
+        },
+        {
+          "name": "Step into",
+          "keys": "F11"
+        }
+      ]
+    }
+  ]
+}

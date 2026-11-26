@@ -17,6 +17,8 @@ struct Mock {
     exe: String,
     strict_async: bool,
     async_down: HashSet<u8>,
+    typing: bool,
+    focus: usize,
 }
 
 impl Env for Mock {
@@ -25,6 +27,12 @@ impl Env for Mock {
     }
     fn key_down_async(&mut self, vk: u8) -> bool {
         !self.strict_async || self.async_down.contains(&vk)
+    }
+    fn typing(&mut self) -> bool {
+        self.typing
+    }
+    fn focus(&mut self) -> usize {
+        self.focus
     }
 }
 
@@ -36,6 +44,7 @@ fn r(trigger: &str, keys: &str) -> Rule {
         trigger: Shortcut::parse(trigger).unwrap(),
         action: Action::Keys { keys: Shortcut::parse(keys).unwrap() },
         scope: Scope::all(),
+        source: String::new(),
     }
 }
 
@@ -455,11 +464,31 @@ fn missed_win_release_is_detected() {
     let m = &mut Mock { strict_async: true, ..Default::default() };
     m.async_down.insert(LWIN);
     d(&mut e, m, LWIN);
-    d(&mut e, m, b'L'); // Win+L locks the PC; we never see the Win release
+    d(&mut e, m, b'L'); // an admin window takes the keyboard; we never see the Win release
+    m.focus = 7;
     m.async_down.clear();
     m.async_down.insert(LALT);
     d(&mut e, m, LALT);
     assert_eq!(d(&mut e, m, b'C'), swallow("LCtrl↓ · LAlt↑ C↓"));
+}
+
+/// The bug Masterfully pinned down: in File Explorer, the first Alt+W or Alt+T after
+/// pressing Alt did nothing; pressing the letter again (Alt still held) worked. PowerToys
+/// Grab And Move holds Alt back, so Windows says "Alt is up" for that first key, and
+/// Cat Key believed it. In the same window, our own record of the Alt key wins.
+#[test]
+fn alt_held_back_by_another_program_works_the_first_time() {
+    let mut e = engine(default_rules());
+    let m = &mut Mock { strict_async: true, ..Default::default() }; // Windows: "Alt is up"
+    assert_eq!(d(&mut e, m, LALT), pass());
+    assert_eq!(d(&mut e, m, b'T'), swallow("LCtrl↓ · LAlt↑ T↓"));
+    assert_eq!(u(&mut e, m, b'T'), swallow("T↑"));
+    assert_eq!(d(&mut e, m, b'T'), swallow("T↓"));
+    assert_eq!(u(&mut e, m, b'T'), swallow("T↑"));
+    assert_eq!(u(&mut e, m, LALT), through("LCtrl↑"));
+    // Again, after letting go of Alt.
+    assert_eq!(d(&mut e, m, LALT), pass());
+    assert_eq!(d(&mut e, m, b'W'), swallow("LCtrl↓ · LAlt↑ W↓"));
 }
 
 #[test]
@@ -673,4 +702,27 @@ fn alt_pressed_just_after_a_key_does_not_open_the_menu() {
     assert_eq!(d(&mut e, m, b'W'), swallow("LCtrl↓ · LAlt↑ W↓"));
     assert_eq!(u(&mut e, m, b'W'), swallow("W↑"));
     assert_eq!(u(&mut e, m, LALT), through("LCtrl↑"));
+}
+
+/// "V does A" (Premiere keys in Resolve) must not turn "Very" into "Aery" while
+/// someone types in a text box. Shortcuts with Ctrl/Alt/Win still work there.
+#[test]
+fn single_key_rules_pause_while_typing() {
+    let mut e = engine(vec![r("V", "A"), r("Q", "Ctrl+Shift+LBracket"), r("Ctrl+K", "Ctrl+B"), r("CapsLock", "Esc")]);
+    let m = &mut Mock::default();
+    assert_eq!(d(&mut e, m, b'V'), swallow("A↓"));
+    assert_eq!(u(&mut e, m, b'V'), swallow("A↑"));
+    m.typing = true;
+    assert_eq!(d(&mut e, m, b'V'), pass());
+    assert_eq!(u(&mut e, m, b'V'), pass());
+    assert_eq!(d(&mut e, m, b'Q'), pass());
+    assert_eq!(u(&mut e, m, b'Q'), pass());
+    assert_eq!(d(&mut e, m, LSHIFT), pass());
+    assert_eq!(d(&mut e, m, b'V'), pass()); // capital V while typing
+    assert_eq!(u(&mut e, m, b'V'), pass());
+    assert_eq!(u(&mut e, m, LSHIFT), pass());
+    assert_eq!(d(&mut e, m, CAPS), swallow("Esc↓")); // not a typing key
+    assert_eq!(u(&mut e, m, CAPS), swallow("Esc↑"));
+    d(&mut e, m, LCTRL);
+    assert_eq!(d(&mut e, m, b'K'), swallow("B↓"));
 }

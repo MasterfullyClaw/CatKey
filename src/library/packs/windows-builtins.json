@@ -1,0 +1,215 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "windows-builtins",
+  "name": "Windows shortcuts worth knowing",
+  "kind": "cheatsheet",
+  "category": "system",
+  "platform": "windows",
+  "description": "Built into Windows already. Learn them, or give one your own keys.",
+  "author": "Cat Key",
+  "sources": [
+    {
+      "title": "Microsoft: Keyboard shortcuts in Windows",
+      "url": "https://support.microsoft.com/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Everyday",
+      "items": [
+        {
+          "name": "Clipboard history",
+          "keys": "Win+V",
+          "fav": true
+        },
+        {
+          "name": "Screenshot of an area",
+          "keys": "Win+Shift+S",
+          "fav": true
+        },
+        {
+          "name": "Emoji and symbols",
+          "keys": "Win+Period",
+          "fav": true
+        },
+        {
+          "name": "File Explorer",
+          "keys": "Win+E",
+          "fav": true
+        },
+        {
+          "name": "Show the desktop",
+          "keys": "Win+D",
+          "fav": true
+        },
+        {
+          "name": "Lock the PC",
+          "keys": "Win+L",
+          "fav": true
+        },
+        {
+          "name": "Task Manager",
+          "keys": "Ctrl+Shift+Esc",
+          "fav": true
+        },
+        {
+          "name": "Switch windows",
+          "keys": "Alt+Tab",
+          "fav": true
+        },
+        {
+          "name": "Task view",
+          "keys": "Win+Tab"
+        },
+        {
+          "name": "Settings",
+          "keys": "Win+I"
+        },
+        {
+          "name": "Run",
+          "keys": "Win+R"
+        },
+        {
+          "name": "Search",
+          "keys": "Win+S"
+        },
+        {
+          "name": "Quick settings",
+          "keys": "Win+A"
+        },
+        {
+          "name": "Notifications",
+          "keys": "Win+N"
+        },
+        {
+          "name": "Voice typing",
+          "keys": "Win+H"
+        },
+        {
+          "name": "Power-user menu",
+          "keys": "Win+X"
+        }
+      ]
+    },
+    {
+      "name": "Windows and desktops",
+      "items": [
+        {
+          "name": "Snap left",
+          "keys": "Win+Left",
+          "fav": true
+        },
+        {
+          "name": "Snap right",
+          "keys": "Win+Right",
+          "fav": true
+        },
+        {
+          "name": "Maximize",
+          "keys": "Win+Up"
+        },
+        {
+          "name": "Minimize / restore",
+          "keys": "Win+Down"
+        },
+        {
+          "name": "Snap layouts",
+          "keys": "Win+Z"
+        },
+        {
+          "name": "Move window to the other screen",
+          "keys": "Win+Shift+Left",
+          "fav": true
+        },
+        {
+          "name": "Minimize everything",
+          "keys": "Win+M"
+        },
+        {
+          "name": "New virtual desktop",
+          "keys": "Win+Ctrl+D"
+        },
+        {
+          "name": "Previous desktop",
+          "keys": "Win+Ctrl+Left",
+          "fav": true
+        },
+        {
+          "name": "Next desktop",
+          "keys": "Win+Ctrl+Right",
+          "fav": true
+        },
+        {
+          "name": "Close this desktop",
+          "keys": "Win+Ctrl+F4"
+        },
+        {
+          "name": "Open the first taskbar app (Win+2, Win+3…)",
+          "keys": "Win+1",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Text",
+      "items": [
+        {
+          "name": "Delete previous word",
+          "keys": "Ctrl+Backspace",
+          "fav": true
+        },
+        {
+          "name": "Previous word",
+          "keys": "Ctrl+Left"
+        },
+        {
+          "name": "Select next word",
+          "keys": "Ctrl+Shift+Right"
+        },
+        {
+          "name": "Select to start of line",
+          "keys": "Shift+Home"
+        },
+        {
+          "name": "Select to end of line",
+          "keys": "Shift+End"
+        }
+      ]
+    },
+    {
+      "name": "Screen",
+      "items": [
+        {
+          "name": "Screenshot to Pictures",
+          "keys": "Win+PrintScreen",
+          "fav": true
+        },
+        {
+          "name": "Record the screen (Snipping Tool)",
+          "keys": "Win+Shift+R"
+        },
+        {
+          "name": "Game Bar",
+          "keys": "Win+G"
+        },
+        {
+          "name": "Record a game clip",
+          "keys": "Win+Alt+R"
+        },
+        {
+          "name": "Second screen mode",
+          "keys": "Win+P"
+        },
+        {
+          "name": "Cast to a screen",
+          "keys": "Win+K"
+        },
+        {
+          "name": "Magnifier",
+          "keys": "Win+Equals"
+        }
+      ]
+    }
+  ]
+}

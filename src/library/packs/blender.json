@@ -1,0 +1,323 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "blender",
+  "name": "Blender",
+  "kind": "cheatsheet",
+  "category": "3d",
+  "platform": "both",
+  "description": "Blender 4 defaults, modeling to render.",
+  "author": "Cat Key",
+  "app": "blender",
+  "sources": [
+    {
+      "title": "Blender Manual",
+      "url": "https://docs.blender.org/manual/en/latest/"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Transform and modes",
+      "items": [
+        {
+          "name": "Move (grab)",
+          "keys": "G",
+          "fav": true
+        },
+        {
+          "name": "Rotate",
+          "keys": "R",
+          "fav": true
+        },
+        {
+          "name": "Scale",
+          "keys": "S",
+          "fav": true
+        },
+        {
+          "name": "Edit mode",
+          "keys": "Tab",
+          "fav": true
+        },
+        {
+          "name": "Add",
+          "keys": "Shift+A",
+          "fav": true
+        },
+        {
+          "name": "Duplicate",
+          "keys": "Shift+D",
+          "fav": true
+        },
+        {
+          "name": "Linked duplicate",
+          "keys": "Opt+D"
+        },
+        {
+          "name": "Delete",
+          "keys": "X",
+          "fav": true
+        },
+        {
+          "name": "Apply (transforms)",
+          "keys": "Ctrl+A",
+          "fav": true
+        },
+        {
+          "name": "Repeat last",
+          "keys": "Shift+R",
+          "fav": true
+        },
+        {
+          "name": "Rename",
+          "keys": "F2",
+          "fav": true
+        },
+        {
+          "name": "Search (menu search)",
+          "keys": "F3",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Modeling",
+      "items": [
+        {
+          "name": "Extrude",
+          "keys": "E",
+          "fav": true
+        },
+        {
+          "name": "Inset",
+          "keys": "I",
+          "fav": true
+        },
+        {
+          "name": "Loop cut",
+          "keys": "Ctrl+R",
+          "fav": true
+        },
+        {
+          "name": "Knife",
+          "keys": "K"
+        },
+        {
+          "name": "Bevel",
+          "keys": "Ctrl+B",
+          "fav": true
+        },
+        {
+          "name": "Fill / new face",
+          "keys": "F"
+        },
+        {
+          "name": "Merge (edit) / move to collection",
+          "keys": "M",
+          "fav": true
+        },
+        {
+          "name": "Join",
+          "keys": "Ctrl+J",
+          "fav": true
+        },
+        {
+          "name": "Separate",
+          "keys": "P"
+        },
+        {
+          "name": "Parent",
+          "keys": "Ctrl+P",
+          "fav": true
+        },
+        {
+          "name": "Clear parent",
+          "keys": "Opt+P"
+        },
+        {
+          "name": "Vertex select (edit mode)",
+          "keys": "1",
+          "fav": true
+        },
+        {
+          "name": "Edge select",
+          "keys": "2"
+        },
+        {
+          "name": "Face select",
+          "keys": "3"
+        }
+      ]
+    },
+    {
+      "name": "Selection and visibility",
+      "items": [
+        {
+          "name": "Select all",
+          "keys": "A",
+          "fav": true
+        },
+        {
+          "name": "Deselect all",
+          "keys": "Opt+A"
+        },
+        {
+          "name": "Invert selection",
+          "keys": "Ctrl+I"
+        },
+        {
+          "name": "Select linked",
+          "keys": "L"
+        },
+        {
+          "name": "Select linked (all)",
+          "keys": "Ctrl+L"
+        },
+        {
+          "name": "Box select",
+          "keys": "B"
+        },
+        {
+          "name": "Circle select",
+          "keys": "C"
+        },
+        {
+          "name": "Hide",
+          "keys": "H",
+          "fav": true
+        },
+        {
+          "name": "Unhide",
+          "keys": "Opt+H",
+          "fav": true
+        },
+        {
+          "name": "Hide unselected",
+          "keys": "Shift+H"
+        }
+      ]
+    },
+    {
+      "name": "View",
+      "items": [
+        {
+          "name": "Front view",
+          "keys": "Num1",
+          "fav": true
+        },
+        {
+          "name": "Right view",
+          "keys": "Num3"
+        },
+        {
+          "name": "Top view",
+          "keys": "Num7",
+          "fav": true
+        },
+        {
+          "name": "Perspective / orthographic",
+          "keys": "Num5"
+        },
+        {
+          "name": "Camera view",
+          "keys": "Num0",
+          "fav": true
+        },
+        {
+          "name": "Frame selected",
+          "keys": "NumDecimal",
+          "fav": true
+        },
+        {
+          "name": "Frame all",
+          "keys": "Home",
+          "fav": true
+        },
+        {
+          "name": "View pie menu",
+          "keys": "Backtick",
+          "fav": true
+        },
+        {
+          "name": "Shading pie menu",
+          "keys": "Z",
+          "fav": true
+        },
+        {
+          "name": "X-ray",
+          "keys": "Opt+Z",
+          "fav": true
+        },
+        {
+          "name": "Maximize area",
+          "keys": "Ctrl+Space",
+          "fav": true
+        },
+        {
+          "name": "Sidebar",
+          "keys": "N",
+          "fav": true
+        },
+        {
+          "name": "Toolbar",
+          "keys": "T"
+        }
+      ]
+    },
+    {
+      "name": "Animation, render and file",
+      "items": [
+        {
+          "name": "Insert keyframe",
+          "keys": "I",
+          "fav": true
+        },
+        {
+          "name": "Delete keyframe",
+          "keys": "Opt+I"
+        },
+        {
+          "name": "Play",
+          "keys": "Space",
+          "fav": true
+        },
+        {
+          "name": "Jump to start",
+          "keys": "Shift+Left"
+        },
+        {
+          "name": "Render image",
+          "keys": "F12",
+          "fav": true
+        },
+        {
+          "name": "Render animation",
+          "keys": "Ctrl+F12",
+          "fav": true
+        },
+        {
+          "name": "Show render",
+          "keys": "F11"
+        },
+        {
+          "name": "Save",
+          "keys": "Mod+S",
+          "fav": true
+        },
+        {
+          "name": "Save as",
+          "keys": "Mod+Shift+S"
+        },
+        {
+          "name": "Undo",
+          "keys": "Mod+Z"
+        },
+        {
+          "name": "Redo",
+          "keys": "Mod+Shift+Z",
+          "fav": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,327 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "after-effects",
+  "name": "After Effects",
+  "kind": "cheatsheet",
+  "category": "video",
+  "platform": "both",
+  "description": "The defaults motion designers reach for most.",
+  "author": "Cat Key",
+  "app": "aftereffects",
+  "sources": [
+    {
+      "title": "Adobe: After Effects keyboard shortcuts",
+      "url": "https://helpx.adobe.com/after-effects/using/keyboard-shortcuts-reference.html"
+    },
+    {
+      "title": "ShortcutMapper (MIT licence)",
+      "url": "https://github.com/waldobronchart/ShortcutMapper"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Tools",
+      "items": [
+        {
+          "name": "Selection",
+          "keys": "V",
+          "fav": true
+        },
+        {
+          "name": "Hand",
+          "keys": "H"
+        },
+        {
+          "name": "Zoom",
+          "keys": "Z"
+        },
+        {
+          "name": "Rotation",
+          "keys": "W"
+        },
+        {
+          "name": "Camera",
+          "keys": "C"
+        },
+        {
+          "name": "Pan behind (anchor point)",
+          "keys": "Y",
+          "fav": true
+        },
+        {
+          "name": "Shape tools",
+          "keys": "Q",
+          "fav": true
+        },
+        {
+          "name": "Pen",
+          "keys": "G",
+          "fav": true
+        },
+        {
+          "name": "Type",
+          "keys": "Mod+T",
+          "fav": true
+        },
+        {
+          "name": "Brush / clone / eraser",
+          "keys": "Mod+B"
+        },
+        {
+          "name": "Roto brush",
+          "keys": "Opt+W",
+          "fav": true
+        },
+        {
+          "name": "Puppet",
+          "keys": "Mod+P"
+        }
+      ]
+    },
+    {
+      "name": "Layers",
+      "items": [
+        {
+          "name": "New solid",
+          "keys": "Mod+Y",
+          "fav": true
+        },
+        {
+          "name": "New adjustment layer",
+          "keys": "Mod+Opt+Y",
+          "fav": true
+        },
+        {
+          "name": "New null",
+          "keys": "Mod+Opt+Shift+Y",
+          "fav": true
+        },
+        {
+          "name": "Pre-compose",
+          "keys": "Mod+Shift+C",
+          "fav": true
+        },
+        {
+          "name": "Duplicate",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Split layer",
+          "keys": "Mod+Shift+D",
+          "fav": true
+        },
+        {
+          "name": "Center anchor point",
+          "keys": "Mod+Opt+Home",
+          "fav": true
+        },
+        {
+          "name": "Fit to comp",
+          "keys": "Mod+Opt+F",
+          "fav": true
+        },
+        {
+          "name": "Time-reverse",
+          "keys": "Mod+Opt+R"
+        },
+        {
+          "name": "Time remapping",
+          "keys": "Mod+Opt+T"
+        },
+        {
+          "name": "Lock",
+          "keys": "Mod+L"
+        },
+        {
+          "name": "Trim in point to playhead",
+          "keys": "Opt+LBracket",
+          "fav": true
+        },
+        {
+          "name": "Trim out point to playhead",
+          "keys": "Opt+RBracket",
+          "fav": true
+        },
+        {
+          "name": "Move in point to playhead",
+          "keys": "LBracket"
+        },
+        {
+          "name": "Move out point to playhead",
+          "keys": "RBracket"
+        }
+      ]
+    },
+    {
+      "name": "Properties",
+      "items": [
+        {
+          "name": "Position",
+          "keys": "P",
+          "fav": true
+        },
+        {
+          "name": "Scale",
+          "keys": "S",
+          "fav": true
+        },
+        {
+          "name": "Rotation",
+          "keys": "R",
+          "fav": true
+        },
+        {
+          "name": "Opacity",
+          "keys": "T",
+          "fav": true
+        },
+        {
+          "name": "Anchor point",
+          "keys": "A",
+          "fav": true
+        },
+        {
+          "name": "Animated properties (UU: everything changed)",
+          "keys": "U",
+          "fav": true
+        },
+        {
+          "name": "Effects",
+          "keys": "E"
+        },
+        {
+          "name": "Masks",
+          "keys": "M"
+        },
+        {
+          "name": "Mask feather",
+          "keys": "F"
+        },
+        {
+          "name": "Audio levels",
+          "keys": "L"
+        }
+      ]
+    },
+    {
+      "name": "Keyframes",
+      "items": [
+        {
+          "name": "Easy ease",
+          "keys": "F9",
+          "fav": true
+        },
+        {
+          "name": "Ease in",
+          "keys": "Shift+F9"
+        },
+        {
+          "name": "Ease out",
+          "keys": "Mod+Shift+F9"
+        },
+        {
+          "name": "Previous keyframe",
+          "keys": "J",
+          "fav": true
+        },
+        {
+          "name": "Next keyframe",
+          "keys": "K",
+          "fav": true
+        },
+        {
+          "name": "Position keyframe",
+          "keys": "Opt+Shift+P",
+          "fav": true
+        },
+        {
+          "name": "Scale keyframe",
+          "keys": "Opt+Shift+S"
+        },
+        {
+          "name": "Rotation keyframe",
+          "keys": "Opt+Shift+R"
+        },
+        {
+          "name": "Opacity keyframe",
+          "keys": "Opt+Shift+T"
+        }
+      ]
+    },
+    {
+      "name": "Comp and time",
+      "items": [
+        {
+          "name": "New composition",
+          "keys": "Mod+N",
+          "fav": true
+        },
+        {
+          "name": "Composition settings",
+          "keys": "Mod+K",
+          "fav": true
+        },
+        {
+          "name": "Add to render queue",
+          "keys": "Mod+M",
+          "fav": true
+        },
+        {
+          "name": "Add to Media Encoder queue",
+          "keys": "Mod+Opt+M",
+          "fav": true
+        },
+        {
+          "name": "Import",
+          "keys": "Mod+I",
+          "fav": true
+        },
+        {
+          "name": "Work area start",
+          "keys": "B",
+          "fav": true
+        },
+        {
+          "name": "Work area end",
+          "keys": "N",
+          "fav": true
+        },
+        {
+          "name": "Play",
+          "keys": "Space",
+          "fav": true
+        },
+        {
+          "name": "Previous frame",
+          "keys": "PageUp",
+          "fav": true
+        },
+        {
+          "name": "Next frame",
+          "keys": "PageDown",
+          "fav": true
+        },
+        {
+          "name": "Start",
+          "keys": "Home"
+        },
+        {
+          "name": "End",
+          "keys": "End"
+        },
+        {
+          "name": "Maximize panel",
+          "keys": "Backtick",
+          "fav": true
+        },
+        {
+          "name": "Deselect all layers",
+          "keys": "F2",
+          "fav": true
+        }
+      ]
+    }
+  ]
+}

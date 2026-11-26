@@ -1,0 +1,132 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "capcut",
+  "name": "CapCut (desktop)",
+  "kind": "cheatsheet",
+  "category": "video",
+  "platform": "both",
+  "description": "The timeline keys that make rough cuts fast.",
+  "author": "Cat Key",
+  "app": "capcut",
+  "sources": [
+    {
+      "title": "CapCut: desktop shortcuts",
+      "url": "https://www.capcut.com/resource/pc-professional-video-editor"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Cutting",
+      "items": [
+        {
+          "name": "Split at playhead",
+          "keys": "Mod+B",
+          "fav": true
+        },
+        {
+          "name": "Split all tracks",
+          "keys": "Mod+Shift+B"
+        },
+        {
+          "name": "Split mode",
+          "keys": "B"
+        },
+        {
+          "name": "Select mode",
+          "keys": "A"
+        },
+        {
+          "name": "Delete left of playhead",
+          "keys": "Q",
+          "fav": true
+        },
+        {
+          "name": "Delete right of playhead",
+          "keys": "W",
+          "fav": true
+        },
+        {
+          "name": "Group",
+          "keys": "Mod+G"
+        },
+        {
+          "name": "Ungroup",
+          "keys": "Mod+Shift+G"
+        }
+      ]
+    },
+    {
+      "name": "Playback and timeline",
+      "items": [
+        {
+          "name": "Play / pause",
+          "keys": "Space",
+          "fav": true
+        },
+        {
+          "name": "Previous frame",
+          "keys": "Left"
+        },
+        {
+          "name": "Next frame",
+          "keys": "Right"
+        },
+        {
+          "name": "Previous cut",
+          "keys": "Up",
+          "fav": true
+        },
+        {
+          "name": "Next cut",
+          "keys": "Down",
+          "fav": true
+        },
+        {
+          "name": "Play backward",
+          "keys": "J"
+        },
+        {
+          "name": "Stop",
+          "keys": "K"
+        },
+        {
+          "name": "Play forward",
+          "keys": "L"
+        },
+        {
+          "name": "Add marker",
+          "keys": "M"
+        },
+        {
+          "name": "Zoom to fit",
+          "keys": "Shift+Z",
+          "fav": true
+        },
+        {
+          "name": "Zoom in",
+          "keys": "Mod+Equals"
+        },
+        {
+          "name": "Zoom out",
+          "keys": "Mod+Minus"
+        }
+      ]
+    },
+    {
+      "name": "File",
+      "items": [
+        {
+          "name": "Import media",
+          "keys": "Mod+I",
+          "fav": true
+        },
+        {
+          "name": "Export",
+          "keys": "Mod+E",
+          "fav": true
+        }
+      ]
+    }
+  ]
+}

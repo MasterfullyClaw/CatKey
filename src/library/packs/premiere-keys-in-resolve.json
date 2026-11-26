@@ -1,0 +1,120 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "premiere-keys-in-resolve",
+  "name": "Premiere keys in DaVinci Resolve",
+  "kind": "remap",
+  "category": "video",
+  "platform": "both",
+  "description": "Moving from Premiere Pro? Keep your hands: Premiere's keys do the matching thing in Resolve.",
+  "author": "Cat Key",
+  "app": "resolve",
+  "tags": [
+    "premiere",
+    "resolve",
+    "switcher"
+  ],
+  "sections": [
+    {
+      "name": "Editing",
+      "items": [
+        {
+          "name": "Add edit (cut at playhead)",
+          "press": "Mod+K",
+          "does": "Mod+B",
+          "fav": true
+        },
+        {
+          "name": "Add the default transition",
+          "press": "Mod+D",
+          "does": "Mod+T",
+          "fav": true
+        },
+        {
+          "name": "Audio crossfade",
+          "press": "Mod+Shift+D",
+          "does": "Shift+T"
+        },
+        {
+          "name": "Link / unlink",
+          "press": "Mod+L",
+          "does": "Mod+Opt+L",
+          "fav": true
+        },
+        {
+          "name": "Paste attributes",
+          "press": "Mod+Opt+V",
+          "does": "Opt+V",
+          "fav": true
+        },
+        {
+          "name": "Ripple delete",
+          "press": "Shift+Delete",
+          "does": "Shift+Backspace",
+          "fav": true,
+          "platform": "windows"
+        },
+        {
+          "name": "Export (Deliver page)",
+          "press": "Mod+M",
+          "does": "Shift+8"
+        }
+      ]
+    },
+    {
+      "name": "Single keys",
+      "items": [
+        {
+          "name": "Selection tool",
+          "press": "V",
+          "does": "A",
+          "fav": true
+        },
+        {
+          "name": "Razor (blade)",
+          "press": "C",
+          "does": "B",
+          "fav": true
+        },
+        {
+          "name": "Ripple / trim edit tool",
+          "press": "B",
+          "does": "T"
+        },
+        {
+          "name": "Ripple trim to playhead (start)",
+          "press": "Q",
+          "does": "Mod+Shift+LBracket",
+          "fav": true
+        },
+        {
+          "name": "Ripple trim to playhead (end)",
+          "press": "W",
+          "does": "Mod+Shift+RBracket",
+          "fav": true
+        },
+        {
+          "name": "Snapping",
+          "press": "S",
+          "does": "N"
+        },
+        {
+          "name": "Zoom to fit the timeline",
+          "press": "Backslash",
+          "does": "Shift+Z"
+        },
+        {
+          "name": "Insert",
+          "press": "Comma",
+          "does": "F9"
+        },
+        {
+          "name": "Overwrite",
+          "press": "Period",
+          "does": "F10"
+        }
+      ],
+      "note": "Single keys pause by themselves while you type in a text box."
+    }
+  ]
+}

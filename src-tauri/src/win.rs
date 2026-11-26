@@ -394,6 +394,20 @@ pub fn is_elevated() -> bool {
     }
 }
 
+/// PowerToys "Grab And Move" is switched on. It watches the Alt key (its default) to
+/// move windows with Alt + drag, which briefly hides Alt from other programs.
+pub fn powertoys_grab_and_move_on() -> bool {
+    let Ok(local) = std::env::var("LOCALAPPDATA") else { return false };
+    let path = std::path::Path::new(&local).join("Microsoft").join("PowerToys").join("settings.json");
+    let Ok(text) = std::fs::read_to_string(path) else { return false };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else { return false };
+    let Some(enabled) = v.get("enabled").and_then(|e| e.as_object()) else { return false };
+    enabled.iter().any(|(k, on)| {
+        let k: String = k.chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>().to_ascii_lowercase();
+        k == "grabandmove" && on.as_bool() == Some(true)
+    }) && process_running("PowerToys.exe")
+}
+
 /// Is a process with this exe name running? (Case-insensitive.)
 pub fn process_running(name: &str) -> bool {
     unsafe {

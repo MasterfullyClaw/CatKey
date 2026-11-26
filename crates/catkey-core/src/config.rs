@@ -39,6 +39,10 @@ pub struct Config {
     /// Templates the user saved. The built-in ones live in code (`builtin_templates`).
     #[serde(default)]
     pub templates: Vec<Template>,
+    /// Library packs the user saved (imported, made with an AI, shared with them),
+    /// kept as their catkey-pack JSON. The built-in packs ship with the app.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub packs: Vec<serde_json::Value>,
 }
 
 /// A named set of shortcuts that can be added to (or removed from) the list in one go.
@@ -117,6 +121,9 @@ pub struct Rule {
     pub action: Action,
     #[serde(default)]
     pub scope: Scope,
+    /// The library pack (or template) this came from, e.g. "mac-on-windows".
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub source: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -196,6 +203,7 @@ fn rule(trigger: &str, keys: &str, name: &str) -> Rule {
         trigger: Shortcut::parse(trigger).expect("default trigger"),
         action: Action::Keys { keys: Shortcut::parse(keys).expect("default keys") },
         scope: Scope::all(),
+        source: String::new(),
     }
 }
 
@@ -284,6 +292,7 @@ impl Default for Config {
             rules: default_rules(),
             settings: Settings::default(),
             templates: Vec::new(),
+            packs: Vec::new(),
         }
     }
 }
@@ -596,6 +605,7 @@ mod tests {
             trigger: Shortcut::parse("LAlt+T").unwrap(),
             action: Action::Launch { target: "wt.exe".into(), args: String::new() },
             scope: Scope::only(&["Chrome"]),
+            source: String::new(),
         });
         cfg.normalize();
         let json = serde_json::to_string_pretty(&cfg).unwrap();
@@ -724,6 +734,7 @@ mod tests {
             trigger: Shortcut::parse("LAlt+O").unwrap(),
             action: Action::Launch { target: " ".into(), args: String::new() },
             scope: Scope::all(),
+            source: String::new(),
         });
         assert_eq!(compile(&cfg).rule_count(), 0);
     }

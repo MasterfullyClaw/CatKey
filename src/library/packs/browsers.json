@@ -1,0 +1,161 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "browsers",
+  "name": "Web browsers",
+  "kind": "cheatsheet",
+  "category": "browser",
+  "platform": "both",
+  "description": "Chrome, Edge, Brave, Dia, Arc, Vivaldi and Opera share these.",
+  "author": "Cat Key",
+  "app": "browsers",
+  "sections": [
+    {
+      "name": "Tabs",
+      "items": [
+        {
+          "name": "New tab",
+          "keys": "Mod+T",
+          "fav": true
+        },
+        {
+          "name": "Close tab",
+          "keys": "Mod+W",
+          "fav": true
+        },
+        {
+          "name": "Reopen closed tab",
+          "keys": "Mod+Shift+T",
+          "fav": true
+        },
+        {
+          "name": "Next tab",
+          "keys": "Ctrl+Tab",
+          "fav": true
+        },
+        {
+          "name": "Previous tab",
+          "keys": "Ctrl+Shift+Tab"
+        },
+        {
+          "name": "First tab (Mod+2… Mod+8)",
+          "keys": "Mod+1"
+        },
+        {
+          "name": "Last tab",
+          "keys": "Mod+9"
+        },
+        {
+          "name": "New window",
+          "keys": "Mod+N"
+        },
+        {
+          "name": "Private window",
+          "keys": "Mod+Shift+N",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Page",
+      "items": [
+        {
+          "name": "Address bar",
+          "keys": "Mod+L",
+          "fav": true
+        },
+        {
+          "name": "Reload",
+          "keys": "Mod+R",
+          "fav": true
+        },
+        {
+          "name": "Reload without cache",
+          "keys": "Mod+Shift+R",
+          "fav": true
+        },
+        {
+          "name": "Find on page",
+          "keys": "Mod+F",
+          "fav": true
+        },
+        {
+          "name": "Bookmark",
+          "keys": "Mod+D"
+        },
+        {
+          "name": "Print",
+          "keys": "Mod+P"
+        },
+        {
+          "name": "Save page",
+          "keys": "Mod+S"
+        },
+        {
+          "name": "Zoom in",
+          "keys": "Mod+Equals"
+        },
+        {
+          "name": "Zoom out",
+          "keys": "Mod+Minus"
+        },
+        {
+          "name": "Reset zoom",
+          "keys": "Mod+0"
+        },
+        {
+          "name": "Back",
+          "keys": "Opt+Left",
+          "mac": "Cmd+LBracket",
+          "fav": true
+        },
+        {
+          "name": "Forward",
+          "keys": "Opt+Right",
+          "mac": "Cmd+RBracket"
+        },
+        {
+          "name": "Full screen",
+          "keys": "F11",
+          "mac": "Control+Cmd+F"
+        }
+      ]
+    },
+    {
+      "name": "Tools",
+      "items": [
+        {
+          "name": "History",
+          "keys": "Ctrl+H",
+          "mac": "Cmd+Y"
+        },
+        {
+          "name": "Downloads",
+          "keys": "Ctrl+J",
+          "mac": "Cmd+Option+L"
+        },
+        {
+          "name": "Show bookmarks bar",
+          "keys": "Ctrl+Shift+B",
+          "mac": "Cmd+Shift+B"
+        },
+        {
+          "name": "Developer tools",
+          "keys": "F12",
+          "mac": "Cmd+Option+I",
+          "fav": true
+        },
+        {
+          "name": "Clear browsing data",
+          "keys": "Ctrl+Shift+Delete",
+          "mac": "Cmd+Shift+Backspace"
+        },
+        {
+          "name": "View source",
+          "keys": "Ctrl+U",
+          "mac": "Cmd+Option+U"
+        }
+      ]
+    }
+  ]
+}

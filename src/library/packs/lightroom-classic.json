@@ -1,0 +1,178 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "lightroom-classic",
+  "name": "Lightroom Classic",
+  "kind": "cheatsheet",
+  "category": "design",
+  "platform": "both",
+  "description": "Library and Develop defaults photographers use most.",
+  "author": "Cat Key",
+  "app": "lightroom",
+  "sources": [
+    {
+      "title": "Adobe: Lightroom Classic keyboard shortcuts",
+      "url": "https://helpx.adobe.com/lightroom-classic/help/keyboard-shortcuts.html"
+    },
+    {
+      "title": "ShortcutMapper (MIT licence)",
+      "url": "https://github.com/waldobronchart/ShortcutMapper"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Views",
+      "items": [
+        {
+          "name": "Grid",
+          "keys": "G",
+          "fav": true
+        },
+        {
+          "name": "Loupe",
+          "keys": "E",
+          "fav": true
+        },
+        {
+          "name": "Compare",
+          "keys": "C"
+        },
+        {
+          "name": "Survey",
+          "keys": "N"
+        },
+        {
+          "name": "Develop",
+          "keys": "D",
+          "fav": true
+        },
+        {
+          "name": "Full-screen preview",
+          "keys": "F"
+        },
+        {
+          "name": "Lights out",
+          "keys": "L"
+        },
+        {
+          "name": "Hide side panels",
+          "keys": "Tab",
+          "fav": true
+        },
+        {
+          "name": "Hide all panels",
+          "keys": "Shift+Tab"
+        },
+        {
+          "name": "Info overlay",
+          "keys": "I"
+        }
+      ]
+    },
+    {
+      "name": "Culling",
+      "items": [
+        {
+          "name": "Pick",
+          "keys": "P",
+          "fav": true
+        },
+        {
+          "name": "Reject",
+          "keys": "X",
+          "fav": true
+        },
+        {
+          "name": "Unflag",
+          "keys": "U"
+        },
+        {
+          "name": "Five stars (1–5 set stars)",
+          "keys": "5",
+          "fav": true
+        },
+        {
+          "name": "No stars",
+          "keys": "0"
+        },
+        {
+          "name": "Red label (6–9 set labels)",
+          "keys": "6"
+        }
+      ]
+    },
+    {
+      "name": "Develop",
+      "items": [
+        {
+          "name": "Crop",
+          "keys": "R",
+          "fav": true
+        },
+        {
+          "name": "Spot removal / healing",
+          "keys": "Q",
+          "fav": true
+        },
+        {
+          "name": "Black and white",
+          "keys": "V",
+          "fav": true
+        },
+        {
+          "name": "Before / after",
+          "keys": "Backslash",
+          "fav": true
+        },
+        {
+          "name": "Before / after side by side",
+          "keys": "Y"
+        },
+        {
+          "name": "Show clipping",
+          "keys": "J",
+          "fav": true
+        },
+        {
+          "name": "Auto settings",
+          "keys": "Mod+U",
+          "fav": true
+        },
+        {
+          "name": "Copy settings",
+          "keys": "Mod+Shift+C",
+          "fav": true
+        },
+        {
+          "name": "Paste settings",
+          "keys": "Mod+Shift+V",
+          "fav": true
+        },
+        {
+          "name": "Reset",
+          "keys": "Mod+Shift+R"
+        },
+        {
+          "name": "Virtual copy",
+          "keys": "Mod+Quote",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "File",
+      "items": [
+        {
+          "name": "Import",
+          "keys": "Mod+Shift+I",
+          "fav": true
+        },
+        {
+          "name": "Export",
+          "keys": "Mod+Shift+E",
+          "fav": true
+        }
+      ]
+    }
+  ]
+}

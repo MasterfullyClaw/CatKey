@@ -1,0 +1,266 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "illustrator",
+  "name": "Illustrator",
+  "kind": "cheatsheet",
+  "category": "design",
+  "platform": "both",
+  "description": "The defaults pros reach for most.",
+  "author": "Cat Key",
+  "app": "illustrator",
+  "sources": [
+    {
+      "title": "Adobe: Illustrator keyboard shortcuts",
+      "url": "https://helpx.adobe.com/illustrator/using/default-keyboard-shortcuts.html"
+    },
+    {
+      "title": "ShortcutMapper (MIT licence)",
+      "url": "https://github.com/waldobronchart/ShortcutMapper"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Tools",
+      "items": [
+        {
+          "name": "Selection",
+          "keys": "V",
+          "fav": true
+        },
+        {
+          "name": "Direct selection",
+          "keys": "A",
+          "fav": true
+        },
+        {
+          "name": "Pen",
+          "keys": "P",
+          "fav": true
+        },
+        {
+          "name": "Type",
+          "keys": "T",
+          "fav": true
+        },
+        {
+          "name": "Rectangle",
+          "keys": "M",
+          "fav": true
+        },
+        {
+          "name": "Ellipse",
+          "keys": "L",
+          "fav": true
+        },
+        {
+          "name": "Line segment",
+          "keys": "Backslash"
+        },
+        {
+          "name": "Paintbrush",
+          "keys": "B"
+        },
+        {
+          "name": "Blob brush",
+          "keys": "Shift+B"
+        },
+        {
+          "name": "Pencil",
+          "keys": "N"
+        },
+        {
+          "name": "Rotate",
+          "keys": "R"
+        },
+        {
+          "name": "Reflect",
+          "keys": "O"
+        },
+        {
+          "name": "Scale",
+          "keys": "S"
+        },
+        {
+          "name": "Free transform",
+          "keys": "E",
+          "fav": true
+        },
+        {
+          "name": "Shape builder",
+          "keys": "Shift+M",
+          "fav": true
+        },
+        {
+          "name": "Eyedropper",
+          "keys": "I",
+          "fav": true
+        },
+        {
+          "name": "Gradient",
+          "keys": "G"
+        },
+        {
+          "name": "Artboard",
+          "keys": "Shift+O",
+          "fav": true
+        },
+        {
+          "name": "Hand",
+          "keys": "H"
+        },
+        {
+          "name": "Zoom",
+          "keys": "Z"
+        }
+      ]
+    },
+    {
+      "name": "Color",
+      "items": [
+        {
+          "name": "Fill / stroke focus",
+          "keys": "X",
+          "fav": true
+        },
+        {
+          "name": "Swap fill and stroke",
+          "keys": "Shift+X"
+        },
+        {
+          "name": "Default fill and stroke",
+          "keys": "D"
+        },
+        {
+          "name": "None",
+          "keys": "Slash"
+        }
+      ]
+    },
+    {
+      "name": "Objects",
+      "items": [
+        {
+          "name": "Group",
+          "keys": "Mod+G",
+          "fav": true
+        },
+        {
+          "name": "Ungroup",
+          "keys": "Mod+Shift+G"
+        },
+        {
+          "name": "Lock",
+          "keys": "Mod+2"
+        },
+        {
+          "name": "Unlock all",
+          "keys": "Mod+Opt+2"
+        },
+        {
+          "name": "Hide",
+          "keys": "Mod+3"
+        },
+        {
+          "name": "Show all",
+          "keys": "Mod+Opt+3"
+        },
+        {
+          "name": "Clipping mask",
+          "keys": "Mod+7",
+          "fav": true
+        },
+        {
+          "name": "Release clipping mask",
+          "keys": "Mod+Opt+7"
+        },
+        {
+          "name": "Compound path",
+          "keys": "Mod+8"
+        },
+        {
+          "name": "Join",
+          "keys": "Mod+J",
+          "fav": true
+        },
+        {
+          "name": "Transform again",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Create outlines",
+          "keys": "Mod+Shift+O",
+          "fav": true
+        },
+        {
+          "name": "Bring to front",
+          "keys": "Mod+Shift+RBracket",
+          "fav": true
+        },
+        {
+          "name": "Bring forward",
+          "keys": "Mod+RBracket"
+        },
+        {
+          "name": "Send backward",
+          "keys": "Mod+LBracket"
+        },
+        {
+          "name": "Send to back",
+          "keys": "Mod+Shift+LBracket"
+        },
+        {
+          "name": "Paste in front",
+          "keys": "Mod+F",
+          "fav": true
+        },
+        {
+          "name": "Paste in back",
+          "keys": "Mod+B"
+        },
+        {
+          "name": "Paste in place",
+          "keys": "Mod+Shift+V",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "View and file",
+      "items": [
+        {
+          "name": "Outline view",
+          "keys": "Mod+Y",
+          "fav": true
+        },
+        {
+          "name": "Rulers",
+          "keys": "Mod+R"
+        },
+        {
+          "name": "Fit artboard",
+          "keys": "Mod+0",
+          "fav": true
+        },
+        {
+          "name": "Fit all",
+          "keys": "Mod+Opt+0"
+        },
+        {
+          "name": "100%",
+          "keys": "Mod+1"
+        },
+        {
+          "name": "Export for screens",
+          "keys": "Mod+Opt+E",
+          "fav": true
+        },
+        {
+          "name": "Save as",
+          "keys": "Mod+Shift+S"
+        }
+      ]
+    }
+  ]
+}

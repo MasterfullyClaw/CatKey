@@ -408,6 +408,8 @@ pub fn run(args: Vec<String>) {
             crate::commands::key_log,
             crate::commands::key_log_take,
             crate::commands::save_text,
+            crate::commands::open_text_file,
+            crate::commands::powertoys_rules,
         ])
         .setup(move |app| {
             if second {

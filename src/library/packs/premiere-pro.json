@@ -1,0 +1,258 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "premiere-pro",
+  "name": "Premiere Pro",
+  "kind": "cheatsheet",
+  "category": "video",
+  "platform": "both",
+  "description": "The defaults editors reach for most.",
+  "author": "Cat Key",
+  "app": "premiere",
+  "sources": [
+    {
+      "title": "Adobe: Premiere Pro keyboard shortcuts",
+      "url": "https://helpx.adobe.com/premiere-pro/using/keyboard-shortcuts.html"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Tools",
+      "items": [
+        {
+          "name": "Selection",
+          "keys": "V",
+          "fav": true
+        },
+        {
+          "name": "Track select forward",
+          "keys": "A",
+          "fav": true
+        },
+        {
+          "name": "Ripple edit",
+          "keys": "B",
+          "fav": true
+        },
+        {
+          "name": "Rolling edit",
+          "keys": "N"
+        },
+        {
+          "name": "Rate stretch",
+          "keys": "R"
+        },
+        {
+          "name": "Razor",
+          "keys": "C",
+          "fav": true
+        },
+        {
+          "name": "Slip",
+          "keys": "Y"
+        },
+        {
+          "name": "Slide",
+          "keys": "U"
+        },
+        {
+          "name": "Pen",
+          "keys": "P"
+        },
+        {
+          "name": "Hand",
+          "keys": "H"
+        },
+        {
+          "name": "Zoom",
+          "keys": "Z"
+        },
+        {
+          "name": "Type",
+          "keys": "T",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Editing",
+      "items": [
+        {
+          "name": "Add edit (cut at playhead)",
+          "keys": "Mod+K",
+          "fav": true
+        },
+        {
+          "name": "Add edit to all tracks",
+          "keys": "Mod+Shift+K",
+          "fav": true
+        },
+        {
+          "name": "Ripple trim previous edit to playhead",
+          "keys": "Q",
+          "fav": true
+        },
+        {
+          "name": "Ripple trim next edit to playhead",
+          "keys": "W",
+          "fav": true
+        },
+        {
+          "name": "Ripple delete",
+          "keys": "Shift+Delete",
+          "mac": "Shift+Backspace",
+          "fav": true
+        },
+        {
+          "name": "Extend edit to playhead",
+          "keys": "E"
+        },
+        {
+          "name": "Link / unlink",
+          "keys": "Mod+L"
+        },
+        {
+          "name": "Default video transition",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Default audio transition",
+          "keys": "Mod+Shift+D",
+          "fav": true
+        },
+        {
+          "name": "Speed / duration",
+          "keys": "Mod+R",
+          "fav": true
+        },
+        {
+          "name": "Paste attributes",
+          "keys": "Mod+Opt+V",
+          "fav": true
+        },
+        {
+          "name": "Insert",
+          "keys": "Comma",
+          "fav": true
+        },
+        {
+          "name": "Overwrite",
+          "keys": "Period",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Timeline",
+      "items": [
+        {
+          "name": "Mark in",
+          "keys": "I",
+          "fav": true
+        },
+        {
+          "name": "Mark out",
+          "keys": "O",
+          "fav": true
+        },
+        {
+          "name": "Mark clip",
+          "keys": "X"
+        },
+        {
+          "name": "Play backward",
+          "keys": "J",
+          "fav": true
+        },
+        {
+          "name": "Stop",
+          "keys": "K",
+          "fav": true
+        },
+        {
+          "name": "Play forward",
+          "keys": "L",
+          "fav": true
+        },
+        {
+          "name": "Play / stop",
+          "keys": "Space",
+          "fav": true
+        },
+        {
+          "name": "Previous edit point",
+          "keys": "Up",
+          "fav": true
+        },
+        {
+          "name": "Next edit point",
+          "keys": "Down",
+          "fav": true
+        },
+        {
+          "name": "Snap",
+          "keys": "S",
+          "fav": true
+        },
+        {
+          "name": "Add marker",
+          "keys": "M",
+          "fav": true
+        },
+        {
+          "name": "Next marker",
+          "keys": "Shift+M"
+        },
+        {
+          "name": "Previous marker",
+          "keys": "Mod+Shift+M"
+        },
+        {
+          "name": "Zoom in",
+          "keys": "Equals",
+          "fav": true
+        },
+        {
+          "name": "Zoom out",
+          "keys": "Minus",
+          "fav": true
+        },
+        {
+          "name": "Zoom to sequence",
+          "keys": "Backslash",
+          "fav": true
+        },
+        {
+          "name": "Maximize panel",
+          "keys": "Backtick",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "File",
+      "items": [
+        {
+          "name": "Export media",
+          "keys": "Mod+M",
+          "fav": true
+        },
+        {
+          "name": "Export frame",
+          "keys": "Mod+Shift+E",
+          "fav": true
+        },
+        {
+          "name": "Import",
+          "keys": "Mod+I",
+          "fav": true
+        },
+        {
+          "name": "New sequence",
+          "keys": "Mod+N"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,242 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "windows-on-mac",
+  "name": "Windows keys on a Mac",
+  "kind": "remap",
+  "category": "switch",
+  "platform": "mac",
+  "description": "Coming from Windows? Control does what it did there: copy, paste, save, tabs, word jumps. Mac-only keys stay as they are.",
+  "author": "Cat Key",
+  "tags": [
+    "windows",
+    "switcher"
+  ],
+  "sections": [
+    {
+      "name": "Everyday",
+      "items": [
+        {
+          "name": "Copy",
+          "press": "Control+C",
+          "does": "Cmd+C",
+          "fav": true
+        },
+        {
+          "name": "Paste",
+          "press": "Control+V",
+          "does": "Cmd+V",
+          "fav": true
+        },
+        {
+          "name": "Cut",
+          "press": "Control+X",
+          "does": "Cmd+X",
+          "fav": true
+        },
+        {
+          "name": "Undo",
+          "press": "Control+Z",
+          "does": "Cmd+Z",
+          "fav": true
+        },
+        {
+          "name": "Select all",
+          "press": "Control+A",
+          "does": "Cmd+A",
+          "fav": true
+        },
+        {
+          "name": "Save",
+          "press": "Control+S",
+          "does": "Cmd+S",
+          "fav": true
+        },
+        {
+          "name": "Find",
+          "press": "Control+F",
+          "does": "Cmd+F",
+          "fav": true
+        },
+        {
+          "name": "New",
+          "press": "Control+N",
+          "does": "Cmd+N",
+          "fav": true
+        },
+        {
+          "name": "Open",
+          "press": "Control+O",
+          "does": "Cmd+O"
+        },
+        {
+          "name": "Print",
+          "press": "Control+P",
+          "does": "Cmd+P"
+        },
+        {
+          "name": "Close tab or window",
+          "press": "Control+W",
+          "does": "Cmd+W",
+          "fav": true
+        },
+        {
+          "name": "New tab",
+          "press": "Control+T",
+          "does": "Cmd+T",
+          "fav": true
+        },
+        {
+          "name": "Reload",
+          "press": "Control+R",
+          "does": "Cmd+R"
+        },
+        {
+          "name": "Address bar",
+          "press": "Control+L",
+          "does": "Cmd+L"
+        },
+        {
+          "name": "Bold",
+          "press": "Control+B",
+          "does": "Cmd+B"
+        },
+        {
+          "name": "Italic",
+          "press": "Control+I",
+          "does": "Cmd+I"
+        },
+        {
+          "name": "Underline",
+          "press": "Control+U",
+          "does": "Cmd+U"
+        },
+        {
+          "name": "Insert link",
+          "press": "Control+K",
+          "does": "Cmd+K"
+        },
+        {
+          "name": "Bookmark",
+          "press": "Control+D",
+          "does": "Cmd+D"
+        },
+        {
+          "name": "Redo",
+          "press": "Control+Y",
+          "does": "Cmd+Shift+Z",
+          "fav": true
+        },
+        {
+          "name": "Redo",
+          "press": "Control+Shift+Z",
+          "does": "Cmd+Shift+Z"
+        },
+        {
+          "name": "Reopen closed tab",
+          "press": "Control+Shift+T",
+          "does": "Cmd+Shift+T"
+        },
+        {
+          "name": "New folder / private window",
+          "press": "Control+Shift+N",
+          "does": "Cmd+Shift+N"
+        },
+        {
+          "name": "History (browsers)",
+          "press": "Control+H",
+          "does": "Cmd+Y"
+        }
+      ],
+      "note": "Replaces Control's text shortcuts (Control+A start of line, Control+K delete to end)."
+    },
+    {
+      "name": "Moving around text",
+      "items": [
+        {
+          "name": "Start of line",
+          "press": "Home",
+          "does": "Cmd+Left",
+          "fav": true
+        },
+        {
+          "name": "End of line",
+          "press": "End",
+          "does": "Cmd+Right",
+          "fav": true
+        },
+        {
+          "name": "Select to start of line",
+          "press": "Shift+Home",
+          "does": "Cmd+Shift+Left"
+        },
+        {
+          "name": "Select to end of line",
+          "press": "Shift+End",
+          "does": "Cmd+Shift+Right"
+        },
+        {
+          "name": "Top of document",
+          "press": "Control+Home",
+          "does": "Cmd+Up"
+        },
+        {
+          "name": "End of document",
+          "press": "Control+End",
+          "does": "Cmd+Down"
+        },
+        {
+          "name": "Previous word",
+          "press": "Control+Left",
+          "does": "Option+Left",
+          "fav": true
+        },
+        {
+          "name": "Next word",
+          "press": "Control+Right",
+          "does": "Option+Right",
+          "fav": true
+        },
+        {
+          "name": "Select previous word",
+          "press": "Control+Shift+Left",
+          "does": "Option+Shift+Left"
+        },
+        {
+          "name": "Select next word",
+          "press": "Control+Shift+Right",
+          "does": "Option+Shift+Right"
+        },
+        {
+          "name": "Delete previous word",
+          "press": "Control+Backspace",
+          "does": "Option+Backspace",
+          "fav": true
+        }
+      ],
+      "note": "Control+← / → stop switching Spaces."
+    },
+    {
+      "name": "Apps and windows",
+      "items": [
+        {
+          "name": "Quit the app",
+          "press": "Option+F4",
+          "does": "Cmd+Q",
+          "fav": true
+        },
+        {
+          "name": "Switch apps",
+          "press": "Option+Tab",
+          "does": "Cmd+Tab",
+          "fav": true
+        },
+        {
+          "name": "Force quit",
+          "press": "Control+Shift+Esc",
+          "does": "Cmd+Option+Esc"
+        }
+      ]
+    }
+  ]
+}

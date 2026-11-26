@@ -1,0 +1,95 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "windows-power-keys",
+  "name": "Windows power keys",
+  "kind": "remap",
+  "category": "system",
+  "platform": "windows",
+  "description": "Small upgrades for any Windows keyboard: media keys on F-keys, fewer accidents, apps one shortcut away.",
+  "author": "Cat Key",
+  "tags": [
+    "system"
+  ],
+  "sections": [
+    {
+      "name": "Media keys on F-keys",
+      "items": [
+        {
+          "name": "Previous track",
+          "press": "Win+F7",
+          "does": "MediaPrev"
+        },
+        {
+          "name": "Play / pause",
+          "press": "Win+F8",
+          "does": "MediaPlayPause",
+          "fav": true
+        },
+        {
+          "name": "Next track",
+          "press": "Win+F9",
+          "does": "MediaNext"
+        },
+        {
+          "name": "Mute",
+          "press": "Win+F10",
+          "does": "VolumeMute",
+          "fav": true
+        },
+        {
+          "name": "Volume down",
+          "press": "Win+F11",
+          "does": "VolumeDown",
+          "fav": true
+        },
+        {
+          "name": "Volume up",
+          "press": "Win+F12",
+          "does": "VolumeUp",
+          "fav": true
+        }
+      ],
+      "note": "For keyboards without media keys."
+    },
+    {
+      "name": "Fewer accidents",
+      "items": [
+        {
+          "name": "Insert does nothing (no surprise overwrite mode)",
+          "press": "Insert",
+          "block": true
+        },
+        {
+          "name": "Caps Lock is Escape",
+          "press": "CapsLock",
+          "does": "Esc",
+          "off": true
+        }
+      ],
+      "off": true
+    },
+    {
+      "name": "Open things fast",
+      "items": [
+        {
+          "name": "Open Terminal",
+          "press": "Ctrl+Alt+T",
+          "launch": "wt.exe",
+          "fav": true
+        },
+        {
+          "name": "Open Calculator",
+          "press": "Ctrl+Alt+C",
+          "launch": "calc.exe"
+        },
+        {
+          "name": "Open Notepad",
+          "press": "Ctrl+Alt+N",
+          "launch": "notepad.exe"
+        }
+      ],
+      "off": true
+    }
+  ]
+}

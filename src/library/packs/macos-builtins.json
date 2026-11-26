@@ -1,0 +1,193 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "macos-builtins",
+  "name": "Mac shortcuts worth knowing",
+  "kind": "cheatsheet",
+  "category": "system",
+  "platform": "mac",
+  "description": "Built into macOS already. Learn them, or give one your own keys.",
+  "author": "Cat Key",
+  "sources": [
+    {
+      "title": "Apple: Mac keyboard shortcuts",
+      "url": "https://support.apple.com/en-us/102650"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Everyday",
+      "items": [
+        {
+          "name": "Spotlight",
+          "keys": "Cmd+Space",
+          "fav": true
+        },
+        {
+          "name": "Switch apps",
+          "keys": "Cmd+Tab",
+          "fav": true
+        },
+        {
+          "name": "Switch windows of this app",
+          "keys": "Cmd+Backtick",
+          "fav": true
+        },
+        {
+          "name": "Screenshot of the screen",
+          "keys": "Cmd+Shift+3",
+          "fav": true
+        },
+        {
+          "name": "Screenshot of an area",
+          "keys": "Cmd+Shift+4",
+          "fav": true
+        },
+        {
+          "name": "Screenshot and recording tools",
+          "keys": "Cmd+Shift+5",
+          "fav": true
+        },
+        {
+          "name": "Force quit",
+          "keys": "Cmd+Option+Esc",
+          "fav": true
+        },
+        {
+          "name": "Lock the Mac",
+          "keys": "Control+Cmd+Q",
+          "fav": true
+        },
+        {
+          "name": "Quit",
+          "keys": "Cmd+Q"
+        },
+        {
+          "name": "Hide the app",
+          "keys": "Cmd+H"
+        },
+        {
+          "name": "Hide other apps",
+          "keys": "Cmd+Option+H"
+        },
+        {
+          "name": "Minimize",
+          "keys": "Cmd+M"
+        },
+        {
+          "name": "Emoji and symbols",
+          "keys": "Control+Cmd+Space",
+          "fav": true
+        },
+        {
+          "name": "Settings of this app",
+          "keys": "Cmd+Comma"
+        },
+        {
+          "name": "Full screen",
+          "keys": "Control+Cmd+F"
+        },
+        {
+          "name": "Mission Control",
+          "keys": "Control+Up"
+        },
+        {
+          "name": "Previous Space",
+          "keys": "Control+Left"
+        },
+        {
+          "name": "Next Space",
+          "keys": "Control+Right"
+        }
+      ]
+    },
+    {
+      "name": "Text",
+      "items": [
+        {
+          "name": "Previous word",
+          "keys": "Option+Left"
+        },
+        {
+          "name": "Next word",
+          "keys": "Option+Right"
+        },
+        {
+          "name": "Start of line",
+          "keys": "Cmd+Left"
+        },
+        {
+          "name": "End of line",
+          "keys": "Cmd+Right"
+        },
+        {
+          "name": "Delete previous word",
+          "keys": "Option+Backspace",
+          "fav": true
+        },
+        {
+          "name": "Delete to start of line",
+          "keys": "Cmd+Backspace"
+        },
+        {
+          "name": "Paste without formatting",
+          "keys": "Cmd+Option+Shift+V",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Finder",
+      "items": [
+        {
+          "name": "Quick Look",
+          "keys": "Space",
+          "fav": true
+        },
+        {
+          "name": "Go to folder",
+          "keys": "Cmd+Shift+G",
+          "fav": true
+        },
+        {
+          "name": "Show hidden files",
+          "keys": "Cmd+Shift+Period",
+          "fav": true
+        },
+        {
+          "name": "Move to Trash",
+          "keys": "Cmd+Backspace"
+        },
+        {
+          "name": "Get Info",
+          "keys": "Cmd+I"
+        },
+        {
+          "name": "Rename",
+          "keys": "Enter"
+        },
+        {
+          "name": "Enclosing folder",
+          "keys": "Cmd+Up"
+        },
+        {
+          "name": "Open",
+          "keys": "Cmd+Down"
+        },
+        {
+          "name": "New folder",
+          "keys": "Cmd+Shift+N"
+        },
+        {
+          "name": "Duplicate",
+          "keys": "Cmd+D"
+        },
+        {
+          "name": "Move here (after Copy)",
+          "keys": "Cmd+Option+V",
+          "fav": true
+        }
+      ]
+    }
+  ]
+}

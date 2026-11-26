@@ -80,6 +80,19 @@ pub trait Env {
     fn foreground_exe(&mut self) -> &str;
     /// Is this key down according to Windows right now?
     fn key_down_async(&mut self, vk: u8) -> bool;
+    /// Is a text cursor active in the foreground app (someone is typing)?
+    fn typing(&mut self) -> bool {
+        false
+    }
+    /// Which window has the keyboard (any id that changes when focus moves).
+    fn focus(&mut self) -> usize {
+        0
+    }
+}
+
+/// Keys that type something: letters, digits, punctuation, space, number pad.
+pub fn is_text_key(vk: u8) -> bool {
+    matches!(vk, 0x20 | 0x30..=0x39 | 0x41..=0x5A | 0x60..=0x6F | 0xBA..=0xC0 | 0xDB..=0xDF | 0xE2)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -132,6 +145,8 @@ pub struct Engine {
     /// Alt/Win (bits) that went down while another key was already held: keys
     /// pressed together, the other one landing first.
     with_key: u8,
+    /// The window that had the keyboard when each modifier (by state bit) went down.
+    mod_focus: [usize; 8],
     /// Filled by every call; send these in order.
     pub out: Vec<Out>,
     /// Filled by every call.
@@ -151,6 +166,7 @@ impl Engine {
             last_down: None,
             repeat_ok: true,
             with_key: 0,
+            mod_focus: [0; 8],
             out: Vec::with_capacity(16),
             effects: Vec::with_capacity(4),
         }
@@ -283,6 +299,7 @@ impl Engine {
                 }
                 self.log_mods |= b;
                 self.os_mods |= b;
+                self.mod_focus[b.trailing_zeros() as usize & 7] = env.focus();
                 if b & bit::ALT_WIN != 0 && !ev.injected && self.normal_key_held() {
                     self.with_key |= b;
                 }
@@ -527,7 +544,17 @@ impl Engine {
         }
         let needs_app = list.iter().any(|r| r.scope.needs_app());
         let exe = if needs_app { env.foreground_exe().to_string() } else { String::new() };
-        list.iter().find(|r| r.mods.matches(self.log_mods) && r.scope.matches(&exe)).cloned()
+        let rule = list.iter().find(|r| r.mods.matches(self.log_mods) && r.scope.matches(&exe)).cloned()?;
+        if self.typing_guard(vk, env) {
+            return None;
+        }
+        Some(rule)
+    }
+
+    /// A letter (or digit, punctuation) pressed with at most Shift while a text cursor
+    /// is active is someone typing: single-key rules ("V does A") stay out of the way.
+    fn typing_guard(&self, vk: u8, env: &mut dyn Env) -> bool {
+        self.log_mods & !(bit::LSHIFT | bit::RSHIFT) == 0 && is_text_key(vk) && env.typing()
     }
 
     fn find_remap(&self, vk: u8, env: &mut dyn Env) -> Option<CKeyRemap> {
@@ -537,7 +564,11 @@ impl Engine {
         }
         let needs_app = list.iter().any(|r| r.scope.needs_app());
         let exe = if needs_app { env.foreground_exe().to_string() } else { String::new() };
-        list.iter().find(|r| r.scope.matches(&exe)).cloned()
+        let km = list.iter().find(|r| r.scope.matches(&exe)).cloned()?;
+        if self.typing_guard(vk, env) {
+            return None;
+        }
+        Some(km)
     }
 
     // ------------------------------------------------------------------ actions
@@ -712,14 +743,25 @@ impl Engine {
         self.log_mods = m;
     }
 
-    /// We think a modifier is held but Windows says it isn't: we missed its release
-    /// (lock screen, UAC prompt, admin window…). Forget it so rules match again.
+    /// We think a modifier is held but Windows says it isn't: we may have missed its
+    /// release while another window had the keyboard (an app running as admin hides
+    /// keys from us). Forget it so plain keys don't fire shortcuts.
+    ///
+    /// Only asked after the keyboard moved to another window since the modifier went
+    /// down. In the same window our own record is right, and Windows' answer can be
+    /// wrong: tools that watch Alt (PowerToys Grab And Move holds it back to see
+    /// whether a mouse drag follows) make Windows report Alt as up for a moment.
+    /// Trusting Windows there made the first Alt+key after every Alt press fail.
     fn drop_stale_mods(&mut self, env: &mut dyn Env) {
         let mut changed = false;
+        let focus = env.focus();
         for mv in MOD_VKS {
             let i = mv as usize;
             if self.phys[i] && self.active[i] == Active::None {
                 let b = mod_bit(mv);
+                if self.mod_focus[b.trailing_zeros() as usize & 7] == focus {
+                    continue;
+                }
                 if self.os_mods & b != 0 && !env.key_down_async(mv) {
                     self.phys[i] = false;
                     self.os_mods &= !b;

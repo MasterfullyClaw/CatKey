@@ -42,11 +42,11 @@ use windows_sys::Win32::UI::Input::{
     RID_INPUT, RIM_TYPEKEYBOARD,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetForegroundWindow, GetMessageW,
+    CallNextHookEx, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetForegroundWindow, GetGUIThreadInfo, GetMessageW,
     GetWindowThreadProcessId, KillTimer, PeekMessageW, PostQuitMessage, PostThreadMessageW, RegisterClassW, SetTimer,
     SetWindowsHookExW, UnhookWindowsHookEx, EVENT_SYSTEM_DESKTOPSWITCH, HC_ACTION, HHOOK, HWND_MESSAGE, KBDLLHOOKSTRUCT,
     LLKHF_EXTENDED, LLKHF_INJECTED, MSG, PM_NOREMOVE, RI_KEY_BREAK, RI_KEY_E0, RI_KEY_E1, WH_KEYBOARD_LL,
-    WINEVENT_OUTOFCONTEXT, WM_APP, WM_INPUT, WM_KEYDOWN, WM_SYSKEYDOWN, WM_TIMER, WM_USER, WNDCLASSW,
+    GUITHREADINFO, WINEVENT_OUTOFCONTEXT, WM_APP, WM_INPUT, WM_KEYDOWN, WM_SYSKEYDOWN, WM_TIMER, WM_USER, WNDCLASSW,
 };
 
 /// `dwExtraInfo` on every event we inject, so the hook lets them through.
@@ -411,6 +411,19 @@ impl Env for WinEnv {
             }
         }
         &self.exe
+    }
+
+    fn focus(&mut self) -> usize {
+        unsafe { GetForegroundWindow() as usize }
+    }
+
+    fn typing(&mut self) -> bool {
+        // A text box with a blinking cursor (Win32 caret) has the keyboard.
+        unsafe {
+            let mut gti: GUITHREADINFO = zeroed();
+            gti.cbSize = size_of::<GUITHREADINFO>() as u32;
+            GetGUIThreadInfo(0, &mut gti) != 0 && !gti.hwndCaret.is_null()
+        }
     }
 
     fn key_down_async(&mut self, vk: u8) -> bool {

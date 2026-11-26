@@ -266,7 +266,7 @@ async function refreshStatus() {
   if (document.hidden) return;
   const st = await invoke('get_status').catch(() => null);
   if (!st) return;
-  const key = (x) => JSON.stringify([x.powertoysRunning, x.admin, x.engineRunning, x.startup, x.problems]);
+  const key = (x) => JSON.stringify([x.powertoysRunning, x.grabAndMove, x.admin, x.engineRunning, x.startup, x.problems]);
   const changed = key(st) !== key(S.status);
   S.status = st;
   if (changed) {
@@ -394,6 +394,11 @@ function checkupRows() {
     ] });
   } else {
     rows.push({ level: 'ok', title: 'No other remapper is fighting for your keys', desc: 'Cat Key has the keyboard to itself.' });
+  }
+  if (st.grabAndMove) {
+    rows.push({ level: 'warn', title: 'PowerToys Grab And Move listens to Alt too', desc: 'It holds Alt back for a moment to see whether you drag a window. Cat Key copes with that now, but for the smoothest Alt shortcuts set Grab And Move to the Windows key: PowerToys → Grab And Move → Activation key.', actions: [
+      ['Open PowerToys', () => invoke('open_system_page', { page: 'powertoys' }).catch((e) => toast(String(e), { kind: 'warn' }))],
+    ] });
   }
   return rows;
 }

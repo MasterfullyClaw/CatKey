@@ -3,6 +3,7 @@
 use crate::app::{self, AppState, Stats, POWERTOYS_ENGINE};
 use crate::{hook, win};
 use catkey_core::config::rule_problem;
+use catkey_core::config::Rule;
 use catkey_core::{builtin_templates, powertoys, Config, Template};
 use serde::Serialize;
 use std::collections::HashMap;
@@ -16,6 +17,8 @@ pub struct Status {
     version: String,
     admin: bool,
     powertoys_running: bool,
+    /// PowerToys Grab And Move is on (it listens to Alt too).
+    grab_and_move: bool,
     first_run: bool,
     config_reset: bool,
     config_dir: String,
@@ -25,6 +28,10 @@ pub struct Status {
     engine_running: bool,
     /// "on" | "off" | "blocked" (Windows turned it off in Startup apps) | "missing"
     startup: String,
+    /// "windows" or "mac": which key names and app ids this copy uses.
+    platform: &'static str,
+    /// Keys the watchdog caught that the keyboard hook missed (since Cat Key started).
+    watch_fixes: u32,
 }
 
 #[derive(Serialize)]
@@ -51,12 +58,15 @@ fn status(state: &AppState) -> Status {
         version: env!("CARGO_PKG_VERSION").to_string(),
         admin: win::is_elevated(),
         powertoys_running: win::process_running(POWERTOYS_ENGINE),
+        grab_and_move: win::powertoys_grab_and_move_on(),
         first_run: state.first_run,
         config_reset: state.config_reset,
         config_dir: state.dir.to_string_lossy().to_string(),
         problems,
         engine_running: hook::engine_running(),
         startup: app::startup_status(&settings).to_string(),
+        platform: if cfg!(target_os = "macos") { "mac" } else { "windows" },
+        watch_fixes: hook::WATCH_FIXES.load(std::sync::atomic::Ordering::Relaxed),
     }
 }
 
@@ -408,7 +418,9 @@ pub fn key_log_take() -> KeyLog {
 /// Save text the window made (the key log) where the user picks.
 #[tauri::command]
 pub async fn save_text(app: AppHandle, name: String, text: String) -> Result<bool, String> {
-    let Some(file) = app.dialog().file().set_title("Save").set_file_name(&name).add_filter("Text", &["txt"]).blocking_save_file() else {
+    let ext = name.rsplit('.').next().filter(|e| *e == "json").unwrap_or("txt").to_string();
+    let label = if ext == "json" { "Cat Key file" } else { "Text" };
+    let Some(file) = app.dialog().file().set_title("Save").set_file_name(&name).add_filter(label, &[ext.as_str()]).blocking_save_file() else {
         return Ok(false);
     };
     let path = file.into_path().map_err(|e| e.to_string())?;
@@ -427,4 +439,38 @@ pub fn open_link(url: String) -> Result<(), String> {
         return Err("only https links".into());
     }
     win::launch(&url, "")
+}
+
+#[derive(Serialize)]
+pub struct TextFile {
+    name: String,
+    text: String,
+}
+
+/// Pick a file and read it (Cat Key packs, whole-setup profiles, PowerToys settings).
+#[tauri::command]
+pub async fn open_text_file(app: AppHandle) -> Result<Option<TextFile>, String> {
+    let Some(file) = app
+        .dialog()
+        .file()
+        .set_title("Import")
+        .add_filter("Cat Key, PowerToys or text file", &["json", "txt"])
+        .blocking_pick_file()
+    else {
+        return Ok(None);
+    };
+    let path = file.into_path().map_err(|e| e.to_string())?;
+    let meta = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    if meta.len() > 8 * 1024 * 1024 {
+        return Err("That file is too big to be a shortcut file.".into());
+    }
+    let text = std::fs::read_to_string(&path).map_err(|_| "That file isn't text Cat Key can read.".to_string())?;
+    let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+    Ok(Some(TextFile { name, text }))
+}
+
+/// Shortcuts from a PowerToys Keyboard Manager settings file's text.
+#[tauri::command]
+pub fn powertoys_rules(text: String) -> Result<Vec<Rule>, String> {
+    powertoys::import(&text)
 }

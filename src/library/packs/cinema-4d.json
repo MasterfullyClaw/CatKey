@@ -1,0 +1,103 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "cinema-4d",
+  "name": "Cinema 4D",
+  "kind": "cheatsheet",
+  "category": "3d",
+  "platform": "both",
+  "description": "Core Cinema 4D defaults.",
+  "author": "Cat Key",
+  "app": "cinema4d",
+  "sources": [
+    {
+      "title": "Maxon: Cinema 4D help",
+      "url": "https://help.maxon.net/c4d/en-us/"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Essentials",
+      "items": [
+        {
+          "name": "Move",
+          "keys": "E",
+          "fav": true
+        },
+        {
+          "name": "Rotate",
+          "keys": "R",
+          "fav": true
+        },
+        {
+          "name": "Scale",
+          "keys": "T",
+          "fav": true
+        },
+        {
+          "name": "Make editable",
+          "keys": "C",
+          "fav": true
+        },
+        {
+          "name": "Group objects",
+          "keys": "Opt+G",
+          "fav": true
+        },
+        {
+          "name": "Commander (search everything)",
+          "keys": "Shift+C",
+          "fav": true
+        },
+        {
+          "name": "Render view",
+          "keys": "Mod+R",
+          "fav": true
+        },
+        {
+          "name": "Render to Picture Viewer",
+          "keys": "Shift+R",
+          "fav": true
+        },
+        {
+          "name": "Project settings",
+          "keys": "Mod+D"
+        },
+        {
+          "name": "Preferences",
+          "keys": "Mod+E"
+        },
+        {
+          "name": "Save",
+          "keys": "Mod+S",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Viewports",
+      "items": [
+        {
+          "name": "Perspective",
+          "keys": "F1"
+        },
+        {
+          "name": "Top",
+          "keys": "F2"
+        },
+        {
+          "name": "Right",
+          "keys": "F3"
+        },
+        {
+          "name": "Front",
+          "keys": "F4"
+        },
+        {
+          "name": "All four views",
+          "keys": "F5"
+        }
+      ]
+    }
+  ]
+}

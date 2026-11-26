@@ -1,0 +1,297 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "davinci-resolve",
+  "name": "DaVinci Resolve",
+  "kind": "cheatsheet",
+  "category": "video",
+  "platform": "both",
+  "description": "Edit and Color page defaults editors use most.",
+  "author": "Cat Key",
+  "app": "resolve",
+  "sources": [
+    {
+      "title": "Blackmagic Design: DaVinci Resolve manual (keyboard shortcuts)",
+      "url": "https://www.blackmagicdesign.com/products/davinciresolve/training"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Edit modes",
+      "items": [
+        {
+          "name": "Selection (normal edit)",
+          "keys": "A",
+          "fav": true
+        },
+        {
+          "name": "Blade edit mode",
+          "keys": "B",
+          "fav": true
+        },
+        {
+          "name": "Trim edit mode",
+          "keys": "T",
+          "fav": true
+        },
+        {
+          "name": "Dynamic trim",
+          "keys": "W"
+        },
+        {
+          "name": "Range selection",
+          "keys": "R"
+        },
+        {
+          "name": "Snapping",
+          "keys": "N",
+          "fav": true
+        },
+        {
+          "name": "Enable / disable clip",
+          "keys": "D",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Cutting and trimming",
+      "items": [
+        {
+          "name": "Split clip at playhead",
+          "keys": "Mod+B",
+          "fav": true
+        },
+        {
+          "name": "Add edit",
+          "keys": "Mod+Backslash"
+        },
+        {
+          "name": "Join clip",
+          "keys": "Opt+Backslash"
+        },
+        {
+          "name": "Trim start to playhead",
+          "keys": "Shift+LBracket",
+          "fav": true
+        },
+        {
+          "name": "Trim end to playhead",
+          "keys": "Shift+RBracket",
+          "fav": true
+        },
+        {
+          "name": "Ripple start to playhead",
+          "keys": "Mod+Shift+LBracket",
+          "fav": true
+        },
+        {
+          "name": "Ripple end to playhead",
+          "keys": "Mod+Shift+RBracket",
+          "fav": true
+        },
+        {
+          "name": "Ripple delete",
+          "keys": "Shift+Backspace",
+          "fav": true
+        },
+        {
+          "name": "Delete (leave the gap)",
+          "keys": "Backspace"
+        }
+      ]
+    },
+    {
+      "name": "Editing",
+      "items": [
+        {
+          "name": "Insert",
+          "keys": "F9",
+          "fav": true
+        },
+        {
+          "name": "Overwrite",
+          "keys": "F10",
+          "fav": true
+        },
+        {
+          "name": "Replace",
+          "keys": "F11"
+        },
+        {
+          "name": "Place on top",
+          "keys": "F12"
+        },
+        {
+          "name": "Append to end",
+          "keys": "Shift+F12",
+          "fav": true
+        },
+        {
+          "name": "Add transition",
+          "keys": "Mod+T",
+          "fav": true
+        },
+        {
+          "name": "Video-only transition",
+          "keys": "Opt+T"
+        },
+        {
+          "name": "Audio crossfade",
+          "keys": "Shift+T"
+        },
+        {
+          "name": "Retime controls",
+          "keys": "Mod+R",
+          "fav": true
+        },
+        {
+          "name": "Link / unlink",
+          "keys": "Mod+Opt+L",
+          "fav": true
+        },
+        {
+          "name": "Paste attributes",
+          "keys": "Opt+V",
+          "fav": true
+        },
+        {
+          "name": "Select clips after playhead",
+          "keys": "Opt+Y"
+        }
+      ]
+    },
+    {
+      "name": "Timeline",
+      "items": [
+        {
+          "name": "Mark in",
+          "keys": "I",
+          "fav": true
+        },
+        {
+          "name": "Mark out",
+          "keys": "O",
+          "fav": true
+        },
+        {
+          "name": "Play backward",
+          "keys": "J"
+        },
+        {
+          "name": "Stop",
+          "keys": "K"
+        },
+        {
+          "name": "Play forward",
+          "keys": "L"
+        },
+        {
+          "name": "Play / stop",
+          "keys": "Space",
+          "fav": true
+        },
+        {
+          "name": "Previous edit",
+          "keys": "Up",
+          "fav": true
+        },
+        {
+          "name": "Next edit",
+          "keys": "Down",
+          "fav": true
+        },
+        {
+          "name": "Add marker",
+          "keys": "M",
+          "fav": true
+        },
+        {
+          "name": "Modify marker",
+          "keys": "Shift+M"
+        },
+        {
+          "name": "Delete marker",
+          "keys": "Opt+M"
+        },
+        {
+          "name": "Zoom in",
+          "keys": "Mod+Equals"
+        },
+        {
+          "name": "Zoom out",
+          "keys": "Mod+Minus"
+        },
+        {
+          "name": "Zoom to fit",
+          "keys": "Shift+Z",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Pages and color",
+      "items": [
+        {
+          "name": "Media page",
+          "keys": "Shift+2"
+        },
+        {
+          "name": "Cut page",
+          "keys": "Shift+3"
+        },
+        {
+          "name": "Edit page",
+          "keys": "Shift+4",
+          "fav": true
+        },
+        {
+          "name": "Fusion page",
+          "keys": "Shift+5"
+        },
+        {
+          "name": "Color page",
+          "keys": "Shift+6",
+          "fav": true
+        },
+        {
+          "name": "Fairlight page",
+          "keys": "Shift+7"
+        },
+        {
+          "name": "Deliver page",
+          "keys": "Shift+8",
+          "fav": true
+        },
+        {
+          "name": "Add serial node",
+          "keys": "Opt+S",
+          "fav": true
+        },
+        {
+          "name": "Add parallel node",
+          "keys": "Opt+P"
+        },
+        {
+          "name": "Add layer node",
+          "keys": "Opt+L"
+        },
+        {
+          "name": "Disable / enable node",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Bypass all grades",
+          "keys": "Shift+D",
+          "fav": true
+        },
+        {
+          "name": "Grab still",
+          "keys": "Mod+Opt+G",
+          "fav": true
+        }
+      ]
+    }
+  ]
+}

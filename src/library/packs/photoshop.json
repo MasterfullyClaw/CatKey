@@ -1,0 +1,343 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "photoshop",
+  "name": "Photoshop",
+  "kind": "cheatsheet",
+  "category": "design",
+  "platform": "both",
+  "description": "The defaults pros reach for most.",
+  "author": "Cat Key",
+  "app": "photoshop",
+  "sources": [
+    {
+      "title": "Adobe: Photoshop keyboard shortcuts",
+      "url": "https://helpx.adobe.com/photoshop/using/default-keyboard-shortcuts.html"
+    },
+    {
+      "title": "ShortcutMapper (MIT licence)",
+      "url": "https://github.com/waldobronchart/ShortcutMapper"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Tools",
+      "items": [
+        {
+          "name": "Move",
+          "keys": "V",
+          "fav": true
+        },
+        {
+          "name": "Marquee",
+          "keys": "M"
+        },
+        {
+          "name": "Lasso",
+          "keys": "L"
+        },
+        {
+          "name": "Object / quick selection",
+          "keys": "W",
+          "fav": true
+        },
+        {
+          "name": "Crop",
+          "keys": "C",
+          "fav": true
+        },
+        {
+          "name": "Eyedropper",
+          "keys": "I"
+        },
+        {
+          "name": "Spot healing brush",
+          "keys": "J",
+          "fav": true
+        },
+        {
+          "name": "Brush",
+          "keys": "B",
+          "fav": true
+        },
+        {
+          "name": "Clone stamp",
+          "keys": "S"
+        },
+        {
+          "name": "Eraser",
+          "keys": "E"
+        },
+        {
+          "name": "Gradient / paint bucket",
+          "keys": "G"
+        },
+        {
+          "name": "Dodge / burn",
+          "keys": "O"
+        },
+        {
+          "name": "Pen",
+          "keys": "P"
+        },
+        {
+          "name": "Type",
+          "keys": "T",
+          "fav": true
+        },
+        {
+          "name": "Shapes",
+          "keys": "U"
+        },
+        {
+          "name": "Hand",
+          "keys": "H"
+        },
+        {
+          "name": "Zoom",
+          "keys": "Z"
+        },
+        {
+          "name": "Rotate view",
+          "keys": "R"
+        }
+      ]
+    },
+    {
+      "name": "Painting",
+      "items": [
+        {
+          "name": "Smaller brush",
+          "keys": "LBracket",
+          "fav": true
+        },
+        {
+          "name": "Bigger brush",
+          "keys": "RBracket",
+          "fav": true
+        },
+        {
+          "name": "Softer brush",
+          "keys": "Shift+LBracket"
+        },
+        {
+          "name": "Harder brush",
+          "keys": "Shift+RBracket"
+        },
+        {
+          "name": "Default colors",
+          "keys": "D",
+          "fav": true
+        },
+        {
+          "name": "Swap colors",
+          "keys": "X",
+          "fav": true
+        },
+        {
+          "name": "Quick mask",
+          "keys": "Q"
+        },
+        {
+          "name": "50% opacity (1–0 set opacity)",
+          "keys": "5",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Layers",
+      "items": [
+        {
+          "name": "Duplicate layer / layer via copy",
+          "keys": "Mod+J",
+          "fav": true
+        },
+        {
+          "name": "New layer",
+          "keys": "Mod+Shift+N",
+          "fav": true
+        },
+        {
+          "name": "Group layers",
+          "keys": "Mod+G",
+          "fav": true
+        },
+        {
+          "name": "Ungroup",
+          "keys": "Mod+Shift+G"
+        },
+        {
+          "name": "Merge down",
+          "keys": "Mod+E",
+          "fav": true
+        },
+        {
+          "name": "Merge visible",
+          "keys": "Mod+Shift+E"
+        },
+        {
+          "name": "Stamp visible to a new layer",
+          "keys": "Mod+Opt+Shift+E",
+          "fav": true
+        },
+        {
+          "name": "Clipping mask",
+          "keys": "Mod+Opt+G",
+          "fav": true
+        },
+        {
+          "name": "Bring to front",
+          "keys": "Mod+Shift+RBracket"
+        },
+        {
+          "name": "Bring forward",
+          "keys": "Mod+RBracket"
+        },
+        {
+          "name": "Send backward",
+          "keys": "Mod+LBracket"
+        }
+      ]
+    },
+    {
+      "name": "Editing",
+      "items": [
+        {
+          "name": "Free transform",
+          "keys": "Mod+T",
+          "fav": true
+        },
+        {
+          "name": "Transform again",
+          "keys": "Mod+Shift+T"
+        },
+        {
+          "name": "Undo",
+          "keys": "Mod+Z",
+          "fav": true
+        },
+        {
+          "name": "Redo",
+          "keys": "Mod+Shift+Z"
+        },
+        {
+          "name": "Fill",
+          "keys": "Shift+F5",
+          "fav": true
+        },
+        {
+          "name": "Select all",
+          "keys": "Mod+A"
+        },
+        {
+          "name": "Deselect",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Reselect",
+          "keys": "Mod+Shift+D"
+        },
+        {
+          "name": "Invert selection",
+          "keys": "Mod+Shift+I",
+          "fav": true
+        },
+        {
+          "name": "Select and mask",
+          "keys": "Mod+Opt+R",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Adjustments",
+      "items": [
+        {
+          "name": "Levels",
+          "keys": "Mod+L",
+          "fav": true
+        },
+        {
+          "name": "Curves",
+          "keys": "Mod+M",
+          "fav": true
+        },
+        {
+          "name": "Hue / saturation",
+          "keys": "Mod+U",
+          "fav": true
+        },
+        {
+          "name": "Color balance",
+          "keys": "Mod+B"
+        },
+        {
+          "name": "Desaturate",
+          "keys": "Mod+Shift+U"
+        },
+        {
+          "name": "Invert colors",
+          "keys": "Mod+I"
+        },
+        {
+          "name": "Auto tone",
+          "keys": "Mod+Shift+L"
+        },
+        {
+          "name": "Camera Raw filter",
+          "keys": "Mod+Shift+A",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "View and file",
+      "items": [
+        {
+          "name": "Fit on screen",
+          "keys": "Mod+0",
+          "fav": true
+        },
+        {
+          "name": "100%",
+          "keys": "Mod+1",
+          "fav": true
+        },
+        {
+          "name": "Rulers",
+          "keys": "Mod+R"
+        },
+        {
+          "name": "Hide panels",
+          "keys": "Tab",
+          "fav": true
+        },
+        {
+          "name": "Screen modes",
+          "keys": "F"
+        },
+        {
+          "name": "Save as",
+          "keys": "Mod+Shift+S",
+          "fav": true
+        },
+        {
+          "name": "Export as",
+          "keys": "Mod+Opt+Shift+W",
+          "fav": true
+        },
+        {
+          "name": "Image size",
+          "keys": "Mod+Opt+I",
+          "fav": true
+        },
+        {
+          "name": "Canvas size",
+          "keys": "Mod+Opt+C"
+        }
+      ]
+    }
+  ]
+}

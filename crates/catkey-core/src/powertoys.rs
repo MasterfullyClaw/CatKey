@@ -107,7 +107,7 @@ fn entry_to_rule(o: &serde_json::Map<String, Value>) -> Option<Rule> {
         Some(app) => Scope { mode: ScopeMode::Only, apps: vec![normalize_app(app)] },
         None => Scope::all(),
     };
-    Some(Rule { id: new_id(), enabled, name: String::new(), trigger, action, scope })
+    Some(Rule { id: new_id(), enabled, name: String::new(), trigger, action, scope, source: String::new() })
 }
 
 fn walk(v: &Value, out: &mut Vec<Rule>) {

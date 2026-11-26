@@ -1,0 +1,98 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "file-explorer",
+  "name": "File Explorer",
+  "kind": "cheatsheet",
+  "category": "system",
+  "platform": "windows",
+  "description": "Move through folders without the mouse.",
+  "author": "Cat Key",
+  "app": "explorer",
+  "sources": [
+    {
+      "title": "Microsoft: Keyboard shortcuts in Windows",
+      "url": "https://support.microsoft.com/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Essentials",
+      "items": [
+        {
+          "name": "New folder",
+          "keys": "Ctrl+Shift+N",
+          "fav": true
+        },
+        {
+          "name": "Rename",
+          "keys": "F2",
+          "fav": true
+        },
+        {
+          "name": "Up one folder",
+          "keys": "Alt+Up",
+          "fav": true
+        },
+        {
+          "name": "Back",
+          "keys": "Alt+Left"
+        },
+        {
+          "name": "Forward",
+          "keys": "Alt+Right"
+        },
+        {
+          "name": "Address bar",
+          "keys": "Alt+D",
+          "fav": true
+        },
+        {
+          "name": "Search",
+          "keys": "Ctrl+F"
+        },
+        {
+          "name": "New tab",
+          "keys": "Ctrl+T",
+          "fav": true
+        },
+        {
+          "name": "Close tab",
+          "keys": "Ctrl+W"
+        },
+        {
+          "name": "New window",
+          "keys": "Ctrl+N"
+        },
+        {
+          "name": "Properties",
+          "keys": "Alt+Enter",
+          "fav": true
+        },
+        {
+          "name": "Preview pane",
+          "keys": "Alt+P",
+          "fav": true
+        },
+        {
+          "name": "Delete permanently",
+          "keys": "Shift+Delete",
+          "fav": true
+        },
+        {
+          "name": "Copy as path",
+          "keys": "Ctrl+Shift+C",
+          "fav": true
+        },
+        {
+          "name": "Refresh",
+          "keys": "F5"
+        },
+        {
+          "name": "Full screen",
+          "keys": "F11"
+        }
+      ]
+    }
+  ]
+}

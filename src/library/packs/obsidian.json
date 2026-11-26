@@ -1,0 +1,119 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "obsidian",
+  "name": "Obsidian",
+  "kind": "cheatsheet",
+  "category": "work",
+  "platform": "both",
+  "description": "Notes at the speed of thought.",
+  "author": "Cat Key",
+  "app": "obsidian",
+  "sources": [
+    {
+      "title": "Obsidian Help: Hotkeys",
+      "url": "https://help.obsidian.md/Customization/Hotkeys"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Find and open",
+      "items": [
+        {
+          "name": "Quick switcher",
+          "keys": "Mod+O",
+          "fav": true
+        },
+        {
+          "name": "Command palette",
+          "keys": "Mod+P",
+          "fav": true
+        },
+        {
+          "name": "Search all notes",
+          "keys": "Mod+Shift+F",
+          "fav": true
+        },
+        {
+          "name": "Graph view",
+          "keys": "Mod+G",
+          "fav": true
+        },
+        {
+          "name": "New note",
+          "keys": "Mod+N",
+          "fav": true
+        },
+        {
+          "name": "New tab",
+          "keys": "Mod+T"
+        },
+        {
+          "name": "Close tab",
+          "keys": "Mod+W"
+        },
+        {
+          "name": "Back",
+          "keys": "Mod+Opt+Left",
+          "fav": true
+        },
+        {
+          "name": "Forward",
+          "keys": "Mod+Opt+Right"
+        },
+        {
+          "name": "Settings",
+          "keys": "Mod+Comma"
+        }
+      ]
+    },
+    {
+      "name": "Writing",
+      "items": [
+        {
+          "name": "Reading / editing view",
+          "keys": "Mod+E",
+          "fav": true
+        },
+        {
+          "name": "Insert link",
+          "keys": "Mod+K",
+          "fav": true
+        },
+        {
+          "name": "Toggle checkbox",
+          "keys": "Mod+Enter",
+          "fav": true
+        },
+        {
+          "name": "Bold",
+          "keys": "Mod+B"
+        },
+        {
+          "name": "Italic",
+          "keys": "Mod+I"
+        },
+        {
+          "name": "Indent",
+          "keys": "Mod+RBracket"
+        },
+        {
+          "name": "Unindent",
+          "keys": "Mod+LBracket"
+        },
+        {
+          "name": "Find in note",
+          "keys": "Mod+F"
+        },
+        {
+          "name": "Find and replace",
+          "keys": "Mod+H"
+        },
+        {
+          "name": "Toggle comment",
+          "keys": "Mod+Slash"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,447 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "mac-on-windows",
+  "name": "Mac keys on Windows",
+  "kind": "remap",
+  "category": "switch",
+  "platform": "windows",
+  "description": "Your Mac muscle memory, on Windows: the Alt key (where ⌘ sits) does what ⌘ does on a Mac, in every app.",
+  "author": "Cat Key",
+  "tags": [
+    "mac",
+    "switcher",
+    "starter"
+  ],
+  "sections": [
+    {
+      "name": "Everyday",
+      "items": [
+        {
+          "name": "Copy",
+          "press": "Alt+C",
+          "does": "Ctrl+C",
+          "fav": true
+        },
+        {
+          "name": "Paste",
+          "press": "Alt+V",
+          "does": "Ctrl+V",
+          "fav": true
+        },
+        {
+          "name": "Cut",
+          "press": "Alt+X",
+          "does": "Ctrl+X",
+          "fav": true
+        },
+        {
+          "name": "Undo",
+          "press": "Alt+Z",
+          "does": "Ctrl+Z",
+          "fav": true
+        },
+        {
+          "name": "Redo",
+          "press": "Alt+Shift+Z",
+          "does": "Ctrl+Shift+Z",
+          "fav": true
+        },
+        {
+          "name": "Select all",
+          "press": "Alt+A",
+          "does": "Ctrl+A",
+          "fav": true
+        },
+        {
+          "name": "Save",
+          "press": "Alt+S",
+          "does": "Ctrl+S",
+          "fav": true
+        },
+        {
+          "name": "Save as",
+          "press": "Alt+Shift+S",
+          "does": "Ctrl+Shift+S"
+        },
+        {
+          "name": "Find",
+          "press": "Alt+F",
+          "does": "Ctrl+F",
+          "fav": true
+        },
+        {
+          "name": "Find next",
+          "press": "Alt+G",
+          "does": "F3"
+        },
+        {
+          "name": "Find previous",
+          "press": "Alt+Shift+G",
+          "does": "Shift+F3"
+        },
+        {
+          "name": "New",
+          "press": "Alt+N",
+          "does": "Ctrl+N",
+          "fav": true
+        },
+        {
+          "name": "New folder / private window",
+          "press": "Alt+Shift+N",
+          "does": "Ctrl+Shift+N"
+        },
+        {
+          "name": "Open",
+          "press": "Alt+O",
+          "does": "Ctrl+O"
+        },
+        {
+          "name": "Print",
+          "press": "Alt+P",
+          "does": "Ctrl+P"
+        },
+        {
+          "name": "Close tab or window",
+          "press": "Alt+W",
+          "does": "Ctrl+W",
+          "fav": true
+        },
+        {
+          "name": "Quit the app",
+          "press": "Alt+Q",
+          "does": "Alt+F4",
+          "fav": true
+        },
+        {
+          "name": "Settings (in apps that have it)",
+          "press": "Alt+Comma",
+          "does": "Ctrl+Comma"
+        }
+      ]
+    },
+    {
+      "name": "Text formatting",
+      "items": [
+        {
+          "name": "Bold",
+          "press": "Alt+B",
+          "does": "Ctrl+B"
+        },
+        {
+          "name": "Italic",
+          "press": "Alt+I",
+          "does": "Ctrl+I"
+        },
+        {
+          "name": "Underline",
+          "press": "Alt+U",
+          "does": "Ctrl+U"
+        },
+        {
+          "name": "Insert link",
+          "press": "Alt+K",
+          "does": "Ctrl+K"
+        }
+      ]
+    },
+    {
+      "name": "Browser and tabs",
+      "items": [
+        {
+          "name": "New tab",
+          "press": "Alt+T",
+          "does": "Ctrl+T",
+          "fav": true
+        },
+        {
+          "name": "Reopen closed tab",
+          "press": "Alt+Shift+T",
+          "does": "Ctrl+Shift+T",
+          "fav": true
+        },
+        {
+          "name": "Reload",
+          "press": "Alt+R",
+          "does": "Ctrl+R",
+          "fav": true
+        },
+        {
+          "name": "Address bar",
+          "press": "Alt+L",
+          "does": "Ctrl+L",
+          "fav": true
+        },
+        {
+          "name": "Bookmark this page",
+          "press": "Alt+D",
+          "does": "Ctrl+D"
+        },
+        {
+          "name": "History",
+          "press": "Alt+Y",
+          "does": "Ctrl+H"
+        },
+        {
+          "name": "Downloads",
+          "press": "Alt+Shift+J",
+          "does": "Ctrl+J"
+        },
+        {
+          "name": "Back",
+          "press": "Alt+LBracket",
+          "does": "Alt+Left",
+          "fav": true
+        },
+        {
+          "name": "Forward",
+          "press": "Alt+RBracket",
+          "does": "Alt+Right",
+          "fav": true
+        },
+        {
+          "name": "Previous tab",
+          "press": "Alt+Shift+LBracket",
+          "does": "Ctrl+Shift+Tab"
+        },
+        {
+          "name": "Next tab",
+          "press": "Alt+Shift+RBracket",
+          "does": "Ctrl+Tab"
+        },
+        {
+          "name": "Zoom in",
+          "press": "Alt+Equals",
+          "does": "Ctrl+Equals"
+        },
+        {
+          "name": "Zoom out",
+          "press": "Alt+Minus",
+          "does": "Ctrl+Minus"
+        },
+        {
+          "name": "Actual size",
+          "press": "Alt+0",
+          "does": "Ctrl+0"
+        },
+        {
+          "name": "Go to tab 1",
+          "press": "Alt+1",
+          "does": "Ctrl+1"
+        },
+        {
+          "name": "Go to tab 2",
+          "press": "Alt+2",
+          "does": "Ctrl+2"
+        },
+        {
+          "name": "Go to tab 3",
+          "press": "Alt+3",
+          "does": "Ctrl+3"
+        },
+        {
+          "name": "Go to tab 4",
+          "press": "Alt+4",
+          "does": "Ctrl+4"
+        },
+        {
+          "name": "Go to tab 5",
+          "press": "Alt+5",
+          "does": "Ctrl+5"
+        },
+        {
+          "name": "Go to tab 6",
+          "press": "Alt+6",
+          "does": "Ctrl+6"
+        },
+        {
+          "name": "Go to tab 7",
+          "press": "Alt+7",
+          "does": "Ctrl+7"
+        },
+        {
+          "name": "Go to tab 8",
+          "press": "Alt+8",
+          "does": "Ctrl+8"
+        },
+        {
+          "name": "Go to last tab",
+          "press": "Alt+9",
+          "does": "Ctrl+9"
+        }
+      ]
+    },
+    {
+      "name": "Screenshots like a Mac",
+      "items": [
+        {
+          "name": "Screenshot of the whole screen (saved to Pictures)",
+          "press": "Alt+Shift+3",
+          "does": "Win+PrintScreen",
+          "fav": true
+        },
+        {
+          "name": "Screenshot of an area",
+          "press": "Alt+Shift+4",
+          "does": "Win+Shift+S",
+          "fav": true
+        },
+        {
+          "name": "Record the screen (Snipping Tool, Windows 11)",
+          "press": "Alt+Shift+5",
+          "does": "Win+Shift+R"
+        }
+      ]
+    },
+    {
+      "name": "Text editing like a Mac",
+      "items": [
+        {
+          "name": "Start of line",
+          "press": "Alt+Left",
+          "does": "Home"
+        },
+        {
+          "name": "End of line",
+          "press": "Alt+Right",
+          "does": "End"
+        },
+        {
+          "name": "Top of document",
+          "press": "Alt+Up",
+          "does": "Ctrl+Home"
+        },
+        {
+          "name": "End of document",
+          "press": "Alt+Down",
+          "does": "Ctrl+End"
+        },
+        {
+          "name": "Select to start of line",
+          "press": "Alt+Shift+Left",
+          "does": "Shift+Home"
+        },
+        {
+          "name": "Select to end of line",
+          "press": "Alt+Shift+Right",
+          "does": "Shift+End"
+        },
+        {
+          "name": "Select to top",
+          "press": "Alt+Shift+Up",
+          "does": "Ctrl+Shift+Home"
+        },
+        {
+          "name": "Select to end",
+          "press": "Alt+Shift+Down",
+          "does": "Ctrl+Shift+End"
+        }
+      ],
+      "off": true,
+      "note": "Alt+← stops meaning Back in browsers. Use Alt+[ instead, like ⌘[ on a Mac."
+    },
+    {
+      "name": "Option keys on the Windows key",
+      "items": [
+        {
+          "name": "Previous word",
+          "press": "Win+Left",
+          "does": "Ctrl+Left"
+        },
+        {
+          "name": "Next word",
+          "press": "Win+Right",
+          "does": "Ctrl+Right"
+        },
+        {
+          "name": "Select previous word",
+          "press": "Win+Shift+Left",
+          "does": "Ctrl+Shift+Left"
+        },
+        {
+          "name": "Select next word",
+          "press": "Win+Shift+Right",
+          "does": "Ctrl+Shift+Right"
+        },
+        {
+          "name": "Delete previous word",
+          "press": "Win+Backspace",
+          "does": "Ctrl+Backspace"
+        }
+      ],
+      "off": true,
+      "note": "The Windows key sits where ⌥ Option is. This replaces Windows' Win+← / Win+→ window snapping."
+    },
+    {
+      "name": "Apps and windows",
+      "items": [
+        {
+          "name": "Minimize the window",
+          "press": "Alt+M",
+          "does": "Win+Down"
+        },
+        {
+          "name": "Search (like Spotlight)",
+          "press": "Alt+Space",
+          "does": "Win+S",
+          "off": true,
+          "note": "Replaces Alt+Space, the window menu."
+        }
+      ]
+    },
+    {
+      "name": "Where Windows works differently",
+      "items": [
+        {
+          "name": "Copy in terminals",
+          "press": "Alt+C",
+          "does": "Ctrl+Shift+C",
+          "only": [
+            "app:terminal"
+          ],
+          "fav": true,
+          "note": "In a terminal Ctrl+C stops the running command."
+        },
+        {
+          "name": "Paste in terminals",
+          "press": "Alt+V",
+          "does": "Ctrl+Shift+V",
+          "only": [
+            "app:terminal"
+          ],
+          "fav": true
+        },
+        {
+          "name": "Redo in Office and Notepad",
+          "press": "Alt+Shift+Z",
+          "does": "Ctrl+Y",
+          "only": [
+            "winword.exe",
+            "excel.exe",
+            "powerpnt.exe",
+            "outlook.exe",
+            "notepad.exe"
+          ],
+          "fav": true
+        },
+        {
+          "name": "Move to Recycle Bin (File Explorer)",
+          "press": "Alt+Backspace",
+          "does": "Delete",
+          "only": [
+            "app:explorer"
+          ]
+        },
+        {
+          "name": "Properties, like Get Info (File Explorer)",
+          "press": "Alt+I",
+          "does": "Alt+Enter",
+          "only": [
+            "app:explorer"
+          ]
+        }
+      ],
+      "note": "App-specific versions win over the everyday ones."
+    }
+  ]
+}

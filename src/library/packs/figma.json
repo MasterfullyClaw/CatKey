@@ -1,0 +1,188 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "figma",
+  "name": "Figma",
+  "kind": "cheatsheet",
+  "category": "design",
+  "platform": "both",
+  "description": "Works in the Figma desktop app.",
+  "author": "Cat Key",
+  "app": "figma",
+  "sources": [
+    {
+      "title": "Figma: Use keyboard shortcuts",
+      "url": "https://help.figma.com/hc/en-us/articles/360040328653"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Tools",
+      "items": [
+        {
+          "name": "Move",
+          "keys": "V",
+          "fav": true
+        },
+        {
+          "name": "Scale",
+          "keys": "K"
+        },
+        {
+          "name": "Frame",
+          "keys": "F",
+          "fav": true
+        },
+        {
+          "name": "Rectangle",
+          "keys": "R",
+          "fav": true
+        },
+        {
+          "name": "Ellipse",
+          "keys": "O",
+          "fav": true
+        },
+        {
+          "name": "Line",
+          "keys": "L"
+        },
+        {
+          "name": "Arrow",
+          "keys": "Shift+L"
+        },
+        {
+          "name": "Pen",
+          "keys": "P",
+          "fav": true
+        },
+        {
+          "name": "Pencil",
+          "keys": "Shift+P"
+        },
+        {
+          "name": "Text",
+          "keys": "T",
+          "fav": true
+        },
+        {
+          "name": "Comment",
+          "keys": "C"
+        },
+        {
+          "name": "Eyedropper",
+          "keys": "I",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "Layers",
+      "items": [
+        {
+          "name": "Group",
+          "keys": "Mod+G",
+          "fav": true
+        },
+        {
+          "name": "Ungroup",
+          "keys": "Mod+Shift+G"
+        },
+        {
+          "name": "Frame selection",
+          "keys": "Mod+Opt+G",
+          "fav": true
+        },
+        {
+          "name": "Auto layout",
+          "keys": "Shift+A",
+          "fav": true
+        },
+        {
+          "name": "Create component",
+          "keys": "Mod+Opt+K",
+          "fav": true
+        },
+        {
+          "name": "Duplicate",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Rename",
+          "keys": "Mod+R",
+          "fav": true
+        },
+        {
+          "name": "Flatten",
+          "keys": "Mod+E"
+        },
+        {
+          "name": "Show / hide",
+          "keys": "Mod+Shift+H",
+          "fav": true
+        },
+        {
+          "name": "Lock / unlock",
+          "keys": "Mod+Shift+L"
+        },
+        {
+          "name": "Copy properties",
+          "keys": "Mod+Opt+C",
+          "fav": true
+        },
+        {
+          "name": "Paste properties",
+          "keys": "Mod+Opt+V",
+          "fav": true
+        }
+      ]
+    },
+    {
+      "name": "View and file",
+      "items": [
+        {
+          "name": "Quick actions",
+          "keys": "Mod+Slash",
+          "fav": true
+        },
+        {
+          "name": "Zoom to fit",
+          "keys": "Shift+1",
+          "fav": true
+        },
+        {
+          "name": "Zoom to selection",
+          "keys": "Shift+2",
+          "fav": true
+        },
+        {
+          "name": "Zoom to 100%",
+          "keys": "Shift+0"
+        },
+        {
+          "name": "Show / hide the UI",
+          "keys": "Mod+Backslash",
+          "fav": true
+        },
+        {
+          "name": "Outlines",
+          "keys": "Mod+Y"
+        },
+        {
+          "name": "Rulers",
+          "keys": "Mod+Shift+R"
+        },
+        {
+          "name": "Export",
+          "keys": "Mod+Shift+E",
+          "fav": true
+        },
+        {
+          "name": "Place image",
+          "keys": "Mod+Shift+K"
+        }
+      ]
+    }
+  ]
+}

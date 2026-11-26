@@ -1,0 +1,58 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "premiere-keys-in-capcut",
+  "name": "Premiere keys in CapCut",
+  "kind": "remap",
+  "category": "video",
+  "platform": "both",
+  "description": "Premiere habits that work in CapCut's desktop editor.",
+  "author": "Cat Key",
+  "app": "capcut",
+  "tags": [
+    "premiere",
+    "capcut",
+    "switcher"
+  ],
+  "sections": [
+    {
+      "name": "Editing",
+      "items": [
+        {
+          "name": "Split at playhead",
+          "press": "Mod+K",
+          "does": "Mod+B",
+          "fav": true
+        },
+        {
+          "name": "Split all tracks",
+          "press": "Mod+Shift+K",
+          "does": "Mod+Shift+B"
+        }
+      ]
+    },
+    {
+      "name": "Single keys",
+      "items": [
+        {
+          "name": "Split mode",
+          "press": "C",
+          "does": "B",
+          "fav": true
+        },
+        {
+          "name": "Select mode",
+          "press": "V",
+          "does": "A",
+          "fav": true
+        },
+        {
+          "name": "Zoom to fit the timeline",
+          "press": "Backslash",
+          "does": "Shift+Z"
+        }
+      ],
+      "note": "Single keys pause by themselves while you type in a text box."
+    }
+  ]
+}
