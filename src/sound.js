@@ -14,9 +14,10 @@ let lastPick = '';
 /**
  * Each part of Cat Key has its own sound switch (Settings → Sounds); the main switch
  * mutes them all. ui: paw taps on clicks · cat: the cat's mews, chirps and purrs ·
- * training: the game · tips: the coach's note popping up.
+ * training: the game · tips: the coach's note popping up · tools: the Cat Dock catching
+ * things and the focus timer's walk.
  */
-export const PART_DEFAULTS = { ui: true, cat: true, training: true, tips: false };
+export const PART_DEFAULTS = { ui: true, cat: true, training: true, tips: false, tools: true };
 const parts = { ...PART_DEFAULTS };
 export function setSoundParts(p) {
   for (const k of Object.keys(PART_DEFAULTS)) parts[k] = typeof p?.[k] === 'boolean' ? p[k] : PART_DEFAULTS[k];
@@ -309,6 +310,10 @@ export const sounds = {
     if (!sample('purr', { gain: 0.55, rate: rnd(0.95, 1.05) })) purr(1700, 0.3);
     for (let i = 0; i < 4; i++) setTimeout(() => tap(0.03), 60 + i * 230);
     if (Math.random() < 0.6 && !sample('meow', { gain: 0.26, rate: rnd(1.05, 1.3), delay: 1.0 })) pick(['mew', 'nya', 'mrrp', 'trill'])(0.7, 0.9);
+  },
+  /** The Cat Dock caught something (or the timer's walk begins): a happy trill. */
+  caught() {
+    if (soundOn('tools')) VOICES.trill(0.85);
   },
   /** A coach tip popping up: one soft, short mrrp. */
   tip() {

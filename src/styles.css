@@ -1037,3 +1037,14 @@ select.field { padding: 0 10px; }
 .ai-app-chip .x { width: 26px; height: 26px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--mu); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .ai-app-chip .x:hover { background: var(--s3); color: var(--tx); }
 .ai-app-chip .x .i { width: 14px; height: 14px; }
+
+/* ---- The cat when the computer works hard: serious brows, and a sweat drop when it's hot */
+.mk .brows, .mk .sweat { display: none; }
+.mk.mood-serious .brows { display: inline; }
+.mk.mood-serious .eye { transform: scaleY(.84); }
+.mk.hot .sweat { display: inline; transform-box: fill-box; transform-origin: 50% 0; animation: mk-sweat 1.8s ease-in-out infinite; }
+@keyframes mk-sweat { 0%, 100% { transform: translateY(0); opacity: .95; } 60% { transform: translateY(5px); opacity: .7; } }
+
+/* ---- Cat Dock button on the top bar */
+.tbtn.dockb { position: relative; }
+.tbtn.dockb.on { color: var(--ac); background: var(--acs); }

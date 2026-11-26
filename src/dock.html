@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cat Dock</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="dock.css">
+</head>
+<body>
+<div id="dock" class="ck dark mochi">
+  <div class="dk-ballwrap" id="ball-wrap">
+    <button class="dk-ball" id="ball" type="button" aria-label="Cat Dock: click to open, drag to move">
+      <svg class="dk-ring" viewBox="0 0 72 72" aria-hidden="true"><circle class="dk-track" cx="36" cy="36" r="33"/><circle class="dk-done" id="ring" cx="36" cy="36" r="33"/></svg>
+      <span class="dk-face" id="ball-cat"></span>
+      <span class="dk-paws" aria-hidden="true"><i></i><i></i></span>
+    </button>
+    <span class="dk-badge" id="ball-badge" hidden></span>
+    <span class="dk-note" id="ball-note" aria-hidden="true">♪</span>
+  </div>
+  <section class="dk-panel" id="panel" aria-label="Cat Dock" hidden>
+    <header class="dk-head">
+      <span class="dk-mini" id="panel-cat"></span>
+      <div class="dk-who"><b id="dock-name">Cat Dock</b><span id="dock-sub">Drop anything on me</span></div>
+      <div class="dk-purr" id="purr" role="group" aria-label="Purr"></div>
+      <button class="dk-ib" id="pin" type="button" aria-pressed="false" title="Keep it open"></button>
+      <button class="dk-ib" id="close" type="button" title="Tuck the cat back in" aria-label="Close"></button>
+    </header>
+    <nav class="dk-tabs" id="tabs" role="tablist" aria-label="Cat Dock"></nav>
+    <div class="dk-body" id="body"></div>
+    <div class="dk-toast" id="toast" role="status" aria-live="polite"></div>
+  </section>
+</div>
+<script type="module" src="dock.js"></script>
+</body>
+</html>

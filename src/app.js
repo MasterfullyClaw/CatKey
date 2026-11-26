@@ -26,6 +26,7 @@ const I = {
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
   warn: '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4M12 17h.01"/>',
   sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+  ball: '<circle cx="12" cy="13" r="8"/><path d="M6.5 7.5 6 3.5l3.5 2.3M17.5 7.5 18 3.5l-3.5 2.3"/><path d="M9.5 13h.01M14.5 13h.01M11 16q1 .8 2 0"/>',
   keyboard: '<rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
   paw: '<ellipse cx="12" cy="16" rx="5" ry="4"/><circle cx="6.5" cy="10.5" r="2.2"/><circle cx="10" cy="7" r="2.2"/><circle cx="14" cy="7" r="2.2"/><circle cx="17.5" cy="10.5" r="2.2"/>',
   text: '<path d="M5 6h14M12 6v13M8 19h8"/>',
@@ -266,6 +267,7 @@ async function boot() {
   $('#btn-settings').innerHTML = icon('gear');
   $('#btn-about').innerHTML = `${icon('info')}<span>About</span>`;
   paintPurr();
+  paintDock();
   $('#cat-switch').innerHTML = `${icon('swap')}<span>Switch cat</span>`;
   $('#btn-min').innerHTML = icon('minus');
   $('#btn-close').innerHTML = icon('x');
@@ -338,6 +340,15 @@ function applyLook() {
   hero?.setLook(myLook());
   hero?.setName(cat());
   E?.mini?.setLook(myLook());
+  shareUi(dark, theme);
+}
+
+/** The Cat Dock and the cat walk dress like the app: the same cat, theme and sounds. */
+function shareUi(dark, skin) {
+  const s = S.config.settings;
+  try {
+    localStorage.setItem('catkey.ui.now', JSON.stringify({ look: myLook(), skin, dark, name: cat(), sounds: s.sounds !== false, soundParts: s.soundParts || {} }));
+  } catch { /* the Dock keeps its last look */ }
 }
 
 function renderAll() {
@@ -864,12 +875,14 @@ const SOUND_PART_TEXT = [
   ['cat', 'The cat’s voice', 'A little mew now and then, a chirp when something turns on, and a purr when you pet the cat.'],
   ['training', 'Training game', 'A boing for a right answer, a sad mew for a wrong one, and a cheer when a round ends.'],
   ['tips', 'Coach tips', 'One soft mrrp when a tip pops up. Off unless you want it.'],
+  ['tools', 'Cat Dock', 'A happy trill when the cat catches what you drop, and a meow when a focus timer ends.'],
 ];
 function previewSound(id) {
   if (id === 'ui') sounds.pop();
   else if (id === 'cat') sounds.mew();
   else if (id === 'training') trainSounds.boing();
   else if (id === 'tips') sounds.tip();
+  else if (id === 'tools') sounds.caught();
 }
 
 function commitSettings(patch) {
@@ -970,6 +983,13 @@ function wire() {
   $('#btn-settings').onclick = openSettings;
   $('#btn-about').onclick = openAbout;
   $('#btn-purr').onclick = () => setPurr(!PURR.on);
+  $('#btn-dock').onclick = () => setDock(!(S.config.settings.dock?.on));
+  // The Dock moved, or its purr player changed the volume.
+  backend.listen('ck://settings', (e) => {
+    if (!e.payload) return;
+    S.config = { ...S.config, settings: { ...S.config.settings, dock: e.payload.dock, purrVolume: e.payload.purrVolume } };
+    if (SETTINGS_OPEN) renderSettings();
+  });
   $('#cat-switch').onclick = (e) => catQuickPicker(e.currentTarget);
   $('#hero-profile').onclick = () => setView('warrior');
   $('#btn-purr').oncontextmenu = (e) => { e.preventDefault(); purrMenu(e.currentTarget); };
@@ -1892,6 +1912,18 @@ function renderSettings() {
           ...SOUND_PART_TEXT.filter(([id]) => !(mac && id === 'tips')).map(([id, title, desc]) => settingRow(title, desc,
             switchEl(soundParts()[id], title, () => { const on = !soundParts()[id]; setSoundPart(id, on); if (on && s.sounds) previewSound(id); })))),
         settingRow('Purr volume', 'For the background purr (the paw button at the top, or the tray menu).', purrVol)),
+      h('section', { style: { gap: '0' } }, h('h2', { text: 'Cat Dock', style: { marginBottom: '4px' } }),
+        settingRow('The cat on the edge of your screen', 'A cat ball that opens into a little panel: drop files, text and links on it and drag them back out, see what you copied, run a focus timer, play the purr and see how hard your computer works. Drag it along the edge to move it.',
+          switchEl(s.dock?.on, 'Cat Dock', () => setDock(!s.dock?.on))),
+        settingRow('Keep what I copy', 'The Dock lists what you copy, so you can copy it again. It stays on this computer, and what password managers copy is never kept.',
+          switchEl(s.dock?.clipboard !== false, 'Keep what I copy', () => setDock(!!s.dock?.on, { clipboard: s.dock?.clipboard === false, quiet: true }))),
+        settingRow('Remember it after a restart', 'Off: the list is forgotten when Cat Key closes. On: it’s saved in your data folder (clips.json).',
+          switchEl(!!s.dock?.keepClips, 'Remember copies after a restart', () => setDock(!!s.dock?.on, { keepClips: !s.dock?.keepClips, quiet: true }))),
+        settingRow('How hard my computer works', `Processor, memory, graphics and heat, read every 2 seconds with the system’s own counters. ${cat()} gets serious when it works hard.`,
+          switchEl(s.dock?.vitals !== false, 'Show how hard my computer works', () => setDock(!!s.dock?.on, { vitals: s.dock?.vitals === false, quiet: true }))),
+        h('div', { class: 'row-between', style: { paddingTop: '10px' } },
+          h('button', { class: 'btn small', type: 'button', html: `${icon('paw')}<span>See the cat walk</span>`, onclick: () => invoke('walk_test').catch((e) => toast(String(e), { kind: 'warn' })) }),
+          h('span', { class: 'hint', text: 'It walks by when a focus timer ends.' }))),
       mac ? null : h('section', { style: { gap: '0' } }, h('h2', { text: 'Shortcut coach', style: { marginBottom: '4px' } }),
         settingRow('Tips when you do it the long way', `Where tips appear, what you ignored, and what ${cat()} caught: all on the Coach page.`,
           h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Open the Coach page</span>`, onclick: () => { closeSettings(); setView('coach'); } }))),
@@ -1953,7 +1985,7 @@ function renderAbout() {
         link('link', 'X (Twitter)', '@MasterfullyClaw', ME.x))),
     h('section', { class: 'about-block' }, h('h3', { text: 'Cat Key' }),
       h('div', { class: 'about-links' },
-        link('globe', 'Website', 'catkey on the web', ME.site),
+        link('globe', 'Website', ME.site.replace('https://', '').replace(/\/$/, ''), ME.site),
         link('star', 'Cat Key on GitHub', 'Code, downloads and the store', `https://github.com/${REPO}`),
         link('sparkle', 'What’s new', 'Every version and what changed', `https://github.com/${REPO}/releases`),
         link('up', 'Share a pack', 'Post your shortcuts to the store', `https://github.com/${REPO}/issues/new?template=share-a-pack.yml`),
@@ -4629,6 +4661,24 @@ async function copyCardPicture() {
 // ------------------------------------------------------------------ background purr
 
 const PURR = { on: false };
+function paintDock() {
+  const b = $('#btn-dock');
+  if (!b) return;
+  const on = !!S.config.settings.dock?.on;
+  b.innerHTML = icon('ball');
+  b.classList.toggle('on', on);
+  b.setAttribute('aria-pressed', String(on));
+  b.dataset.tip = on ? 'Cat Dock: on' : 'Cat Dock: off';
+}
+const DOCK_DEFAULT = { on: false, edge: 'right', y: 0.62, clipboard: true, keepClips: false, vitals: true };
+function setDock(on, patch = {}) {
+  const dock = { ...DOCK_DEFAULT, ...(S.config.settings.dock || {}), ...patch, on };
+  return commitSettings({ dock }).then(() => {
+    paintDock();
+    if (on && !patch.quiet) toast(`${cat()} is on the edge of your screen. Drop files or text on the cat, click it to open, drag it to move it.`, { ms: 7000 });
+  });
+}
+
 function paintPurr() {
   const b = $('#btn-purr');
   if (!b) return;

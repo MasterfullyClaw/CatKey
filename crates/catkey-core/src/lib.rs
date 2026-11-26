@@ -3,6 +3,7 @@
 
 pub mod appscan;
 pub mod coachtext;
+pub mod dock;
 pub mod config;
 pub mod engine;
 pub mod keys;

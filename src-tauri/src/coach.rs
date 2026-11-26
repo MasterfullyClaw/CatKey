@@ -561,7 +561,7 @@ fn show_quietly(w: &WebviewWindow) {
 }
 
 /// A game or a video playing full screen: count, but don't pop up.
-unsafe fn full_screen_app() -> bool {
+pub(crate) unsafe fn full_screen_app() -> bool {
     let fg = GetForegroundWindow();
     if fg.is_null() {
         return false;

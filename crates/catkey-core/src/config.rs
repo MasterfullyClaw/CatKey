@@ -118,6 +118,46 @@ pub struct Settings {
     /// Missing parts are on. The master switch is `sounds`.
     #[serde(default)]
     pub sound_parts: std::collections::BTreeMap<String, bool>,
+    /// The Cat Dock: the cat ball on the screen edge and what it keeps.
+    #[serde(default)]
+    pub dock: DockSettings,
+}
+
+/// The Cat Dock's settings.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DockSettings {
+    /// Show the cat ball on the screen edge.
+    #[serde(default)]
+    pub on: bool,
+    /// "right" or "left".
+    #[serde(default = "right_edge")]
+    pub edge: String,
+    /// Where on that edge, from the top (0) to the bottom (1).
+    #[serde(default = "dock_y")]
+    pub y: f64,
+    /// Keep a history of what you copy.
+    #[serde(default = "yes")]
+    pub clipboard: bool,
+    /// Remember that history after Cat Key restarts.
+    #[serde(default)]
+    pub keep_clips: bool,
+    /// Show how hard the computer works (CPU, memory, graphics, heat).
+    #[serde(default = "yes")]
+    pub vitals: bool,
+}
+
+fn right_edge() -> String {
+    "right".into()
+}
+fn dock_y() -> f64 {
+    0.62
+}
+
+impl Default for DockSettings {
+    fn default() -> Self {
+        DockSettings { on: false, edge: right_edge(), y: dock_y(), clipboard: true, keep_clips: false, vitals: true }
+    }
 }
 
 /// Where a coach tip shows up: a spot on the screen, or anywhere the user dragged it.
@@ -199,6 +239,7 @@ impl Default for Settings {
             swap_alt_ctrl: false,
             coach_pos: CoachPos::default(),
             sound_parts: Default::default(),
+            dock: DockSettings::default(),
         }
     }
 }

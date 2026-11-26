@@ -7,7 +7,11 @@
 
 mod app;
 mod commands;
+mod dock;
+#[cfg(windows)]
+mod dock_drop;
 mod tray;
+mod vitals;
 
 #[cfg(windows)]
 mod coach;

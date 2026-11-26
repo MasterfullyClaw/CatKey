@@ -1,6 +1,6 @@
 [package]
 name = "catkey"
-version = "1.4.0"
+version = "1.5.0"
 description = "Cat Key - a purr-fect keyboard shortcut remapper for Windows"
 authors = ["Masterfully"]
 edition = "2021"
@@ -16,7 +16,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 catkey-core = { path = "../crates/catkey-core" }
-tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri = { version = "2", features = ["tray-icon", "image-png", "macos-private-api"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
@@ -36,6 +36,7 @@ features = [
   "Win32_System_Com",
   "Win32_System_DataExchange",
   "Win32_System_Memory",
+  "Win32_System_Performance",
   "Win32_System_Diagnostics_ToolHelp",
   "Win32_System_Environment",
   "Win32_System_LibraryLoader",
@@ -55,13 +56,24 @@ libc = "0.2"
 core-foundation = "0.10"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSBundle", "NSProcessInfo", "NSArray", "NSDictionary", "NSValue"] }
-objc2-app-kit = { version = "0.3", features = ["NSWorkspace", "NSRunningApplication", "NSPasteboard"] }
+objc2-app-kit = { version = "0.3", features = ["NSWorkspace", "NSRunningApplication", "NSPasteboard", "NSPasteboardItem"] }
 
 # UI Automation (COM) for the shortcut coach (what's under the pointer), and the shell's own
 # ShellExecute (opening links as the signed-in user while Cat Key runs as administrator).
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
-features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Ole", "Win32_System_Variant", "Win32_UI_Accessibility", "Win32_UI_Controls", "Win32_UI_Shell", "Win32_UI_Shell_Common", "Win32_UI_WindowsAndMessaging"]
+features = ["Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_Memory", "Win32_System_Ole", "Win32_System_SystemServices", "Win32_System_Variant", "Win32_UI_Accessibility", "Win32_UI_Controls", "Win32_UI_Shell", "Win32_UI_Shell_Common", "Win32_UI_WindowsAndMessaging"]
+
+# The Cat Dock: WebView2 leaves outside drops to the Dock (Windows); dragging files back
+# out of the Dock into folders and apps (Windows and Mac).
+[target.'cfg(windows)'.dependencies.webview2-com]
+version = "0.39"
+
+[target.'cfg(windows)'.dependencies.windows-core]
+version = "0.62"
+
+[target.'cfg(any(windows, target_os = "macos"))'.dependencies.drag]
+version = "2.1.1"
 
 [features]
 # The Tauri CLI turns this on for production builds (serves the bundled UI).

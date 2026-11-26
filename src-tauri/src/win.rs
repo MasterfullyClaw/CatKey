@@ -1025,6 +1025,178 @@ pub fn clipboard_seq() -> u32 {
     unsafe { windows_sys::Win32::System::DataExchange::GetClipboardSequenceNumber() }
 }
 
+/// What's on the clipboard for the Cat Dock's history: text, or copied files.
+pub struct ClipData {
+    pub text: String,
+    pub files: Vec<String>,
+}
+
+fn open_clipboard() -> bool {
+    use windows_sys::Win32::System::DataExchange::OpenClipboard;
+    for _ in 0..8 {
+        if unsafe { OpenClipboard(null_mut()) } != 0 {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+    false
+}
+
+/// The clipboard for the history: `None` when it's empty, or when a password manager (or any
+/// app) marked it as private or as not for clipboard history.
+pub fn clipboard_read() -> Option<ClipData> {
+    use windows_sys::Win32::System::DataExchange::{CloseClipboard, GetClipboardData, IsClipboardFormatAvailable, RegisterClipboardFormatW};
+    use windows_sys::Win32::System::Memory::{GlobalLock, GlobalSize, GlobalUnlock};
+    use windows_sys::Win32::UI::Shell::DragQueryFileW;
+    const CF_UNICODETEXT: u32 = 13;
+    const CF_HDROP: u32 = 15;
+    unsafe {
+        for name in ["ExcludeClipboardContentFromMonitorProcessing", "Clipboard Viewer Ignore"] {
+            let f = RegisterClipboardFormatW(wide(name).as_ptr());
+            if f != 0 && IsClipboardFormatAvailable(f) != 0 {
+                return None;
+            }
+        }
+        let has_files = IsClipboardFormatAvailable(CF_HDROP) != 0;
+        let has_text = IsClipboardFormatAvailable(CF_UNICODETEXT) != 0;
+        if !has_files && !has_text {
+            return None;
+        }
+        let history = RegisterClipboardFormatW(wide("CanIncludeInClipboardHistory").as_ptr());
+        if !open_clipboard() {
+            return None;
+        }
+        let mut private = false;
+        if history != 0 && IsClipboardFormatAvailable(history) != 0 {
+            let h = GetClipboardData(history);
+            let p = if h.is_null() { null_mut() } else { GlobalLock(h as _) as *const u32 };
+            if !p.is_null() {
+                private = *p == 0;
+                GlobalUnlock(h as _);
+            }
+        }
+        let mut out = ClipData { text: String::new(), files: Vec::new() };
+        if !private && has_files {
+            let h = GetClipboardData(CF_HDROP);
+            if !h.is_null() {
+                let n = DragQueryFileW(h as _, u32::MAX, null_mut(), 0);
+                for i in 0..n.min(500) {
+                    let len = DragQueryFileW(h as _, i, null_mut(), 0) as usize;
+                    let mut buf = vec![0u16; len + 1];
+                    DragQueryFileW(h as _, i, buf.as_mut_ptr(), buf.len() as u32);
+                    out.files.push(String::from_utf16_lossy(&buf[..len]));
+                }
+            }
+        } else if !private && has_text {
+            let h = GetClipboardData(CF_UNICODETEXT);
+            let p = if h.is_null() { null_mut() } else { GlobalLock(h as _) as *const u16 };
+            if !p.is_null() {
+                let max = (GlobalSize(h as _) / 2).min(4_000_000);
+                let mut len = 0usize;
+                while len < max && *p.add(len) != 0 {
+                    len += 1;
+                }
+                out.text = String::from_utf16_lossy(std::slice::from_raw_parts(p, len));
+                GlobalUnlock(h as _);
+            }
+        }
+        CloseClipboard();
+        (!private && (!out.text.is_empty() || !out.files.is_empty())).then_some(out)
+    }
+}
+
+/// Put bytes on the clipboard in one format (the clipboard owns them from then on).
+unsafe fn put_clipboard(format: u32, bytes: &[u8]) -> bool {
+    use windows_sys::Win32::System::DataExchange::SetClipboardData;
+    use windows_sys::Win32::Foundation::GlobalFree;
+    use windows_sys::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
+    let h = GlobalAlloc(GMEM_MOVEABLE, bytes.len().max(1));
+    if h.is_null() {
+        return false;
+    }
+    let p = GlobalLock(h) as *mut u8;
+    if p.is_null() {
+        GlobalFree(h);
+        return false;
+    }
+    std::ptr::copy_nonoverlapping(bytes.as_ptr(), p, bytes.len());
+    GlobalUnlock(h);
+    if SetClipboardData(format, h as _).is_null() {
+        GlobalFree(h);
+        return false;
+    }
+    true
+}
+
+pub fn clipboard_write_text(text: &str) -> bool {
+    use windows_sys::Win32::System::DataExchange::{CloseClipboard, EmptyClipboard};
+    let w: Vec<u16> = text.encode_utf16().chain(Some(0)).collect();
+    let bytes: Vec<u8> = w.iter().flat_map(|c| c.to_le_bytes()).collect();
+    unsafe {
+        if !open_clipboard() {
+            return false;
+        }
+        EmptyClipboard();
+        let ok = put_clipboard(13, &bytes);
+        CloseClipboard();
+        ok
+    }
+}
+
+/// Copied files, the way Explorer copies them; `cut` makes Paste move them instead.
+pub fn clipboard_write_files(paths: &[String], cut: bool) -> bool {
+    use windows_sys::Win32::System::DataExchange::{CloseClipboard, EmptyClipboard, RegisterClipboardFormatW};
+    // DROPFILES: where the list starts, a point, "not client area", "wide characters".
+    let mut bytes: Vec<u8> = Vec::new();
+    bytes.extend(20u32.to_le_bytes());
+    bytes.extend([0u8; 8]);
+    bytes.extend(0u32.to_le_bytes());
+    bytes.extend(1u32.to_le_bytes());
+    for p in paths {
+        for c in p.encode_utf16().chain(Some(0)) {
+            bytes.extend(c.to_le_bytes());
+        }
+    }
+    bytes.extend([0u8, 0u8]);
+    unsafe {
+        if !open_clipboard() {
+            return false;
+        }
+        EmptyClipboard();
+        let ok = put_clipboard(15, &bytes);
+        let effect = RegisterClipboardFormatW(wide("Preferred DropEffect").as_ptr());
+        if ok && effect != 0 {
+            put_clipboard(effect, &(if cut { 2u32 } else { 1u32 }).to_le_bytes());
+        }
+        CloseClipboard();
+        ok
+    }
+}
+
+/// Whether the (main) mouse button is down right now.
+pub fn mouse_down() -> bool {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetAsyncKeyState;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SWAPBUTTON};
+    let vk = if unsafe { GetSystemMetrics(SM_SWAPBUTTON) } != 0 { 0x02 } else { 0x01 };
+    (unsafe { GetAsyncKeyState(vk) } as u16 & 0x8000) != 0
+}
+
+/// Open a file with its usual app.
+pub fn open_path(path: &str) -> Result<(), String> {
+    if !Path::new(path).exists() {
+        return Err("That file isn't there any more.".into());
+    }
+    launch(path, "")
+}
+
+/// Show a file in its folder, selected.
+pub fn reveal_path(path: &str) -> Result<(), String> {
+    if !Path::new(path).exists() {
+        return Err("That file isn't there any more.".into());
+    }
+    Command::new("explorer.exe").raw_arg(format!("/select,\"{path}\"")).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
 /// The text on the clipboard, if any (up to 2 MB).
 pub fn clipboard_text() -> Option<String> {
     use windows_sys::Win32::System::DataExchange::{CloseClipboard, GetClipboardData, IsClipboardFormatAvailable, OpenClipboard};

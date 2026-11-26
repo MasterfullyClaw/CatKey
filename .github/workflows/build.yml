@@ -52,8 +52,16 @@ jobs:
           Start-Sleep -Seconds 15
           if ($p.HasExited) { Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue; throw "Cat Key stopped by itself (exit code $($p.ExitCode))" }
           "Still running after 15 s"
-          Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue
           Stop-Process -Id $p.Id -Force
+          Start-Sleep -Seconds 2
+          # Again with the Cat Dock, a cat walk and a short focus timer.
+          $d = Start-Process -FilePath $exe -ArgumentList '--dock-test' -PassThru
+          Start-Sleep -Seconds 20
+          if ($d.HasExited) { Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue; throw "Cat Key stopped with the Dock on (exit code $($d.ExitCode))" }
+          "Dock check: still running after 20 s"
+          Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue
+          Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'dock:|crash' } | ForEach-Object { "::notice title=Windows log::$_" }
+          Stop-Process -Id $d.Id -Force
       - uses: actions/upload-artifact@v4
         with:
           name: CatKey-windows
@@ -94,7 +102,15 @@ jobs:
           sleep 20
           if ! pgrep -x CatKey > /dev/null; then cat "$HOME/Library/Application Support/CatKey/catkey.log" || true; echo "Cat Key stopped by itself"; exit 1; fi
           echo "Still running after 20 s"
+          pkill -x CatKey || true
+          sleep 3
+          # Again with the Cat Dock, a cat walk and a short focus timer.
+          open "$APP" --args --dock-test
+          sleep 20
+          if ! pgrep -x CatKey > /dev/null; then cat "$HOME/Library/Application Support/CatKey/catkey.log" || true; echo "Cat Key stopped with the Dock on"; exit 1; fi
+          echo "Dock check: still running after 20 s"
           cat "$HOME/Library/Application Support/CatKey/catkey.log" || true
+          grep -E "dock:|crash" "$HOME/Library/Application Support/CatKey/catkey.log" | sed 's/^/::notice title=Mac log::/' || true
           pkill -x CatKey || true
       - uses: actions/upload-artifact@v4
         with:

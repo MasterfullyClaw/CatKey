@@ -155,6 +155,7 @@ pub fn apply_config(app: &AppHandle, cfg: Config) -> Result<Config, String> {
     };
     save_config_file(&state.dir, &cfg)?;
     crate::coach::set_settings(&cfg.settings);
+    crate::dock::set_settings(&cfg.settings.dock);
     if old.settings.purr_volume != cfg.settings.purr_volume {
         crate::purr::set_volume_only(cfg.settings.purr_volume);
         if crate::purr::is_on() {
@@ -465,6 +466,33 @@ pub fn run(args: Vec<String>) {
             crate::commands::coach_ignore,
             crate::commands::coach_adjust,
             crate::commands::coach_take_adjust,
+            crate::dock::dock_info,
+            crate::dock::dock_open,
+            crate::dock::dock_peek,
+            crate::dock::dock_pin,
+            crate::dock::dock_tab,
+            crate::dock::dock_press,
+            crate::dock::dock_add_text,
+            crate::dock::dock_remove,
+            crate::dock::dock_set_cut,
+            crate::dock::dock_clear,
+            crate::dock::dock_open_item,
+            crate::dock::dock_reveal,
+            crate::dock::dock_copy_item,
+            crate::dock::dock_drag_out,
+            crate::dock::dock_purr_volume,
+            crate::dock::clip_copy,
+            crate::dock::dock_keep_clip,
+            crate::dock::clip_pin,
+            crate::dock::clip_delete,
+            crate::dock::clip_clear,
+            crate::dock::clip_pause,
+            crate::dock::timer_start,
+            crate::dock::timer_pause,
+            crate::dock::timer_resume,
+            crate::dock::timer_stop,
+            crate::dock::walk_last,
+            crate::dock::walk_test,
         ])
         .setup(move |app| {
             if second {
@@ -474,6 +502,22 @@ pub fn run(args: Vec<String>) {
             tray::create(&handle)?;
             start_dispatcher(handle.clone(), rx);
             crate::coach::start(handle.clone(), handle.state::<AppState>().dir.clone(), &coach_settings);
+            // For the release check: "--dock-test" shows the Dock, a cat walk and a short timer.
+            let dock_test = std::env::args().any(|a| a == "--dock-test");
+            let mut dock_settings = coach_settings.dock.clone();
+            if dock_test {
+                dock_settings.on = true;
+            }
+            crate::dock::start(&handle, handle.state::<AppState>().dir.clone(), &dock_settings);
+            if dock_test {
+                let h = handle.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_secs(3));
+                    crate::dock::walk(&h, "Release check: the cat walks.".into());
+                    crate::dock::timer_start(h.clone(), 0.1, "Release check".into());
+                    crate::log("dock test: walk and timer started");
+                });
+            }
             let saver = handle.clone();
             std::thread::spawn(move || loop {
                 std::thread::sleep(Duration::from_secs(120));

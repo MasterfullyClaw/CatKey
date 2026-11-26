@@ -179,6 +179,8 @@ function svg({ keyboard = false } = {}) {
     <g class="eyes-open">${EYE(70)}${EYE(130)}</g>
     <path class="eyes-happy s-eyed" fill="none" stroke-width="4.4" stroke-linecap="round" d="M57 101Q70 85 83 101M117 101Q130 85 143 101"/>
     <path class="eyes-nap s-eyed" fill="none" stroke-width="4" stroke-linecap="round" d="M57 97Q70 107 83 97M117 97Q130 107 143 97"/>
+    <path class="brows s-line" fill="none" stroke-width="3.6" stroke-linecap="round" d="M55 78Q69 79 84 86M145 78Q131 79 116 86"/>
+    <path class="sweat" fill="#9ED8FF" stroke="#4A9BD6" stroke-width="1.6" stroke-linejoin="round" d="M163 60Q170 72 163 79Q156 72 163 60Z"/>
     <ellipse class="f-blush" opacity=".6" cx="50" cy="118" rx="10.5" ry="5.5"/>
     <ellipse class="f-blush" opacity=".6" cx="150" cy="118" rx="10.5" ry="5.5"/>
     <path class="f-nose" d="M95 113.5Q100 109.5 105 113.5Q102.6 118.5 100 119.5Q97.4 118.5 95 113.5Z"/>
@@ -230,7 +232,7 @@ function svg({ keyboard = false } = {}) {
 </svg>`;
 }
 
-const MOODS = ['awake', 'happy', 'listen', 'nap'];
+const MOODS = ['awake', 'happy', 'listen', 'nap', 'serious'];
 const VAR = { fur: 'fur', belly: 'belly', line: 'line', ear: 'ear', eye: 'eye', eyed: 'eyed', blush: 'blush', nose: 'nose', collar: 'collar', gold: 'gold',
   stripe: 'stripe', stripeOp: 'stripe-op', tip: 'tip', whisker: 'whisker', muzzle: 'muzzle', muzzleOp: 'muzzle-op', accent: 'accent', zz: 'zz' };
 
@@ -313,7 +315,7 @@ export class Mascot {
 
   label() {
     const n = this.name || skinName(this.skin);
-    const words = { awake: 'awake', happy: 'happy', listen: 'listening', nap: 'napping' };
+    const words = { awake: 'awake', happy: 'happy', listen: 'listening', nap: 'napping', serious: 'working hard' };
     this.svg.setAttribute('aria-label', `${n} the cat, ${words[this.mood] || 'awake'}`);
   }
 
@@ -357,6 +359,11 @@ export class Mascot {
     clearTimeout(this.kneadTimer);
     this.kneadTimer = setTimeout(() => this.svg.classList.remove('knead'), ms);
     this.timer = setTimeout(() => this.apply(this.base), ms + 200);
+  }
+
+  /** Warm: a little sweat drop (the computer is working hard or getting hot). */
+  setHot(on) {
+    this.svg.classList.toggle('hot', !!on);
   }
 
   destroy() {
