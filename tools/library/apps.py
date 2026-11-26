@@ -10,6 +10,7 @@ APPS = {
   "capcut":      ("CapCut", "video", ["capcut.exe"], ["com.lemon.lvoverseas"]),
   "blender":     ("Blender", "3d", ["blender.exe"], ["org.blenderfoundation.blender"]),
   "cinema4d":    ("Cinema 4D", "3d", ["cinema 4d.exe"], ["com.maxon.cinema4d*"]),
+  "unreal":      ("Unreal Engine", "3d", ["unrealeditor.exe", "ue4editor.exe"], ["com.epicgames.UnrealEditor*", "com.epicgames.UE4Editor*"]),
   "vscode":      ("VS Code", "code", ["code.exe"], ["com.microsoft.VSCode"]),
   "browsers":    ("Web browsers", "browser",
                   ["chrome.exe", "msedge.exe", "brave.exe", "dia.exe", "arc.exe", "vivaldi.exe", "opera.exe", "comet.exe"],

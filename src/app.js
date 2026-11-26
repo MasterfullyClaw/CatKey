@@ -2,7 +2,7 @@
 // keyboard does happens in Rust, so this window can be closed at any time.
 
 import * as K from './keys.js';
-import { Mascot, SKINS, CATS, GEAR, RANKS, rankFor, gearById, skinName } from './mascot.js';
+import { Mascot, SKINS, CATS, GEAR, RANKS, rankFor, gearById } from './mascot.js';
 import { sounds, setSoundsEnabled, trainSounds, setTrainSounds, clickSound } from './sound.js';
 
 const backend = window.__TAURI__
@@ -15,6 +15,7 @@ const invoke = (cmd, args) => backend.invoke(cmd, args);
 const I = {
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   minus: '<path d="M5 12h14"/>',
+  chev: '<path d="m6 9 6 6 6-6"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
@@ -48,6 +49,8 @@ const I = {
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
   select: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m8 12 3 3 5-6"/>',
+  sound: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.2 6.5a8 8 0 0 1 0 11"/>',
+  mute: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/>',
   purr: '<path d="M4.5 10.5 4 4l4.5 3.2h7L20 4l-.5 6.5"/><path d="M4.5 10.5C4.5 16 7.8 19 12 19s7.5-3 7.5-8.5"/><path d="M9.5 12.5h.01M14.5 12.5h.01M11 15.2q1 .8 2 0"/>',
 };
 const FILLED = new Set(['paw', 'more', 'sparkle', 'star']);
@@ -100,7 +103,8 @@ let hero = null; // hero Mascot
 let REC = null; // active recording target
 let E = null; // editor state
 
-const cat = () => S.config?.settings?.catName || myCat().name;
+// A cat's name comes with the cat: the house cats and warriors keep theirs, and only a cat you make gets a name from you.
+const cat = () => catTitle(myCat());
 const rules = () => S.config.rules;
 
 const SUGGESTIONS = [
@@ -236,7 +240,9 @@ async function boot() {
   if (newTab) markFresh(newTab.id);
 
   $('#btn-settings').innerHTML = icon('gear');
-  $('#btn-purr').innerHTML = `${icon('purr')}<span class="waves" aria-hidden="true"></span>`;
+  $('#btn-about').innerHTML = `${icon('info')}<span>About</span>`;
+  paintPurr();
+  $('#cat-switch').innerHTML = `${icon('swap')}<span>Switch cat</span>`;
   $('#btn-min').innerHTML = icon('minus');
   $('#btn-close').innerHTML = icon('x');
   $('#ico-search').outerHTML = icon('search');
@@ -329,7 +335,7 @@ function renderTabs() {
   }
 }
 
-const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train', warrior: '#warrior' };
+const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train', warrior: '#warrior', about: '#about-page' };
 function applyView() {
   for (const v of Object.keys(VIEW_BOX)) $('#app').classList.toggle(`view-${v}`, S.view === v);
   if (S.view !== 'shortcuts' && SEL.on) setSelecting(false);
@@ -338,6 +344,8 @@ function applyView() {
   if (S.view === 'train') renderTrain();
   if (S.view !== 'train') { trainStop(); typingStop(); }
   if (S.view === 'warrior') renderWarrior();
+  if (S.view === 'about') renderAbout();
+  $('#btn-about')?.setAttribute('aria-pressed', String(S.view === 'about'));
 }
 
 function setView(v) {
@@ -381,6 +389,32 @@ function renderHero() {
   $('#chip-on').innerHTML = `${icon('keyboard')}${active} of ${rules().length} on`;
   $('#app').classList.toggle('napping', !on);
   hero.setMood(on ? 'awake' : 'nap');
+  const xp = xpBreakdown();
+  const r = rankFor(xp.total);
+  $('#hero-profile').replaceChildren(
+    h('span', { class: 'hp-rank' }, h('span', { html: icon('star'), style: { display: 'inline-flex' } }), h('b', { text: r.name })),
+    h('span', { class: 'hp-bar', 'aria-hidden': 'true' }, h('span', { style: { width: `${r.pct}%` } })),
+    h('span', { class: 'hp-xp', text: `${xp.total.toLocaleString()} XP` }),
+    h('span', { class: 'hp-go', text: 'Your profile ›' }));
+}
+
+/** The fun part, one click from the top: pick another cat right next to her. */
+function catQuickPicker(anchor) {
+  const me = myCat();
+  const grid = h('div', { class: 'qp-grid' });
+  for (const c of allCats()) {
+    const mini = h('span', { class: 'mini' });
+    grid.append(h('button', { class: `qp-cat${c.id === me.id ? ' on' : ''}`, type: 'button', title: c.full, 'aria-pressed': String(c.id === me.id),
+      onclick: () => { closePop(); chooseCat(c).then(() => { hero?.knead(1400); floatHearts($('#cushion')); }); } },
+      mini, h('span', { class: 'nm', text: catTitle(c) })));
+    new Mascot(mini, { size: 58, look: myLook(c) });
+  }
+  showPop(anchor, h('div', { class: 'pop qp' },
+    h('div', { class: 'qp-head' }, h('b', { text: 'Pick your cat' }), h('span', { class: 'hint', text: 'Just the look: your rank and stats stay yours.' })),
+    grid,
+    h('div', { class: 'qp-foot' },
+      h('button', { class: 'btn small', type: 'button', html: `${icon('star')}<span>Dress up</span>`, onclick: () => { closePop(); setView('warrior'); setTimeout(() => $('.wardrobe')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300); } }),
+      h('button', { class: 'btn small', type: 'button', html: `${icon('wand')}<span>Make your own</span>`, onclick: () => { closePop(); W.editor = true; setView('warrior'); setTimeout(() => $('#wr-cats')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); } }))));
 }
 
 function checkupRows() {
@@ -851,7 +885,10 @@ function onFired(id) {
 
 function wire() {
   $('#btn-settings').onclick = openSettings;
+  $('#btn-about').onclick = openAbout;
   $('#btn-purr').onclick = () => setPurr(!PURR.on);
+  $('#cat-switch').onclick = (e) => catQuickPicker(e.currentTarget);
+  $('#hero-profile').onclick = () => setView('warrior');
   $('#btn-purr').oncontextmenu = (e) => { e.preventDefault(); purrMenu(e.currentTarget); };
   backend.listen('ck://purr', (e) => { PURR.on = !!e.payload; paintPurr(); });
   backend.listen('ck://coach-tip', () => { coachStats(true).then(() => { if (S.view === 'warrior') renderWarrior(); }); });
@@ -911,6 +948,9 @@ function wire() {
       e.preventDefault(); visibleRules().forEach((r) => SEL.ids.add(r.id)); renderList(); renderBulkBar(); return;
     }
     const ctrl = e.ctrlKey && !e.altKey && !e.metaKey;
+    // In a text box, Ctrl keys do what they do in any text box (copy, paste, undo, select all…).
+    const typingHere = /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName) && document.activeElement?.id !== 'search';
+    if (typingHere && !(E && ctrl && e.key.toLowerCase() === 's')) return;
     if (ctrl && e.key.toLowerCase() === 'f' && !E && !PK && !SETTINGS_OPEN && !DIALOG) {
       e.preventDefault();
       if (S.view === 'library') { $('#lib-search')?.focus(); return; }
@@ -1708,8 +1748,6 @@ function renderSettings() {
     h('div', { class: 'txt' }, h('b', { text: me.full || me.name }), h('span', { class: 'hint', text: `${rankFor(xpBreakdown().total).name} · ${xpBreakdown().total.toLocaleString()} XP` })),
     h('button', { class: 'btn small', type: 'button', html: `${icon('star')}<span>Change cat or outfit</span>`, onclick: () => { closeSettings(); setView('warrior'); } }));
   settingMinis.push(new Mascot(holder, { size: 74, look: myLook() }));
-  const nameInput = h('input', { class: 'field', type: 'text', maxlength: '24', value: cat(), 'aria-label': "Cat's name", style: { width: '180px', height: '40px' },
-    onchange: (e) => { commitSettings({ catName: e.target.value.trim() || myCat().name }).then(() => { renderHero(); renderSuggestions(); }); } });
   const purrVol = h('input', { type: 'range', min: '0', max: '100', step: '5', value: String(s.purrVolume ?? 45), 'aria-label': 'Purr volume', class: 'range',
     onchange: (e) => commitSettings({ purrVolume: Number(e.target.value) }) });
   const theme = h('div', { class: 'seg soft', role: 'group', 'aria-label': 'Theme' },
@@ -1735,12 +1773,14 @@ function renderSettings() {
   d.append(
     h('div', { class: 'drawer-head' }, h('h1', { id: 'st-title', text: 'Settings' }), h('button', { class: 'tbtn', 'aria-label': 'Close settings', html: icon('x'), onclick: closeSettings })),
     h('div', { class: 'drawer-body' },
+      h('section', { style: { gap: '0' } }, h('h2', { text: 'Quick settings', style: { marginBottom: '4px' } }),
+        settingRow('Swap Alt and Ctrl', 'Alt works as Ctrl and Ctrl as Alt, in every app, like the ⌘ and Control keys on a Mac. Off unless you turn it on.',
+          switchEl(!!s.swapAltCtrl, 'Swap Alt and Ctrl', () => commitSettings({ swapAltCtrl: !s.swapAltCtrl }).then(() => toast(!s.swapAltCtrl ? 'Swapped: Alt is Ctrl and Ctrl is Alt now.' : 'Alt and Ctrl are back where they were.'))))),
       h('section', {}, h('div', { class: 'row-between' }, h('h2', { text: 'Checkup' }),
         h('button', { class: 'link', type: 'button', text: 'Check again', onclick: () => { refreshStatusNow(); toast(`${cat()} checked everything again.`); } })),
         checkupEl(checkupRows())),
       h('section', {}, h('h2', { text: 'Try a shortcut' }), testPadEl(), keyLogEl()),
       h('section', {}, h('h2', { text: 'Your cat' }), skins,
-        h('label', { class: 'row-between', style: { fontWeight: '800' } }, "Cat's name", nameInput),
         h('div', { class: 'row-between', style: { fontWeight: '800' } }, 'Theme', theme)),
       h('section', { style: { gap: '0' } }, h('h2', { text: 'How it behaves', style: { marginBottom: '4px' } }),
         settingRow('Start with Windows', 'Wakes up quietly in the tray when you sign in.', switchEl(s.launchAtStartup, 'Start with Windows', () => commitSettings({ launchAtStartup: !s.launchAtStartup }).then(() => setTimeout(refreshStatusNow, 900)))),
@@ -1773,12 +1813,54 @@ function renderSettings() {
         h('p', { class: 'hint', style: { margin: '2px 0 0' } }, 'Moving to another PC or a Mac? “Export my setup” makes one file with your shortcuts, templates, packs and settings.')),
       dataSection()),
     h('div', { class: 'drawer-foot' },
-      h('span', {}, `Cat Key ${S.status.version || ''} · `, h('button', { class: 'link', type: 'button', text: 'MasterfullyClaw/CatKey', onclick: () => invoke('open_link', { url: 'https://github.com/MasterfullyClaw/CatKey' }) })),
+      h('span', {}, `Cat Key ${S.status.version || ''} · `, h('button', { class: 'link', type: 'button', text: 'About', onclick: openAbout })),
       h('button', { class: 'btn small', type: 'button', text: 'Quit Cat Key', onclick: async () => {
         if (await confirmBox('Quit Cat Key?', 'Your shortcuts stop working until Cat Key starts again.', 'Quit', true)) invoke('quit_app');
       } })));
   const body = $('.drawer-body', d);
   if (body) body.scrollTop = scrollTop;
+}
+
+const ME = { name: 'Masterfully', github: 'https://github.com/MasterfullyClaw', x: 'https://x.com/MasterfullyClaw' };
+
+/** Open the About page from anywhere (the top bar, Settings) and bring it into view. */
+function openAbout() {
+  if (SETTINGS_OPEN) closeSettings();
+  setView('about');
+  requestAnimationFrame(() => $('#tabs')?.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' }));
+}
+
+/** About: who makes Cat Key and where to find them. Its own page, opened from the top bar. */
+let ABOUT_CAT = null;
+function renderAbout() {
+  const box = $('#about-page');
+  if (!box) return;
+  ABOUT_CAT?.destroy();
+  box.textContent = '';
+  const go = (url) => () => invoke('open_link', { url }).catch((e) => toast(String(e), { kind: 'warn' }));
+  const link = (ic, title, sub, url) => h('button', { class: 'about-link', type: 'button', title: url.replace('https://', ''), onclick: go(url) },
+    h('span', { class: 'ic', html: icon(ic) }), h('span', { class: 'txt' }, h('b', { text: title }), h('span', { text: sub })));
+  const holder = h('span', { class: 'about-cat' });
+  box.append(
+    h('div', { class: 'about-hero' }, holder,
+      h('div', { class: 'txt' },
+        h('h2', { class: 'display', text: 'Cat Key' }),
+        h('span', { class: 'about-ver', text: `Version ${S.status.version || ''}`.trim() }),
+        h('p', { class: 'hint', text: 'The all-in-one shortcut manager. Every shortcut of every app in one place, a coach that catches the long way, and a cat that levels up with you. Free.' }),
+        h('span', { class: 'about-by' }, 'Built by ', h('b', { text: ME.name })))),
+    h('section', { class: 'about-block' }, h('h3', { text: `Made by ${ME.name}` }),
+      h('div', { class: 'about-links' },
+        link('link', 'GitHub', '@MasterfullyClaw', ME.github),
+        link('link', 'X (Twitter)', '@MasterfullyClaw', ME.x))),
+    h('section', { class: 'about-block' }, h('h3', { text: 'Cat Key' }),
+      h('div', { class: 'about-links' },
+        link('star', 'Cat Key on GitHub', 'Code, downloads and the store', `https://github.com/${REPO}`),
+        link('sparkle', 'What’s new', 'Every version and what changed', `https://github.com/${REPO}/releases`),
+        link('up', 'Share a pack', 'Post your shortcuts to the store', `https://github.com/${REPO}/issues/new?template=share-a-pack.yml`),
+        link('info', 'Report a problem', 'Opens a new issue on GitHub', `https://github.com/${REPO}/issues/new`))),
+    h('section', { class: 'about-block' }, h('h3', { text: 'Community' }),
+      h('p', { class: 'hint about-soon', text: 'A Discord server, Cat Key’s own website and its social pages are on the way. They’ll show up right here.' })));
+  ABOUT_CAT = new Mascot(holder, { size: 104, look: myLook() });
 }
 
 function recordPause() {
@@ -2568,35 +2650,52 @@ function choiceBox(title, text, choices) {
 
 // ------------------------------------------------------------------ make a pack with any AI (Cat Key writes the request; you bring the AI)
 
-const AI = { want: '', kind: 'cheatsheet', app: '', plat: null, answer: '', showPrompt: false, context: true, waiting: false, seq: 0, poll: null, until: 0 };
-const AI_IDEAS = [
-  ['Make DaVinci Resolve feel like Premiere Pro', 'remap', 'DaVinci Resolve'],
-  ['The Blender shortcuts pros use most', 'cheatsheet', 'Blender'],
-  ['One-hand editing in CapCut: everything on the left side of the keyboard', 'remap', 'CapCut'],
-  ['Mac-style shortcuts inside Excel', 'remap', 'Excel'],
-  ['Figma shortcuts I should know', 'cheatsheet', 'Figma'],
+const AI = { want: '', wants: {}, kind: 'cheatsheet', app: '', plat: null, catName: '', answer: '', showPrompt: false, context: true, waiting: false, seq: 0, poll: null, until: 0 };
+/** Switch what's being made; each kind keeps its own description. */
+function setAiKind(v) {
+  if (AI.kind === v) return;
+  AI.wants[AI.kind] = AI.want;
+  AI.kind = v;
+  AI.want = AI.wants[v] || '';
+}
+const AI_KINDS = [
+  ['cheatsheet', 'book', 'Learn an app', 'Its real shortcuts, checked by the AI, ready to train'],
+  ['remap', 'swap', 'Remap my keys', 'Your own keys for an app’s actions'],
+  ['cat', 'paw', 'Design a new cat', 'A cat of your own: its name, colours and gear'],
 ];
+const AI_IDEAS = {
+  cheatsheet: [['The Blender shortcuts pros use most', 'Blender'], ['Premiere Pro: the editing shortcuts top editors use', 'Premiere Pro'],
+    ['Unreal Engine: moving around and building levels fast', 'Unreal Engine'], ['Figma shortcuts I should know', 'Figma']],
+  remap: [['Make DaVinci Resolve feel like Premiere Pro', 'DaVinci Resolve'], ['One-hand editing in CapCut: everything on the left side of the keyboard', 'CapCut'],
+    ['Mac-style shortcuts inside Excel', 'Excel']],
+  cat: [['A sleepy grey cat with round glasses'], ['A tiny black ninja cat with a red headband'], ['A golden royal cat with a crown and a purple cape'],
+    ['A very sad cat with big teary eyes'], ['A grumpy white cat who is unimpressed by everything']],
+};
 
 function catPrompt() {
   const want = AI.want.trim() || 'Surprise me: a cute, original cat.';
+  const name = AI.catName.trim();
   const gear = GEAR.map((g) => `${g.id} (${g.name})`).join(', ');
+  const taken = [...new Set(CATS.flatMap((c) => [c.name, c.full]).filter(Boolean))].join(', ');
   return [
-    'You are designing a custom cat mascot for Cat Key, a keyboard-shortcut app whose mascot is a cute chibi cat. Cat Key imports the JSON you write and dresses the cat in it.',
+    'You are designing a new cat mascot for Cat Key, a keyboard-shortcut app whose mascot is a cute chibi cat. Cat Key imports the JSON you write and draws the cat from it.',
     '',
     '## The cat I want',
     want,
+    name ? `Its name: ${name}` : 'Its name: pick a short, catchy one that fits it.',
     '',
     '## How to do it well',
-    '1. Pick colours that work together and look good on both a dark and a light background. Fur and chest need contrast, and the eyes should pop.',
-    '2. "stripes": true adds tabby stripes in a darker shade of the fur. "muzzle": true gives a muzzle in the chest colour. "ears": "fold" gives folded (Scottish Fold) ears.',
-    `3. Optional "gear" (at most 3 pieces, one per body part), only from this list: ${gear}.`,
-    '4. Optional extra colours in "colors" (hex): line (outline), ear (inside of the ears), blush, nose, stripe, tip (tail tip), whisker.',
-    '5. "theme" sets the app\u2019s accent colour: "mochi" (pink), "kuro" (purple), "tora" (orange) or "sora" (blue).',
+    `1. The cat is new, so its name must be new too: not one of Cat Key\u2019s own cats (${taken}).`,
+    '2. Pick colours that work together and look good on both a dark and a light background. Fur and chest need contrast, and the eyes should pop.',
+    '3. "stripes": true adds tabby stripes in a darker shade of the fur. "muzzle": true gives a muzzle in the chest colour. "ears": "fold" gives folded (Scottish Fold) ears.',
+    `4. Optional "gear" (at most 3 pieces, one per body part), only from this list: ${gear}.`,
+    '5. Optional extra colours in "colors" (hex): line (outline), ear (inside of the ears), blush, nose, stripe, tip (tail tip), whisker.',
+    '6. "theme" sets the app\u2019s accent colour: "mochi" (pink), "kuro" (purple), "tora" (orange) or "sora" (blue).',
     '',
     '## Output',
     'Reply with exactly one JSON code block and nothing after it:',
     '```json',
-    JSON.stringify({ format: 'catkey-cat', version: 1, name: 'Pixel', full: 'Pixel the Brave', tag: 'Your cat', theme: 'tora',
+    JSON.stringify({ format: 'catkey-cat', version: 1, name: name || 'Pixel', full: `${name || 'Pixel'} the Brave`, tag: 'Your cat', theme: 'tora',
       colors: { fur: '#F6B26B', belly: '#FFF6EC', eye: '#4CAF50', collar: '#C0392B' }, stripes: true, muzzle: true, ears: 'normal', gear: ['band-red'] }, null, 2),
     '```',
   ].join('\n');
@@ -2659,24 +2758,108 @@ function aiContext() {
   return used.length ? ['', '## Keys I already use with Cat Key (don’t use these as "press")', used.join(', ')] : [];
 }
 
-const AI_SITES = [
-  ['ChatGPT', (q) => `https://chatgpt.com/?hints=search&q=${encodeURIComponent(q)}`, 'https://chatgpt.com/'],
-  ['Claude', (q) => `https://claude.ai/new?q=${encodeURIComponent(q)}`, 'https://claude.ai/new'],
-  ['Perplexity', (q) => `https://www.perplexity.ai/search?q=${encodeURIComponent(q)}`, 'https://www.perplexity.ai/'],
-  ['Gemini', null, 'https://gemini.google.com/app'],
+// Where a request can go. In the browser the whole request rides in the link; the Claude app takes it in its own
+// link (claude://); the ChatGPT app and Gemini get it from the clipboard.
+const enc = (q) => encodeURIComponent(q);
+const AI_TARGETS = [
+  { id: 'chatgpt-search', where: 'web', name: 'ChatGPT', label: 'ChatGPT with web search', link: (q) => `https://chatgpt.com/?hints=search&q=${enc(q)}`, home: 'https://chatgpt.com/', max: 12000,
+    hint: 'Opens ChatGPT in your browser with web search on and sends the whole request.' },
+  { id: 'chatgpt', where: 'web', name: 'ChatGPT', label: 'ChatGPT', link: (q) => `https://chatgpt.com/?q=${enc(q)}`, home: 'https://chatgpt.com/', max: 12000,
+    hint: 'Opens ChatGPT in your browser and sends the whole request.' },
+  { id: 'claude', where: 'web', name: 'Claude', label: 'Claude', link: (q) => `https://claude.ai/new?q=${enc(q)}`, home: 'https://claude.ai/new', max: 14000,
+    hint: 'Opens Claude in your browser with the whole request typed in. Check it and press Enter.' },
+  { id: 'perplexity', where: 'web', name: 'Perplexity', label: 'Perplexity', link: (q) => `https://www.perplexity.ai/search?q=${enc(q)}`, home: 'https://www.perplexity.ai/', max: 8000,
+    hint: 'Opens Perplexity in your browser and sends the whole request.' },
+  { id: 'gemini', where: 'web', name: 'Gemini', label: 'Gemini', home: 'https://gemini.google.com/app',
+    hint: 'Opens Gemini in your browser. The request waits on your clipboard: paste it (Ctrl+V) and send it.' },
+  { id: 'claude-app', where: 'app', name: 'Claude', label: 'Claude app', app: 'claude', deep: (q) => `claude://claude.ai/new?q=${enc(q)}`, max: 14000, web: 'claude',
+    hint: 'Opens the Claude app on this computer with the whole request typed in. Check it and press Enter.' },
+  { id: 'chatgpt-app', where: 'app', name: 'ChatGPT', label: 'ChatGPT app', app: 'chatgpt', web: 'chatgpt',
+    hint: 'Opens the ChatGPT app on this computer. The request waits on your clipboard: paste it (Ctrl+V) and send it.' },
+  { id: 'copy', where: 'copy', label: 'Copy the request', hint: 'Copies the whole request, so you can paste it into any AI.' },
+  { id: 'file', where: 'file', label: 'Save as a file', hint: 'Saves the whole request as a text file you can drop into any AI chat.' },
 ];
+const TARGET_KEY = 'catkey.ai.target';
+function aiTarget() {
+  let id = null;
+  try { id = JSON.parse(localStorage.getItem(TARGET_KEY) || '{}')[AI.kind]; } catch { /* first time */ }
+  id ||= AI.kind === 'cat' ? 'claude' : 'chatgpt-search';
+  return AI_TARGETS.find((t) => t.id === id) || AI_TARGETS[0];
+}
+function setAiTarget(id) {
+  try { const m = JSON.parse(localStorage.getItem(TARGET_KEY) || '{}'); m[AI.kind] = id; localStorage.setItem(TARGET_KEY, JSON.stringify(m)); } catch { /* not kept */ }
+}
+const targetIcon = (t) => icon(t.where === 'web' ? 'globe' : t.where === 'app' ? 'app' : t.where === 'copy' ? 'copy' : 'down');
+const targetVerb = (t) => (t.where === 'web' ? `Open ${t.label}` : t.where === 'app' ? `Open the ${t.label}` : t.label);
+const targetBadge = (t) => (AI.kind === 'cat' ? (t.name === 'Claude' ? 'Best for cats' : '') : (t.id === 'chatgpt-search' ? 'Searches the web' : ''));
+function targetHint(t, q = aiPrompt()) {
+  if (t.where === 'web' && t.link && t.link(q).length > t.max) return `Opens ${t.name} in your browser. This request is long, so it waits on your clipboard: paste it (Ctrl+V) and send it.`;
+  return t.hint;
+}
 
-async function openInAI([name, link, home]) {
-  const ok = await confirmBox(`Open ${name}?`, `${cat()} copies your request and opens ${name} in your browser${link ? ' with it filled in' : ''}. Send it there, then click Copy on the answer: ${cat()} brings it back and installs it by itself.`, `Open ${name}`);
-  if (!ok) return;
+async function sendRequest(t = aiTarget()) {
   const q = aiPrompt();
-  const url = link ? link(q) : '';
-  try { await navigator.clipboard.writeText(q); } catch { /* the link carries it anyway */ }
+  if (t.where === 'copy') {
+    try { await navigator.clipboard.writeText(q); bridgeStart(); toast('Copied the whole request. Paste it into any AI.'); } catch { AI.showPrompt = true; renderAI(); toast('Couldn’t copy. Select the text below and copy it.', { kind: 'warn' }); }
+    return;
+  }
+  if (t.where === 'file') {
+    try { if (await invoke('save_text', { name: `Cat Builder request${AI.kind !== 'cat' && AI.app ? ` - ${AI.app}` : ''}.txt`, text: q })) { bridgeStart(); toast('Saved. Drop it into your AI chat.'); } } catch (e) { toast(String(e), { kind: 'err' }); }
+    return;
+  }
+  const ok = await confirmBox(`${targetVerb(t)}?`, `${targetHint(t, q)} When the answer is ready, click Copy on it: ${cat()} brings it back and sets it up.`, targetVerb(t));
+  if (!ok) return;
+  try { await navigator.clipboard.writeText(q); } catch { /* the link carries it */ }
   bridgeStart();
   try {
-    if (url && url.length <= 7800) await invoke('open_link', { url });
-    else { await invoke('open_link', { url: home }); toast(`${name} is open. Paste the request (Ctrl+V) and send it.`, { ms: 8000 }); }
+    if (t.where === 'app') {
+      const deep = t.deep?.(q);
+      const r = await invoke('open_ai_app', { app: t.app, link: deep && deep.length <= t.max ? deep : null });
+      if (r === 'filled') toast(`${t.name} is open with your request typed in. Check it and press Enter.`, { ms: 8000 });
+      else if (r === 'paste') toast(`${t.name} is opening. Paste the request (Ctrl+V) and send it.`, { ms: 10000 });
+      else {
+        toast(`The ${t.label} isn’t on this computer, so ${t.name} opens in your browser instead.`, { kind: 'warn', ms: 8000 });
+        await openAiWeb(AI_TARGETS.find((x) => x.id === t.web), q);
+      }
+      return;
+    }
+    await openAiWeb(t, q);
   } catch (e) { toast(String(e), { kind: 'warn' }); }
+}
+async function openAiWeb(t, q) {
+  const url = t.link?.(q);
+  if (url && url.length <= t.max) await invoke('open_link', { url });
+  else { await invoke('open_link', { url: t.home }); toast(`${t.name} is open. Paste the request (Ctrl+V) and send it.`, { ms: 10000 }); }
+}
+function targetMenu(anchor) {
+  const cur = aiTarget();
+  const row = (t) => h('button', { class: `item${t.id === cur.id ? ' on' : ''}`, type: 'button', role: 'menuitemradio', 'aria-checked': String(t.id === cur.id),
+    onclick: () => { closePop(); setAiTarget(t.id); renderAI(); sendRequest(t); } },
+    h('span', { html: targetIcon(t) }), h('span', { class: 'nm', text: t.label }), targetBadge(t) ? h('span', { class: 'best', text: targetBadge(t) }) : null);
+  const group = (where) => AI_TARGETS.filter((t) => t.where === where).map(row);
+  showPop(anchor, h('div', { class: 'pop ai-targets', role: 'menu', 'aria-label': 'Where to send the request' },
+    h('div', { class: 'head', text: 'In your browser' }), ...group('web'),
+    h('div', { class: 'sep' }), h('div', { class: 'head', text: 'Apps on this computer' }), ...group('app'),
+    h('div', { class: 'sep' }), ...group('copy'), ...group('file')));
+}
+
+const partEl = (x) => h('span', { class: 'part', role: 'listitem' }, h('span', { class: 'ic', html: icon('check') }), h('span', { text: x }));
+
+/** What goes into the request, shown before it's sent. */
+function requestParts() {
+  if (AI.kind === 'cat') {
+    const name = AI.catName.trim();
+    return ['Your description', name ? `The name ${name}` : 'Pick a new name', 'Colour tips', `${GEAR.length} pieces of gear`, 'Names already taken', 'The format Cat Key reads'];
+  }
+  const parts = ['Your words', AI.app.trim() || 'Any app', AI.plat === 'both' ? 'Windows and Mac' : AI.plat === 'mac' ? 'Mac' : 'Windows',
+    'Research the official docs', 'Due diligence and sources'];
+  if (AI.kind === 'cheatsheet') parts.push('Animated demos');
+  parts.push('Exact key names', 'The format Cat Key reads');
+  if (AI.kind === 'remap' && AI.context) {
+    const n = new Set(rules().filter((r) => r.enabled).map((r) => r.trigger)).size;
+    if (n) parts.push(`${n} keys you already use`);
+  }
+  return parts;
 }
 
 /** The way back: while waiting, Cat Key watches the clipboard for a pack (only while waiting, and only for packs). */
@@ -2700,6 +2883,7 @@ async function bridgeTick() {
   AI.seq = seq;
   const text = await invoke('read_clipboard').catch(() => null);
   if (!text || !/catkey-pack|catkey-cat|CK1:|"sections"\s*:/.test(text)) return;
+  if (text.includes('Cat Key imports the JSON you write')) return; // that's the request itself, copied again
   bridgeStop();
   await invoke('focus_window').catch(() => {});
   sounds.saved();
@@ -2713,45 +2897,70 @@ function renderAI() {
   const hadFocus = document.activeElement?.id;
   box.textContent = '';
   if (!AI.plat) AI.plat = PLAT();
+  const isCat = AI.kind === 'cat';
   box.append(h('div', { class: 'tpl-intro' }, h('div', { class: 'txt' },
     h('h2', { class: 'display', text: 'Cat Builder' }),
-    h('p', { class: 'hint', text: `Shortcuts for any app, written by the AI you already use. ${cat()} writes the request: what to research, the format, the keys you already use. ChatGPT, Claude or another AI does the research, and ${cat()} picks up the answer when you copy it. Nothing is sent anywhere by ${cat()} itself.` }))));
-  const want = h('textarea', { id: 'ai-want', class: 'field area', rows: '3', placeholder: 'e.g. “The shortcuts top editors use in Premiere Pro” or “Make DaVinci Resolve work with my Premiere keys”', oninput: (e) => { AI.want = e.target.value; refreshPrompt(); } });
-  want.value = AI.want;
-  const app = h('input', { id: 'ai-app', class: 'field', type: 'text', list: 'ai-apps', placeholder: 'Which app? Premiere Pro, Blender, Excel…', value: AI.app, oninput: (e) => { AI.app = e.target.value; refreshPrompt(); } });
-  const apps = h('datalist', { id: 'ai-apps' }, ...Object.values(L.data?.APPS || {}).map((x) => h('option', { value: x.name.replace(/ \(.*\)$/, '') })));
-  const seg = (items, val, set) => h('div', { class: 'seg soft', role: 'group' }, ...items.map(([v, label]) =>
-    h('button', { type: 'button', 'aria-pressed': String(val === v), text: label, onclick: () => { set(v); renderAI(); } })));
-  const ideas = h('div', { class: 'ai-ideas' }, ...AI_IDEAS.map(([t, kind, appName]) => h('button', { class: 'cat', type: 'button', text: t,
-    onclick: () => { AI.want = t; AI.kind = kind; AI.app = appName; renderAI(); } })));
+    h('p', { class: 'hint', text: `Make shortcuts for any app, or a whole new cat, with the AI you already use. ${cat()} writes the request, the AI does the work, and ${cat()} picks up the answer when you copy it. ${cat()} sends nothing anywhere by itself.` }))));
+
+  // 1. what you're making
   box.append(h('section', { class: 'ai-step' },
-    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '1' }), 'What do you want? Write it in your own words'),
-    h('div', { class: 'ai-row' }, app, apps),
-    seg([['cheatsheet', 'Learn an app (pro shortcuts + training)'], ['remap', 'Remap my keys'], ['cat', 'Design my cat']], AI.kind, (v) => { AI.kind = v; }),
-    want, ideas,
-    h('div', { class: 'ai-row' },
-      seg([['windows', 'Windows'], ['mac', 'Mac'], ['both', 'Both']], AI.plat, (v) => { AI.plat = v; }),
-      AI.kind === 'remap' ? h('label', { class: 'ai-check' }, h('input', { type: 'checkbox', class: 'cb', checked: AI.context, onchange: (e) => { AI.context = e.target.checked; refreshPrompt(); } }),
-        h('span', { text: 'Tell the AI which keys I already use' })) : null)));
+    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '1' }), 'What are you making?'),
+    h('div', { class: 'ai-kinds', role: 'group', 'aria-label': 'What are you making?' }, ...AI_KINDS.map(([v, ic, title, sub]) =>
+      h('button', { class: 'ai-kind', type: 'button', 'aria-pressed': String(AI.kind === v), onclick: () => { if (AI.kind !== v) { setAiKind(v); clickSound(); renderAI(); } } },
+        h('span', { class: 'ic', html: icon(ic) }), h('span', { class: 'txt' }, h('b', { text: title }), h('span', { text: sub })))))));
+
+  // 2. the details: only what this kind needs
+  const want = h('textarea', { id: 'ai-want', class: 'field area', rows: '3', oninput: (e) => { AI.want = e.target.value; refreshPrompt(); },
+    placeholder: isCat ? 'Describe it in your own words: colours, mood, outfit… e.g. “a very sad grey cat with big teary eyes”'
+      : AI.kind === 'remap' ? 'e.g. “Make DaVinci Resolve work with my Premiere keys”' : 'Anything special? e.g. “the ones top editors use” (optional)' });
+  want.value = AI.want;
+  const ideas = h('div', { class: 'ai-ideas' }, ...AI_IDEAS[AI.kind].map(([t, appName]) => h('button', { class: 'cat', type: 'button', text: t,
+    onclick: () => { AI.want = t; if (appName) AI.app = appName; renderAI(); } })));
+  const step2 = h('section', { class: 'ai-step' });
+  if (isCat) {
+    const name = h('input', { id: 'ai-name', class: 'field', type: 'text', maxlength: '24', placeholder: 'Its name (or let the AI pick one)', 'aria-label': 'Name of your new cat', value: AI.catName,
+      oninput: (e) => { AI.catName = e.target.value; refreshPrompt(); } });
+    step2.append(h('div', { class: 'step-title' }, h('span', { class: 'n', text: '2' }), 'Describe your new cat'),
+      h('div', { class: 'ai-row' }, name), want, ideas,
+      h('p', { class: 'hint', text: `Cat Key’s own cats keep their names. This makes a new cat that’s all yours, and you can switch back any time.` }));
+  } else {
+    const app = h('input', { id: 'ai-app', class: 'field', type: 'text', list: 'ai-apps', placeholder: 'Which app? Premiere Pro, Blender, Unreal Engine…', 'aria-label': 'Which app', value: AI.app,
+      oninput: (e) => { AI.app = e.target.value; refreshPrompt(); } });
+    const apps = h('datalist', { id: 'ai-apps' }, ...Object.values(L.data?.APPS || {}).map((x) => h('option', { value: x.name.replace(/ \(.*\)$/, '') })));
+    const plat = h('div', { class: 'seg soft', role: 'group', 'aria-label': 'Computer' }, ...[['windows', 'Windows'], ['mac', 'Mac'], ['both', 'Both']].map(([v, label]) =>
+      h('button', { type: 'button', 'aria-pressed': String(AI.plat === v), text: label, onclick: () => { AI.plat = v; renderAI(); } })));
+    step2.append(h('div', { class: 'step-title' }, h('span', { class: 'n', text: '2' }), AI.kind === 'remap' ? 'Which app, and what should your keys do?' : 'Which app, and what do you want to learn?'),
+      h('div', { class: 'ai-row' }, app, apps, plat), want, ideas);
+    if (AI.kind === 'remap') step2.append(h('label', { class: 'ai-check' }, h('input', { type: 'checkbox', class: 'cb', checked: AI.context, onchange: (e) => { AI.context = e.target.checked; refreshPrompt(); } }),
+      h('span', { text: 'Tell the AI which keys I already use, so it picks free ones' })));
+  }
+  box.append(step2);
+
+  // 3. send it: everything above goes in the request
+  const t = aiTarget();
   const pre = h('pre', { id: 'ai-prompt', class: 'ai-prompt', hidden: !AI.showPrompt });
   pre.textContent = aiPrompt();
   box.append(h('section', { class: 'ai-step' },
-    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '2' }), 'Send it to an AI'),
-    h('div', { class: 'ai-open' }, ...AI_SITES.map((site) => h('button', { class: `btn${site[0] === 'ChatGPT' ? ' primary' : ''}`, type: 'button', html: `${icon('sparkle')}<span>Open in ${site[0]}</span>`, onclick: () => openInAI(site) }))),
+    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '3' }), 'Send it to an AI'),
+    h('div', { class: 'ai-parts', id: 'ai-parts', role: 'list', 'aria-label': 'What the request includes' }, ...requestParts().map(partEl)),
+    h('div', { class: 'ai-send' },
+      h('div', { class: 'split' },
+        h('button', { class: 'btn primary main', type: 'button', id: 'ai-go', html: `${targetIcon(t)}<span>${targetVerb(t)}</span>`, onclick: () => sendRequest(t) }),
+        h('button', { class: 'btn primary more', type: 'button', 'aria-label': 'Choose where to send it', 'aria-haspopup': 'menu', title: 'Choose where to send it', html: icon('chev'), onclick: (e) => targetMenu(e.currentTarget.parentElement) })),
+      h('div', { class: 'ai-send-txt' },
+        h('p', { class: 'hint', id: 'ai-send-hint', text: targetHint(t) }),
+        targetBadge(t) ? h('span', { class: 'best', text: targetBadge(t) }) : null)),
     h('div', { class: 'ai-row' },
-      h('button', { class: 'btn ghost', type: 'button', html: `${icon('copy')}<span>Copy the request</span>`, onclick: async () => {
-        try { await navigator.clipboard.writeText(aiPrompt()); bridgeStart(); toast('Copied. Paste it into any AI.'); } catch { AI.showPrompt = true; renderAI(); toast('Couldn’t copy. Select the text below and copy it.', { kind: 'warn' }); }
-      } }),
-      h('button', { class: 'btn ghost', type: 'button', html: `${icon('down')}<span>Save as a file</span>`, title: 'A text file you can drop into any AI app', onclick: async () => {
-        try { if (await invoke('save_text', { name: `Cat Builder request${AI.app ? ` - ${AI.app}` : ''}.txt`, text: aiPrompt() })) { bridgeStart(); toast('Saved. Drop it into your AI chat.'); } } catch (e) { toast(String(e), { kind: 'err' }); }
-      } }),
-      h('button', { class: 'btn ghost', type: 'button', text: AI.showPrompt ? 'Hide the request' : 'Show the request', onclick: () => { AI.showPrompt = !AI.showPrompt; renderAI(); } })),
-    pre,
-    h('p', { class: 'hint', text: 'Turn on web search in the AI if it asks: the shortcuts come out more accurate.' })));
+      h('button', { class: 'link', type: 'button', text: 'Choose another AI or app', onclick: (e) => targetMenu(e.currentTarget) }),
+      h('span', { class: 'spacer' }),
+      h('button', { class: 'link', type: 'button', text: AI.showPrompt ? 'Hide the request' : 'Show the whole request', onclick: () => { AI.showPrompt = !AI.showPrompt; renderAI(); } })),
+    pre));
+
+  // 4. bring it back
   const ans = h('textarea', { id: 'ai-answer', class: 'field area', rows: '4', placeholder: 'Or paste the AI’s whole answer here.', oninput: (e) => { AI.answer = e.target.value; } });
   ans.value = AI.answer;
   box.append(h('section', { class: 'ai-step' },
-    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '3' }), 'Bring it back'),
+    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '4' }), 'Bring it back'),
     AI.waiting
       ? h('div', { class: 'ai-bridge' }, h('span', { class: 'dot' }), h('span', { text: `Waiting for the answer. Click “Copy” on the AI’s code block and ${cat()} picks it up by itself.` }),
           h('span', { class: 'spacer' }), h('button', { class: 'btn small ghost', type: 'button', text: 'Stop waiting', onclick: bridgeStop }))
@@ -2759,10 +2968,20 @@ function renderAI() {
     ans,
     h('div', { class: 'ai-row' },
       h('button', { class: 'btn', type: 'button', html: `${icon('check')}<span>Check what I pasted</span>`, onclick: async () => { if (await importText(AI.answer, 'answer')) AI.answer = ''; } }),
-      h('span', { class: 'hint', text: `${cat()} checks every key, skips what it can’t use, and you pick before anything is added. Cheat sheets go straight into Train yourself.` }))));
+      h('span', { class: 'hint', text: isCat ? `${cat()} checks the colours and gear and shows you the new cat.` : `${cat()} checks every key, skips what it can’t use, and you pick before anything is added. Cheat sheets go straight into Train yourself.` }))));
   if (hadFocus && $(`#${hadFocus}`)) { const el = $(`#${hadFocus}`); el.focus(); if (el.setSelectionRange && el.value != null) el.setSelectionRange(el.value.length, el.value.length); }
 }
-function refreshPrompt() { const pre = $('#ai-prompt'); if (pre) pre.textContent = aiPrompt(); }
+function refreshPrompt() {
+  const pre = $('#ai-prompt');
+  if (pre) pre.textContent = aiPrompt();
+  const parts = $('#ai-parts');
+  if (parts) {
+    parts.textContent = '';
+    parts.append(...requestParts().map(partEl));
+  }
+  const hint = $('#ai-send-hint');
+  if (hint) hint.textContent = targetHint(aiTarget());
+}
 
 // ------------------------------------------------------------------ select many shortcuts at once
 
@@ -2867,7 +3086,7 @@ setTrainSounds(TR.sound);
 function trainItems(p) {
   return packItems(p).map((x) => {
     const keys = isRemap(p) ? combo(x.it.press) : itemKeys(x.it);
-    return keys ? { id: `${x.it.name}|${keys}`, name: x.it.name, keys, section: x.s.name, fav: !!x.it.fav, does: isRemap(p) && x.it.does ? combo(x.it.does) : '', scope: itemScope(p, x.it), demo: x.it.demo || '' } : null;
+    return keys && trainSafe(keys) ? { id: `${x.it.name}|${keys}`, name: x.it.name, keys, section: x.s.name, fav: !!x.it.fav, does: isRemap(p) && x.it.does ? combo(x.it.does) : '', scope: itemScope(p, x.it), demo: x.it.demo || '' } : null;
   }).filter(Boolean);
 }
 const trainable = () => [...selfPacks(), ...libPacks()].filter((p) => !p._summary && trainItems(p).length >= (p._origin === 'self' || p._origin === 'template' ? 2 : 4));
@@ -2911,7 +3130,7 @@ function renderTrain() {
   box.append(h('div', { class: 'tpl-intro' },
     h('div', { class: 'txt' },
       h('h2', { class: 'display', text: 'Train yourself' }),
-      h('p', { class: 'hint', text: `Pick an app. ${cat()} names an action, you press its keys. Keys pressed here never reach an app, so nothing closes by accident. Each shortcut comes back right before you'd forget it, until it's automatic.` })),
+      h('p', { class: 'hint', text: `Pick an app. ${cat()} names an action, you press its keys. While a round runs, every key stays inside the trainer: nothing reaches Windows or your apps, so nothing closes by accident (Alt+F4 isn’t drilled at all). Each shortcut comes back right before you'd forget it, until it's automatic.` })),
     h('div', { class: 'lib-actions' },
       h('button', { class: 'btn strong', type: 'button', html: `${icon('wand')}<span>Make your own with AI</span>`, onclick: () => makeWithAI('cheatsheet') }),
       h('button', { class: `chipbtn${TR.sound ? ' on' : ''}`, type: 'button', 'aria-pressed': String(TR.sound), html: `${icon('paw')}<span>Sounds ${TR.sound ? 'on' : 'off'}</span>`,
@@ -2969,7 +3188,7 @@ function renderTrain() {
     h('div', { class: 'lib-top' }, h('span', { class: 'lib-ico glyph', html: icon('wand') })),
     h('div', { class: 'lib-name display', text: 'Any other app' }),
     h('div', { class: 'lib-desc', text: 'Cat Builder asks ChatGPT or Claude for the pro shortcuts of any app. Import the answer and it’s here to practice.' }),
-    h('div', { class: 'lib-meta row' }, h('button', { class: 'btn small strong', type: 'button', html: `${icon('wand')}<span>Open Cat Builder</span>`, onclick: () => { AI.kind = 'cheatsheet'; setView('ai'); } }))));
+    h('div', { class: 'lib-meta row' }, h('button', { class: 'btn small strong', type: 'button', html: `${icon('wand')}<span>Open Cat Builder</span>`, onclick: () => { setAiKind('cheatsheet'); setView('ai'); } }))));
   box.append(grid);
   box.append(h('label', { class: 'track-opt' },
     h('input', { type: 'checkbox', class: 'cb', checked: db.track, onchange: (e) => { const d = trainDb(); d.track = e.target.checked; trainSave(d); syncTracked(); } }),
@@ -3040,8 +3259,17 @@ function trainAlternatives(target, scope) {
     (r.scope.mode === 'all' || (scope.mode === 'only' && r.scope.mode === 'only' && r.scope.apps.some((x) => scope.apps.includes(x))))).map((r) => r.trigger);
 }
 
+/** While a round runs (and Cat Key is in front), every key goes to the trainer only. */
+function trainCapture(on) {
+  invoke('set_capture', { on: !!on }).catch(() => {});
+}
+/** Shortcuts never drilled: they close, lock or leave the screen. */
+const NOT_TRAINED = ['Alt+F4', 'Ctrl+Alt+Delete', 'Win+L'];
+const trainSafe = (keys) => !NOT_TRAINED.some((k) => K.overlaps(keys, k));
+
 function trainListen() {
   if (!TR.on || TR.phase !== 'ask') return;
+  trainCapture(true);
   startRecording({
     onUpdate: (sc) => { if (!TR.tPress && sc) TR.tPress = performance.now(); TR.live = sc || ''; paintTrainKeys(); },
     onDone: (sc) => trainJudge(sc),
@@ -3102,6 +3330,7 @@ function trainJudge(sc) {
 
 function trainPause() {
   TR.phase = 'paused';
+  trainCapture(false);
   stopRecording();
   renderTrainSession();
 }
@@ -3125,12 +3354,14 @@ function trainStop() {
   TR.on = false;
   TR.phase = 'pick';
   $('#app').classList.remove('training');
+  trainCapture(false);
   stopRecording();
 }
 
 function trainEnd() {
   clearTimeout(TR.timer);
   TR.phase = 'end';
+  trainCapture(false);
   stopRecording();
   trainLog();
   trainSounds.done();
@@ -3307,7 +3538,7 @@ setInterval(pullTracked, 15000);
 // ------------------------------------------------------------------ make your own, post to the store
 
 function makeWithAI(kind = 'cheatsheet') {
-  AI.kind = kind;
+  setAiKind(kind);
   setView('ai');
   setTimeout(() => $('#ai-want')?.focus(), 350);
 }
@@ -3322,7 +3553,8 @@ function youDontNeed() {
 async function importCat(data) {
   const c = checkCat(data);
   if (!c) { toast('That cat needs a name and a fur colour.', { kind: 'warn' }); return false; }
-  await saveLook({ custom: [...(LOOK().custom || []).filter((x) => x.name !== c.name), c], cat: c.id }, { catName: c.name });
+  if (houseName(c.name)) { toast(`${c.name} is one of Cat Key’s own cats, so yours needs a name of its own. Change "name" in the answer, or ask the AI for another.`, { kind: 'warn', ms: 8000 }); return false; }
+  await saveLook({ custom: [...(LOOK().custom || []).filter((x) => x.name !== c.name), c], cat: c.id });
   setView('warrior');
   sounds.mew();
   toast(`Say hi to ${c.name}!`);
@@ -3388,7 +3620,7 @@ const customCats = () => (LOOK().custom || []).map(checkCat).filter(Boolean);
 const allCats = () => [...CATS, ...customCats()];
 function myCat() {
   const s = S.config?.settings || {};
-  const id = LOOK().cat || s.skin || 'mochi';
+  const id = ({ sumbul: 'sonbol' })[LOOK().cat] || LOOK().cat || s.skin || 'mochi';
   return allCats().find((c) => c.id === id) || CATS.find((c) => c.id === s.skin) || CATS[0];
 }
 function gearOk(id, c = myCat()) {
@@ -3402,10 +3634,14 @@ function myLook(c = myCat()) {
 function saveLook(patch, extra = {}) {
   return commitSettings({ catLook: { ...LOOK(), ...patch }, ...extra }).then(() => { applyLook(); renderHero(); if (S.view === 'warrior') renderWarrior(); });
 }
+function catTitle(c) { return c.meme ? c.full : c.name; }
+// True when a name belongs to one of Cat Key's own cats (theirs can't be taken or changed).
+function houseName(n) {
+  const k = String(n || '').trim().toLowerCase();
+  return !!k && CATS.some((c) => [c.name, c.full].some((x) => x && x.toLowerCase() === k));
+}
 function chooseCat(c) {
-  const s = S.config.settings;
   const extra = {};
-  if (!s.catName || s.catName === myCat().name || s.catName === skinName(s.skin)) extra.catName = c.name;
   if (c.skin) extra.skin = c.skin;
   sounds.mew();
   hero?.knead(1200);
@@ -3557,8 +3793,8 @@ async function renderWarrior() {
   const unlocks = r.next ? GEAR.filter((g) => g.rank === r.index + 1).map((g) => g.name) : [];
   box.append(h('div', { class: 'wr-hero' }, holder,
     h('div', { class: 'wr-rank' },
-      h('span', { class: 'hint', text: [me.full !== cat() ? me.full : '', me.tag].filter(Boolean).join(' · ') || ' ' }),
-      h('h2', { class: 'display', text: `${cat()} · ${r.name}` }),
+      h('span', { class: 'hint', text: `You · your cat today: ${cat()}${me.tag ? ` (${me.tag})` : ''}` }),
+      h('h2', { class: 'display', text: r.name }),
       h('div', { class: 'xpbar', role: 'progressbar', 'aria-label': 'XP to the next rank', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(r.pct) }, h('span', { style: { width: `${r.pct}%` } })),
       h('div', { class: 'hint', text: r.next
         ? `${xp.total.toLocaleString()} XP · ${(r.next.xp - xp.total).toLocaleString()} more to ${r.next.name}${unlocks.length ? `, which unlocks ${unlocks.join(', ')}` : ''}.`
@@ -3627,13 +3863,13 @@ async function renderWarrior() {
   for (const c of allCats()) {
     const mini = h('span', { class: 'mini' });
     picker.append(h('button', { class: `cat-pick${c.id === me.id ? ' on' : ''}`, type: 'button', 'aria-pressed': String(c.id === me.id), title: c.full, onclick: () => chooseCat(c) },
-      mini, h('b', { text: c.name }), h('span', { class: 'tag', text: c.tag || '' })));
+      mini, h('b', { text: catTitle(c) }), h('span', { class: 'tag', text: c.tag || '' })));
     W.minis.push(new Mascot(mini, { size: 70, look: myLook(c) }));
   }
   picker.append(h('button', { class: 'cat-pick make', type: 'button', onclick: () => { W.editor = !W.editor; renderWarrior(); } },
     h('span', { class: 'plus', html: icon('plus') }), h('b', { text: 'Make one' }), h('span', { class: 'tag', text: 'Colours or AI' })));
-  box.append(h('section', { class: 'wr-card' }, h('h3', { text: 'Choose your cat' }),
-    h('p', { class: 'hint', text: 'The house cats, the warriors of the meme, and any cat you make yourself.' }), picker, W.editor ? catEditor() : null));
+  box.append(h('section', { class: 'wr-card', id: 'wr-cats' }, h('h3', { text: 'Choose your cat' }),
+    h('p', { class: 'hint', text: 'Just for fun: switch any time. Your rank, XP and stats are yours, not the cat’s, so they stay the same whichever cat you pick.' }), picker, W.editor ? catEditor() : null));
 
   // ---- the wardrobe
   const worn = new Set(myLook().gear);
@@ -3679,18 +3915,20 @@ function catEditor() {
   const check = (k, label) => h('label', { class: 'ai-check' }, h('input', { type: 'checkbox', class: 'cb', checked: d[k], onchange: (e) => { d[k] = e.target.checked; draw(); } }), h('span', { text: label }));
   const el = h('div', { class: 'cat-editor' }, preview,
     h('div', { class: 'ce-fields' },
-      h('input', { class: 'field', type: 'text', maxlength: '24', placeholder: 'Name your cat', value: d.name, oninput: (e) => { d.name = e.target.value; } }),
+      h('input', { class: 'field', id: 'ce-name', type: 'text', maxlength: '24', placeholder: 'Name your new cat', 'aria-label': 'Name your new cat', value: d.name, oninput: (e) => { d.name = e.target.value; } }),
       h('div', { class: 'ce-row' }, color('fur', 'Fur'), color('belly', 'Chest'), color('eye', 'Eyes'), color('collar', 'Collar')),
       h('div', { class: 'ce-row' }, check('stripes', 'Stripes'), check('muzzle', 'White muzzle'), check('fold', 'Folded ears')),
       h('div', { class: 'ce-row' },
         h('button', { class: 'btn small strong', type: 'button', html: `${icon('check')}<span>Save my cat</span>`, onclick: () => {
-          const c = checkCat({ name: d.name.trim() || 'My cat', colors: { fur: d.fur, belly: d.belly, eye: d.eye, collar: d.collar }, stripes: d.stripes, muzzle: d.muzzle, ears: d.fold ? 'fold' : 'normal' });
+          if (!d.name.trim()) { toast('Give your new cat a name first.', { kind: 'warn' }); $('#ce-name')?.focus(); return; }
+          if (houseName(d.name)) { toast(`${d.name.trim()} is one of Cat Key’s own cats. Pick a name of your own.`, { kind: 'warn' }); $('#ce-name')?.focus(); return; }
+          const c = checkCat({ name: d.name.trim(), colors: { fur: d.fur, belly: d.belly, eye: d.eye, collar: d.collar }, stripes: d.stripes, muzzle: d.muzzle, ears: d.fold ? 'fold' : 'normal' });
           if (!c) return;
           W.editor = false;
           W.draft = null;
-          saveLook({ custom: [...(LOOK().custom || []), c], cat: c.id }, { catName: c.name }).then(() => toast(`Say hi to ${c.name}!`));
+          saveLook({ custom: [...(LOOK().custom || []), c], cat: c.id }).then(() => toast(`Say hi to ${c.name}!`));
         } }),
-        h('button', { class: 'btn small', type: 'button', html: `${icon('wand')}<span>Design one with AI</span>`, onclick: () => { AI.kind = 'cat'; AI.want = d.name ? `A cat called ${d.name}` : ''; setView('ai'); } }),
+        h('button', { class: 'btn small', type: 'button', html: `${icon('wand')}<span>Design one with AI</span>`, onclick: () => { setAiKind('cat'); if (d.name.trim()) AI.catName = d.name.trim(); setView('ai'); } }),
         LOOK().custom?.length ? h('button', { class: 'btn small ghost danger', type: 'button', text: 'Remove my own cats', onclick: async () => {
           if (await confirmBox('Remove your own cats?', 'The cats you made are deleted. The house cats and warriors stay.', 'Remove', true)) saveLook({ custom: [], cat: CATS.some((c) => c.id === LOOK().cat) ? LOOK().cat : 'mochi' });
         } }) : null)));
@@ -3861,9 +4099,11 @@ const PURR = { on: false };
 function paintPurr() {
   const b = $('#btn-purr');
   if (!b) return;
+  b.innerHTML = `${icon('purr')}${icon(PURR.on ? 'sound' : 'mute', 'snd')}<span class="waves" aria-hidden="true"></span>`;
   b.classList.toggle('on', PURR.on);
   b.setAttribute('aria-pressed', String(PURR.on));
-  b.title = PURR.on ? 'Stop purring (right-click for volume)' : 'Purr in the background (right-click for volume)';
+  b.setAttribute('aria-label', PURR.on ? 'Purring: on. Click to mute' : 'Purring: off. Click to purr');
+  b.title = PURR.on ? 'Purring in the background. Click to mute (right-click: volume)' : 'Purr in the background (right-click: volume)';
 }
 async function setPurr(on) {
   PURR.on = await invoke('purr_set', { on }).catch(() => false);

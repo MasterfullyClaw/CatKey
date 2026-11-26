@@ -175,8 +175,13 @@ export function createMock() {
           return {};
         case 'set_tracked':
         case 'focus_window':
-        case 'open_link':
           return null;
+        case 'open_link':
+          (window.__opened ||= []).push(args?.url);
+          return null;
+        case 'open_ai_app':
+          (window.__opened ||= []).push(`app:${args?.app}:${args?.link || ''}`);
+          return window.__mockAiApp || (args?.link ? 'filled' : 'paste');
         case 'save_text':
           console.log('[mock] save_text', args?.name, (args?.text || '').length);
           return true;

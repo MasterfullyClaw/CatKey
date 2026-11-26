@@ -266,6 +266,7 @@ fn build_main(app: &AppHandle) {
             w.on_window_event(|e| {
                 if let WindowEvent::Destroyed = e {
                     UI_OPEN.store(false, Ordering::SeqCst);
+                    hook::set_capture(false);
                     hook::send(hook::Cmd::StopRecord);
                 }
             });
@@ -419,6 +420,7 @@ pub fn run(args: Vec<String>) {
             crate::commands::window_close,
             crate::commands::quit_app,
             crate::commands::open_link,
+            crate::commands::open_ai_app,
             crate::commands::open_system_page,
             crate::commands::repair_startup,
             crate::commands::restart_app,
@@ -445,6 +447,7 @@ pub fn run(args: Vec<String>) {
             crate::commands::load_progress,
             crate::commands::backup_now,
             crate::commands::restore_backup,
+            crate::commands::set_capture,
         ])
         .setup(move |app| {
             if second {

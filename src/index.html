@@ -16,6 +16,7 @@
       </div>
       <span id="admin-badge" class="admin-badge" hidden>Admin</span>
       <div class="drag" data-tauri-drag-region></div>
+      <button id="btn-about" class="tbtn about" aria-label="About Cat Key" data-tip="Built by Masterfully"></button>
       <button id="btn-purr" class="tbtn purr" aria-label="Purr in the background" aria-pressed="false" title="Purr in the background"></button>
       <button id="btn-settings" class="tbtn" aria-label="Settings" title="Settings"></button>
       <button id="btn-min" class="tbtn" aria-label="Minimize" title="Minimize"></button>
@@ -25,7 +26,10 @@
     <div class="scroll" id="scroll">
       <main>
         <section class="hero">
-          <button class="cushion" id="cushion" aria-label="Pet the cat"></button>
+          <div class="cushion-wrap">
+            <button class="cushion" id="cushion" aria-label="Pet the cat"></button>
+            <button class="cat-switch" id="cat-switch" type="button" aria-label="Switch cat" title="Switch cat"></button>
+          </div>
           <div class="hero-text">
             <div class="bubble" id="bubble" aria-live="polite"></div>
             <p class="sub" id="sub"></p>
@@ -37,6 +41,7 @@
               <span class="chip soft" id="chip-today"></span>
               <span class="chip line" id="chip-on"></span>
             </div>
+            <button class="hero-profile" id="hero-profile" type="button" title="Your profile: rank, stats, your cat"></button>
           </div>
         </section>
 
@@ -70,6 +75,8 @@
         <section class="warrior" id="warrior" aria-label="Cat Warrior"></section>
 
         <section class="aihelp" id="aihelp" aria-label="Make with AI"></section>
+
+        <section class="about-page" id="about-page" aria-label="About Cat Key"></section>
       </main>
     </div>
 

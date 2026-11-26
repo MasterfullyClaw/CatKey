@@ -403,6 +403,44 @@ P("cinema-4d", "Cinema 4D", "cheatsheet", "3d", "both", "Core Cinema 4D defaults
    S("Viewports", [cs("F1", "Perspective"), cs("F2", "Top"), cs("F3", "Right"), cs("F4", "Front"), cs("F5", "All four views")]),
   ], app="cinema4d", sources=[{"title": "Maxon: Cinema 4D help", "url": "https://help.maxon.net/c4d/en-us/"}]),
 
+P("unreal-engine", "Unreal Engine", "cheatsheet", "3d", "both",
+  "Unreal Engine 5 editor defaults: building levels, the viewport, play-testing and Blueprints.", [
+   S("Move, rotate, scale", [
+     cs("W", "Move (translate) tool", 1), cs("E", "Rotate tool", 1), cs("R", "Scale tool", 1), cs("Q", "Selection tool"),
+     cs("Space", "Cycle move, rotate and scale", 1), cs("F", "Focus on the selection", 1), cs("End", "Snap to the floor", 1),
+     cs("Opt+End", "Snap the pivot to the floor"), cs("Mod+D", "Duplicate", 1), cs("Delete", "Delete"),
+     cs("H", "Hide selected", 1), cs("Mod+H", "Unhide all"), cs("Mod+G", "Group"), cs("Shift+G", "Ungroup"),
+   ]),
+   S("Viewport", [
+     cs("G", "Game view (hide editor icons)", 1), cs("Mod+R", "Real-time on / off"), cs("F11", "Immersive full screen"),
+     cs("Opt+G", "Perspective view", 1), cs("Opt+J", "Top view"), cs("Opt+H", "Front view"), cs("Opt+K", "Left view"),
+     cs("Opt+Shift+J", "Bottom view"), cs("Opt+Shift+H", "Back view"), cs("Opt+Shift+K", "Right view"),
+     cs("Opt+4", "Lit", 1), cs("Opt+3", "Unlit"), cs("Opt+2", "Wireframe", 1), cs("Opt+5", "Detail lighting"), cs("Opt+6", "Lighting only"),
+     cs("Mod+1", "Set bookmark 1 (works with 0–9)"), cs("1", "Jump to bookmark 1 (works with 0–9)"),
+     cs("P", "Show the navigation mesh"), cs("Mod+Shift+H", "Show FPS"),
+   ]),
+   S("Play and test", [
+     cs("Opt+P", "Play in the editor", 1), cs("Opt+S", "Simulate in the editor", 1), cs("Shift+F1", "Get the mouse back while playing", 1),
+     cs("Esc", "Stop playing"), cs("Backtick", "Console"),
+   ]),
+   S("Files and panels", [
+     cs("Mod+S", "Save the current level", 1), cs("Mod+Shift+S", "Save all", 1), cs("Mod+Opt+S", "Save the current level as"),
+     cs("Mod+N", "New level"), cs("Mod+O", "Open level"), cs("Ctrl+Space", "Content Drawer", 1, note="Control+Space on a Mac too"),
+     cs("Mod+B", "Find in the Content Browser", 1), cs("Mod+Z", "Undo"), cs("Mod+Y", "Redo"), cs("F1", "Documentation"),
+   ]),
+   S("Blueprints", [
+     cs("F7", "Compile", 1), cs("C", "Comment around the selection", 1), cs("Home", "Zoom to the selection"),
+     cs("Mod+F", "Find in this Blueprint"), cs("Mod+Shift+F", "Find in all Blueprints"), cs("F2", "Rename node"),
+     cs("F9", "Breakpoint on / off"), cs("Mod+Shift+F9", "Clear all breakpoints"), cs("PageDown", "Into the child graph"), cs("PageUp", "Back to the parent graph"),
+   ]),
+  ], app="unreal", sources=[
+     {"title": "Epic: Viewport controls in Unreal Engine", "url": "https://dev.epicgames.com/documentation/en-us/unreal-engine/viewport-controls-in-unreal-engine"},
+     {"title": "Epic: Blueprint editor cheat sheet", "url": "https://dev.epicgames.com/documentation/en-us/unreal-engine/blueprint-editor-cheat-sheet-in-unreal-engine"},
+     {"title": "Epic: Playing and simulating", "url": "https://dev.epicgames.com/documentation/en-us/unreal-engine/playing-and-simulating-in-unreal-engine"},
+     {"title": "Epic: Actor snapping", "url": "https://dev.epicgames.com/documentation/en-us/unreal-engine/actor-snapping-in-unreal-engine"},
+     {"title": "Epic: Keyboard shortcuts in the Unreal Editor (Fortnite)", "url": "https://dev.epicgames.com/documentation/en-us/fortnite/keyboard-shortcuts-in-unreal-editor-for-fortnite"},
+  ]),
+
 P("vscode", "VS Code", "cheatsheet", "code", "both", "Get around code without the mouse.", [
    S("Find anything", [
      cs("Mod+P", "Quick open a file", 1), cs("Mod+Shift+P", "Command palette", 1), cs("Mod+Shift+O", "Go to symbol", 1),

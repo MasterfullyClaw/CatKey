@@ -650,7 +650,9 @@ impl Engine {
                 self.active[vk] = Active::Swallow;
             }
         }
-        self.effects.push(Effect::Fired { rule: km.index });
+        if km.index != crate::config::SYSTEM_RULE {
+            self.effects.push(Effect::Fired { rule: km.index });
+        }
         true
     }
 

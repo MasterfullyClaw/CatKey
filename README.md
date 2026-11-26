@@ -39,15 +39,15 @@ Each app keeps its own shortcuts. Cat Key only adds yours on top, and you can sw
 | | |
 |---|---|
 | 🐾 **Your shortcuts** | Press a key, press what it should do. Everywhere, only in some apps, or everywhere except some. Shortcuts can also open apps, type text, or do nothing at all (block a key). |
-| 📚 **Library** | 21 ready-made packs, 748 shortcuts: Mac ⇄ Windows switching, Windows power keys, and the pro shortcuts of Premiere Pro, After Effects, DaVinci Resolve, CapCut, Photoshop, Illustrator, Lightroom, Figma, Blender, Cinema 4D, VS Code, Obsidian, browsers and more. Tick what you want, add it. |
-| 🎯 **Train yourself** | A game that teaches an app's shortcuts. Cat Key names an action and you press its keys. A right answer goes *boing*, a miss gets a soft meow, and streaks score more. Each shortcut comes back just before you'd forget it (spaced review). Cat Key also counts the times you use them for real in the app. |
-| 🪄 **Cat Builder** | Shortcuts for *any* app. Cat Builder writes the perfect request for ChatGPT, Claude, Perplexity or Gemini, opens it in one click, and picks up the answer when you copy it. No AI is built in and nothing is sent by Cat Key itself. |
+| 📚 **Library** | 22 ready-made packs, 806 shortcuts: Mac ⇄ Windows switching, Windows power keys, and the pro shortcuts of Premiere Pro, After Effects, DaVinci Resolve, CapCut, Photoshop, Illustrator, Lightroom, Figma, Blender, Cinema 4D, Unreal Engine, VS Code, Obsidian, browsers and more, with the Mac keys where they differ. Tick what you want, add it. |
+| 🎯 **Train yourself** | A game that teaches an app's shortcuts. Cat Key names an action and you press its keys. A right answer goes *boing*, a miss gets a soft meow, and streaks score more. Each shortcut comes back just before you'd forget it (spaced review). While a round runs, the keys you press stay inside the trainer, so practising Premiere's keys never touches Premiere (and window-closing keys like Alt+F4 are never drilled). Cat Key also counts the times you use them for real in the app. |
+| 🪄 **Cat Builder** | Pick what you're making (learn an app, remap your keys, or design a new cat) and Cat Builder writes the whole request for the AI you already use: ChatGPT (with web search), Claude, Perplexity or Gemini in your browser, or the ChatGPT and Claude apps on your computer. It picks up the answer when you copy it. No AI is built in and nothing is sent by Cat Key itself. |
 | 🧑‍🏫 **Shortcut coach** | Click a menu item or button that has a shortcut, and a small note shows its keys (and the time it would save), then fades. It reads only the name apps give screen readers, never the screen. Backspace ×10 in a row? It suggests Ctrl+Backspace. |
 | ⚔️ **Cat Warrior** | Ranks from Kitten to Nine Lives Legend, XP for training and for every shortcut you use, the time saved vs. the time lost to the mouse (Keystroke-Level Model), a wardrobe of hats, capes and belts, Cat Cards and a leaderboard. |
 | ⌨️ **Touch typing** | Home row first, a new key only when you're accurate and quick, lines built around your weakest key, and a *no peeking* mode where the cat lies on the keyboard. |
-| 🐈 **Your cat** | Eleven cats, from Mochi to the warriors of the meme (Ya'qub, Khalid, Khidir, Ismail, Usman, Sumbul) and Jasmine the kitten, each with their outfit. Or make your own, by hand or with an AI. Pet the cat and she makes biscuits on her keyboard. |
+| 🐈 **Your cat** | Eleven cats, from Mochi to the warriors of the meme (Ya'qub Qamar Ad-Din Dibiazah, Khalid Kashmiri, Khidir Karawita, Ismail Ahmad Kanabawi, Usman Abdul Jalil Sisha, Sonbol) and Jasmine the kitten, each with their outfit. Switch cats right under the cat at the top. Or make a new cat with its own name, by hand or with an AI. Pet the cat and she makes biscuits on her keyboard. |
 | 🔊 **Cat sounds & purring** | Soft paw taps, mews, chirps and trills on every click. A background purr to work to, from the paw button or the tray. |
-| 🔁 **Swap & templates** | Flip any shortcut (what you press ⇄ what it does) with one click. Save sets as templates; the starter set can't be deleted. |
+| 🔁 **Swap & templates** | Flip any shortcut (what you press ⇄ what it does) with one click. Save sets as templates; the starter set can't be deleted. A quick setting swaps Alt and Ctrl everywhere, like ⌘ and Control on a Mac (off unless you turn it on). |
 | 🔗 **Share & store** | Post a pack to the store from Cat Key: it shows with your GitHub name, people ❤️ it, and the most loved rise to the top. Or share a pack as one line of text (a `CK1:` code) or a file. Move your whole setup to another PC or Mac; Cat Key translates ⌘ and Ctrl for you. |
 | 🩺 **Checkup** | Finds what gets in the way (PowerToys Keyboard Manager, PowerToys Grab And Move on Alt, missing start-up entry, admin apps) and fixes it, or tells you exactly where to click. |
 
@@ -89,6 +89,10 @@ python3 tools/library/build.py     # after editing the built-in library
 ```
 
 The keyboard engine is a pure Rust crate (`crates/catkey-core`) with no operating-system code, so every timing case (Alt menus, key repeat, release order, missed releases) is covered by unit tests.
+
+## Built by Masterfully
+
+Cat Key is made by **Masterfully**: [GitHub @MasterfullyClaw](https://github.com/MasterfullyClaw) · [X @MasterfullyClaw](https://x.com/MasterfullyClaw).
 
 ## Credits
 

@@ -726,3 +726,32 @@ fn single_key_rules_pause_while_typing() {
     d(&mut e, m, LCTRL);
     assert_eq!(d(&mut e, m, b'K'), swallow("B↓"));
 }
+
+#[test]
+fn the_alt_ctrl_swap_trades_the_two_keys() {
+    let mut cfg = Config { rules: vec![], ..Config::default() };
+    cfg.settings.swap_alt_ctrl = true;
+    let mut e = engine_cfg(cfg);
+    let m = &mut Mock::default();
+    assert_eq!(d(&mut e, m, LALT), swallow("LCtrl↓"));
+    assert!(e.effects.is_empty(), "a setting, not a rule: nothing counted");
+    assert_eq!(d(&mut e, m, b'C'), pass()); // Windows sees Ctrl+C
+    assert_eq!(u(&mut e, m, b'C'), pass());
+    assert_eq!(u(&mut e, m, LALT), swallow("LCtrl↑"));
+    assert_eq!(d(&mut e, m, LCTRL), swallow("LAlt↓"));
+    assert_eq!(d(&mut e, m, TAB), pass()); // Alt+Tab, where Cmd+Tab would be on a Mac
+    assert_eq!(u(&mut e, m, TAB), pass());
+}
+
+#[test]
+fn rules_see_the_swapped_keys() {
+    // The starter rule Alt+W → Ctrl+W: with the swap, physical Ctrl+W is now "Alt+W".
+    let mut cfg = Config { rules: vec![r("LAlt+W", "LCtrl+W")], ..Config::default() };
+    cfg.settings.swap_alt_ctrl = true;
+    let mut e = engine_cfg(cfg);
+    let m = &mut Mock::default();
+    assert_eq!(d(&mut e, m, LALT), swallow("LCtrl↓"));
+    assert_eq!(d(&mut e, m, b'W'), pass()); // physical Alt+W is Ctrl+W already
+    assert_eq!(u(&mut e, m, b'W'), pass());
+    assert_eq!(u(&mut e, m, LALT), swallow("LCtrl↑"));
+}

@@ -25,6 +25,7 @@ function audio() {
       out = ctx.createGain();
       out.gain.value = 0.9;
       out.connect(comp).connect(ctx.destination);
+      loadSamples();
     } catch {
       return null;
     }
@@ -128,6 +129,42 @@ function voice({ dur, f0, f1, f2, gain = 0.09, vib = 6.5, vibDepth = 12, breath 
   lfo.stop(t1 + 0.03);
 }
 
+// ------------------------------------------------------------------ real cat recordings
+// When the app ships recordings (sounds/*.mp3), real meows and a real purr play; the
+// made-up voices below fill in while they load, or when there are none.
+
+const SAMPLE_FILES = { meow: [1, 2, 3, 4, 5].map((n) => `sounds/meow${n}.mp3`), purr: ['sounds/purr.mp3'] };
+const samples = { meow: [], purr: [] };
+let samplesLoading = null;
+function loadSamples() {
+  if (samplesLoading || !ctx || (typeof OfflineAudioContext !== 'undefined' && ctx instanceof OfflineAudioContext)) return samplesLoading;
+  const a = ctx;
+  samplesLoading = Promise.all(Object.entries(SAMPLE_FILES).flatMap(([kind, files]) => files.map(async (f) => {
+    try {
+      const r = await fetch(f);
+      if (!r.ok) return;
+      samples[kind].push(await a.decodeAudioData(await r.arrayBuffer()));
+    } catch { /* no recording here: the made-up voices play */ }
+  })));
+  return samplesLoading;
+}
+/** Play a recording (a random one of its kind). False if there's none. */
+function sample(kind, { gain = 0.4, rate = 1, delay = 0 } = {}) {
+  const list = samples[kind];
+  if (!list.length) return false;
+  const a = audio();
+  if (!a) return false;
+  const src = a.createBufferSource();
+  src.buffer = list[Math.floor(Math.random() * list.length)];
+  src.playbackRate.value = rate;
+  const g = a.createGain();
+  g.gain.value = gain;
+  src.connect(g).connect(out);
+  src.start(a.currentTime + 0.01 + delay);
+  return true;
+}
+const rnd = (a, b) => a + Math.random() * (b - a);
+
 const VOICES = {
   mew: (g = 1, d = 0) => voice({ dur: 0.26, f0: [[0, 720], [0.4, 990], [1, 770]], f1: [[0, 1100], [0.4, 1550], [1, 1000]], f2: [[0, 2900], [0.4, 2450], [1, 1950]], gain: 0.119 * g, delay: d }),
   meow: (g = 1, d = 0) => voice({ dur: 0.62, f0: [[0, 500], [0.3, 770], [0.7, 650], [1, 430]], f1: [[0, 900], [0.35, 1450], [1, 760]], f2: [[0, 2700], [0.35, 2100], [1, 1250]], gain: 0.126 * g, delay: d }),
@@ -226,6 +263,8 @@ export function clickSound() {
   const now = performance.now();
   if (now - lastVoice > 900 && Math.random() < 0.3) {
     lastVoice = now;
+    // a little kitten mew (a real meow, higher and quicker), or one of the made-up chirps
+    if (Math.random() < 0.6 && sample('meow', { gain: 0.2, rate: rnd(1.35, 1.65), delay: 0.02 })) return;
     pick(['mew', 'chirp', 'mrrp', 'nya', 'trill'])(0.6, 0.02);
   }
 }
@@ -247,6 +286,7 @@ export const sounds = {
   mew() {
     if (!enabled) return;
     lastVoice = performance.now();
+    if (Math.random() < 0.75 && sample('meow', { gain: 0.32, rate: rnd(0.95, 1.2) })) return;
     pick(['mew', 'nya', 'mrrp', 'meow', 'trill'])();
   },
   saved() {
@@ -256,9 +296,9 @@ export const sounds = {
   /** Petting the cat: making biscuits on the keyboard. */
   knead() {
     if (!enabled) return;
-    purr(1700, 0.3);
+    if (!sample('purr', { gain: 0.55, rate: rnd(0.95, 1.05) })) purr(1700, 0.3);
     for (let i = 0; i < 4; i++) setTimeout(() => tap(0.03), 60 + i * 230);
-    if (Math.random() < 0.6) pick(['mew', 'nya', 'mrrp', 'trill'])(0.7, 0.9);
+    if (Math.random() < 0.6 && !sample('meow', { gain: 0.26, rate: rnd(1.05, 1.3), delay: 1.0 })) pick(['mew', 'nya', 'mrrp', 'trill'])(0.7, 0.9);
   },
 };
 
@@ -306,13 +346,13 @@ export const trainSounds = {
     if (!trainOn) return;
     wobble(190, 560, 230, { gain: 0.08, vib: 60, vibHz: 22 });
     wobble(380, 1120, 160, { gain: 0.02, delay: 0.01 });
-    if (++rightRun % 3 === 0) pick(['chirp', 'nya', 'mrrp'])(0.7, 0.2);
+    if (++rightRun % 3 === 0 && !sample('meow', { gain: 0.24, rate: rnd(1.25, 1.45), delay: 0.2 })) pick(['chirp', 'nya', 'mrrp'])(0.7, 0.2);
   },
   /** Wrong answer: a soft, short sad mew (never a buzzer). */
   meow() {
     if (!trainOn) return;
     rightRun = 0;
-    VOICES.sad(0.85);
+    if (!sample('meow', { gain: 0.26, rate: rnd(0.78, 0.86) })) VOICES.sad(0.85);
   },
   /** Every few in a row: a trill and a sparkly run. */
   streak(level = 1) {
@@ -324,8 +364,10 @@ export const trainSounds = {
   /** End of a round: "mrrp… nya!" */
   done() {
     if (!trainOn) return;
-    VOICES.mrrp(0.9);
-    VOICES.nya(0.9, 0.38);
+    if (!sample('meow', { gain: 0.3, rate: 1.15 })) {
+      VOICES.mrrp(0.9);
+      VOICES.nya(0.9, 0.38);
+    }
     [523, 659, 784, 1046].forEach((f, i) => wobble(f, f, 160, { gain: 0.03, delay: 0.75 + 0.09 * i }));
   },
   /** A key typed right in the typing trainer: the softest tap. */

@@ -77,6 +77,25 @@ pub enum Cmd {
 }
 
 static THREAD_ID: AtomicU32 = AtomicU32::new(0);
+/// Training: while a round runs and Cat Key's window is in front, every real key goes
+/// to the trainer only. Nothing reaches Windows or another app (no Alt+F4 by accident).
+static CAPTURE: AtomicBool = AtomicBool::new(false);
+
+pub fn set_capture(on: bool) {
+    CAPTURE.store(on, Ordering::SeqCst);
+}
+
+fn own_window_in_front() -> bool {
+    unsafe {
+        let fg = GetForegroundWindow();
+        if fg.is_null() {
+            return false;
+        }
+        let mut pid = 0u32;
+        GetWindowThreadProcessId(fg, &mut pid);
+        pid == windows_sys::Win32::System::Threading::GetCurrentProcessId()
+    }
+}
 static HOOK_OK: AtomicBool = AtomicBool::new(false);
 /// Treat keys typed by other programs as real key presses (only with `--test-keys`,
 /// so automated tests can drive Cat Key).
@@ -406,6 +425,8 @@ struct Ctx {
     track_down: [bool; 256],
     /// The run of one editing key pressed again and again (for the shortcut coach).
     habit: Habit,
+    /// Keys whose press training kept from Windows (so their release is kept too).
+    cap_down: [bool; 256],
 }
 
 #[derive(Default, Clone, Copy)]
@@ -605,6 +626,7 @@ unsafe fn run(compiled: Arc<Compiled>, enabled: bool, effects: Sender<Effect>) {
             watch: Watch { hwnd: hwnd as usize, ..Watch::default() },
             track_down: [false; 256],
             habit: Habit::default(),
+            cap_down: [false; 256],
         })
     });
     THREAD_ID.store(GetCurrentThreadId(), Ordering::SeqCst);
@@ -761,6 +783,23 @@ unsafe fn handle(kb: &KBDLLHOOKSTRUCT, wparam: WPARAM) -> bool {
             ctx.watch.hook(p, ev.vk, GetTickCount());
         }
         let logging = diag_on();
+        if !really_injected {
+            let vk = ev.vk as usize;
+            if !ev.down && ctx.cap_down[vk] {
+                ctx.cap_down[vk] = false;
+                if !ctx.engine.is_recording() {
+                    return true; // its press never reached Windows: neither does its release
+                }
+            } else if ev.down && CAPTURE.load(Ordering::Relaxed) && own_window_in_front() {
+                ctx.cap_down[vk] = true;
+                if !ctx.engine.is_recording() {
+                    if logging {
+                        diag_line(format!("{}↓  kept for the trainer", key_name(ev.vk)));
+                    }
+                    return true;
+                }
+            }
+        }
         let held = if logging { held_now() } else { String::new() };
         let mut swallow = ctx.engine.handle(ev, &mut ctx.env);
         if !really_injected {

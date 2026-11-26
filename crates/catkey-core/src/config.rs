@@ -108,6 +108,9 @@ pub struct Settings {
     /// The cat's look, kept for the window only: custom cats, outfits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cat_look: Option<serde_json::Value>,
+    /// Quick setting: Alt works as Ctrl and Ctrl as Alt, everywhere (off unless chosen).
+    #[serde(default)]
+    pub swap_alt_ctrl: bool,
 }
 
 impl Default for Settings {
@@ -127,6 +130,7 @@ impl Default for Settings {
             coach_muted: Vec::new(),
             purr_volume: default_purr_volume(),
             cat_look: None,
+            swap_alt_ctrl: false,
         }
     }
 }
@@ -617,8 +621,18 @@ pub fn compile(cfg: &Config) -> Compiled {
     for list in &mut c.remaps {
         list.sort_by_key(|r| r.scope.rank());
     }
+    if cfg.settings.swap_alt_ctrl {
+        // Alt ⇄ Ctrl on both sides, ahead of any other remap of those keys. Rules then
+        // see the swapped keys, like a keyboard whose two keys traded places.
+        for (from, to) in [(0xA4u8, 0xA2u8), (0xA2, 0xA4), (0xA5, 0xA3), (0xA3, 0xA5)] {
+            c.remaps[from as usize].insert(0, CKeyRemap { index: SYSTEM_RULE, scope: CScope::All, action: KAction::Key(to) });
+        }
+    }
     c
 }
+
+/// Index of a remap that comes from a setting, not from a rule (nothing to count).
+pub const SYSTEM_RULE: u32 = u32::MAX;
 
 #[cfg(test)]
 mod tests {

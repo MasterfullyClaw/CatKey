@@ -1,0 +1,315 @@
+{
+  "format": "catkey-pack",
+  "version": 1,
+  "id": "unreal-engine",
+  "name": "Unreal Engine",
+  "kind": "cheatsheet",
+  "category": "3d",
+  "platform": "both",
+  "description": "Unreal Engine 5 editor defaults: building levels, the viewport, play-testing and Blueprints.",
+  "author": "Cat Key",
+  "app": "unreal",
+  "sources": [
+    {
+      "title": "Epic: Viewport controls in Unreal Engine",
+      "url": "https://dev.epicgames.com/documentation/en-us/unreal-engine/viewport-controls-in-unreal-engine"
+    },
+    {
+      "title": "Epic: Blueprint editor cheat sheet",
+      "url": "https://dev.epicgames.com/documentation/en-us/unreal-engine/blueprint-editor-cheat-sheet-in-unreal-engine"
+    },
+    {
+      "title": "Epic: Playing and simulating",
+      "url": "https://dev.epicgames.com/documentation/en-us/unreal-engine/playing-and-simulating-in-unreal-engine"
+    },
+    {
+      "title": "Epic: Actor snapping",
+      "url": "https://dev.epicgames.com/documentation/en-us/unreal-engine/actor-snapping-in-unreal-engine"
+    },
+    {
+      "title": "Epic: Keyboard shortcuts in the Unreal Editor (Fortnite)",
+      "url": "https://dev.epicgames.com/documentation/en-us/fortnite/keyboard-shortcuts-in-unreal-editor-for-fortnite"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Move, rotate, scale",
+      "items": [
+        {
+          "name": "Move (translate) tool",
+          "keys": "W",
+          "fav": true
+        },
+        {
+          "name": "Rotate tool",
+          "keys": "E",
+          "fav": true
+        },
+        {
+          "name": "Scale tool",
+          "keys": "R",
+          "fav": true
+        },
+        {
+          "name": "Selection tool",
+          "keys": "Q"
+        },
+        {
+          "name": "Cycle move, rotate and scale",
+          "keys": "Space",
+          "fav": true
+        },
+        {
+          "name": "Focus on the selection",
+          "keys": "F",
+          "fav": true
+        },
+        {
+          "name": "Snap to the floor",
+          "keys": "End",
+          "fav": true
+        },
+        {
+          "name": "Snap the pivot to the floor",
+          "keys": "Opt+End"
+        },
+        {
+          "name": "Duplicate",
+          "keys": "Mod+D",
+          "fav": true
+        },
+        {
+          "name": "Delete",
+          "keys": "Delete"
+        },
+        {
+          "name": "Hide selected",
+          "keys": "H",
+          "fav": true
+        },
+        {
+          "name": "Unhide all",
+          "keys": "Mod+H"
+        },
+        {
+          "name": "Group",
+          "keys": "Mod+G"
+        },
+        {
+          "name": "Ungroup",
+          "keys": "Shift+G"
+        }
+      ]
+    },
+    {
+      "name": "Viewport",
+      "items": [
+        {
+          "name": "Game view (hide editor icons)",
+          "keys": "G",
+          "fav": true
+        },
+        {
+          "name": "Real-time on / off",
+          "keys": "Mod+R"
+        },
+        {
+          "name": "Immersive full screen",
+          "keys": "F11"
+        },
+        {
+          "name": "Perspective view",
+          "keys": "Opt+G",
+          "fav": true
+        },
+        {
+          "name": "Top view",
+          "keys": "Opt+J"
+        },
+        {
+          "name": "Front view",
+          "keys": "Opt+H"
+        },
+        {
+          "name": "Left view",
+          "keys": "Opt+K"
+        },
+        {
+          "name": "Bottom view",
+          "keys": "Opt+Shift+J"
+        },
+        {
+          "name": "Back view",
+          "keys": "Opt+Shift+H"
+        },
+        {
+          "name": "Right view",
+          "keys": "Opt+Shift+K"
+        },
+        {
+          "name": "Lit",
+          "keys": "Opt+4",
+          "fav": true
+        },
+        {
+          "name": "Unlit",
+          "keys": "Opt+3"
+        },
+        {
+          "name": "Wireframe",
+          "keys": "Opt+2",
+          "fav": true
+        },
+        {
+          "name": "Detail lighting",
+          "keys": "Opt+5"
+        },
+        {
+          "name": "Lighting only",
+          "keys": "Opt+6"
+        },
+        {
+          "name": "Set bookmark 1 (works with 0–9)",
+          "keys": "Mod+1"
+        },
+        {
+          "name": "Jump to bookmark 1 (works with 0–9)",
+          "keys": "1"
+        },
+        {
+          "name": "Show the navigation mesh",
+          "keys": "P"
+        },
+        {
+          "name": "Show FPS",
+          "keys": "Mod+Shift+H"
+        }
+      ]
+    },
+    {
+      "name": "Play and test",
+      "items": [
+        {
+          "name": "Play in the editor",
+          "keys": "Opt+P",
+          "fav": true
+        },
+        {
+          "name": "Simulate in the editor",
+          "keys": "Opt+S",
+          "fav": true
+        },
+        {
+          "name": "Get the mouse back while playing",
+          "keys": "Shift+F1",
+          "fav": true
+        },
+        {
+          "name": "Stop playing",
+          "keys": "Esc"
+        },
+        {
+          "name": "Console",
+          "keys": "Backtick"
+        }
+      ]
+    },
+    {
+      "name": "Files and panels",
+      "items": [
+        {
+          "name": "Save the current level",
+          "keys": "Mod+S",
+          "fav": true
+        },
+        {
+          "name": "Save all",
+          "keys": "Mod+Shift+S",
+          "fav": true
+        },
+        {
+          "name": "Save the current level as",
+          "keys": "Mod+Opt+S"
+        },
+        {
+          "name": "New level",
+          "keys": "Mod+N"
+        },
+        {
+          "name": "Open level",
+          "keys": "Mod+O"
+        },
+        {
+          "name": "Content Drawer",
+          "keys": "Ctrl+Space",
+          "fav": true,
+          "note": "Control+Space on a Mac too"
+        },
+        {
+          "name": "Find in the Content Browser",
+          "keys": "Mod+B",
+          "fav": true
+        },
+        {
+          "name": "Undo",
+          "keys": "Mod+Z"
+        },
+        {
+          "name": "Redo",
+          "keys": "Mod+Y"
+        },
+        {
+          "name": "Documentation",
+          "keys": "F1"
+        }
+      ]
+    },
+    {
+      "name": "Blueprints",
+      "items": [
+        {
+          "name": "Compile",
+          "keys": "F7",
+          "fav": true
+        },
+        {
+          "name": "Comment around the selection",
+          "keys": "C",
+          "fav": true
+        },
+        {
+          "name": "Zoom to the selection",
+          "keys": "Home"
+        },
+        {
+          "name": "Find in this Blueprint",
+          "keys": "Mod+F"
+        },
+        {
+          "name": "Find in all Blueprints",
+          "keys": "Mod+Shift+F"
+        },
+        {
+          "name": "Rename node",
+          "keys": "F2"
+        },
+        {
+          "name": "Breakpoint on / off",
+          "keys": "F9"
+        },
+        {
+          "name": "Clear all breakpoints",
+          "keys": "Mod+Shift+F9"
+        },
+        {
+          "name": "Into the child graph",
+          "keys": "PageDown"
+        },
+        {
+          "name": "Back to the parent graph",
+          "keys": "PageUp"
+        }
+      ]
+    }
+  ]
+}

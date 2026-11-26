@@ -438,7 +438,37 @@ pub fn open_link(url: String) -> Result<(), String> {
     if !url.starts_with("https://") {
         return Err("only https links".into());
     }
-    win::launch(&url, "")
+    win::open_url(&url)
+}
+
+/// Open an AI app on this computer for Cat Builder. Claude takes the whole request in its own
+/// link (claude://claude.ai/new?q=…); otherwise the app opens and the request waits on the
+/// clipboard. Answers "filled", "paste" or "missing" (not installed).
+#[tauri::command]
+pub async fn open_ai_app(app: String, link: Option<String>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let names: &[&str] = match app.as_str() {
+            "claude" => &["Claude"],
+            "chatgpt" => &["ChatGPT"],
+            _ => return Err("unknown app".to_string()),
+        };
+        if let Some(link) = link.filter(|l| app == "claude" && l.starts_with("claude://")) {
+            if let Some((exe, args)) = win::protocol_command("claude", &link) {
+                if win::run_as_user(&exe, &args).is_ok() {
+                    return Ok("filled".to_string());
+                }
+            }
+            if link.len() <= 250 && win::has_protocol("claude") && win::open_url(&link).is_ok() {
+                return Ok("filled".to_string());
+            }
+        }
+        match win::start_app_id(names) {
+            Some(id) => win::launch_app_id(&id).map(|_| "paste".to_string()),
+            None => Ok("missing".to_string()),
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[derive(Serialize)]
@@ -708,4 +738,10 @@ pub async fn restore_backup(app: AppHandle) -> Result<bool, String> {
     }
     let _ = std::fs::write(dir.join("restored.flag"), "1");
     Ok(true)
+}
+
+/// Training: keep every key for the trainer while a round runs (see hook::set_capture).
+#[tauri::command]
+pub fn set_capture(on: bool) {
+    hook::set_capture(on);
 }

@@ -36,7 +36,7 @@ export const CATS = [
     colors: C('#FBEFDC', '#FFFFFF', '#6E5640', '#FFC2C9', '#4CAF50', '#10361A', '#FFA9B6', '#FF8FA3', '#B71C1C', '#F4C542', '#EADBC4', 0, '#EFDCC0', '#A08C78', '#FFFFFF', 0, '#B71C1C', '#F4C542') },
   { id: 'usman', name: 'Usman', full: 'Usman Abdul Jalil Sisha', tag: 'UAJS', meme: true, theme: 'tora', gear: ['turban-orange', 'glasses'],
     colors: C('#FFF9F0', '#FFFFFF', '#6B5A4C', '#FFC4CF', '#64B5F6', '#0D2B4A', '#FFB0C4', '#FF9BB5', '#E67E22', '#FFD24D', '#EADFD2', 0, '#F2E6D8', '#A9998B', '#FFFFFF', 0, '#E67E22', '#FFB25B') },
-  { id: 'sumbul', name: 'Sumbul', full: 'Muhammad Sumbul', tag: 'MS', meme: true, theme: 'tora', gear: ['helmet'],
+  { id: 'sonbol', name: 'Sonbol', full: 'Sonbol', tag: 'The helmet', meme: true, theme: 'tora', gear: ['helmet'],
     colors: C('#F39C4A', '#FFE3C4', '#6A3410', '#FFB8A0', '#66BB6A', '#0B3D14', '#FF8E7A', '#F47C6A', '#7B8794', '#C9D1D9', '#C8691C', 1, '#C8691C', '#7A3E12', '#FFE3C4', 1, '#7B8794', '#FFA963') },
   { id: 'jasmine', name: 'Jasmine', full: 'Jasmine', tag: 'The kitten', meme: true, theme: 'mochi', gear: ['flower'], ears: 'fold',
     colors: C('#9EA3AA', '#FFFFFF', '#3D4047', '#F3B3C6', '#D9A441', '#2E2410', '#F7A6BF', '#F18CA9', '#E91E63', '#FFF3B0', '#5D6168', 1, '#5D6168', '#F0F0F3', '#FFFFFF', 1, '#E91E63', '#F7A6BF') },

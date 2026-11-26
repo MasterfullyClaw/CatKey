@@ -1,17 +1,18 @@
-## Cat Key 1.2.1: Cat Warrior
+## Cat Key 1.2.2: Cat Builder, your way
 
 **⬇ [Download for Windows](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe)**, or the [portable exe](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-portable-x64.exe).
 
-Cat Key is now the all-in-one shortcut manager: every shortcut of every app in one place, a coach that catches you doing things the long way, and a cat that levels up with you.
-
 ### New
-- **Shortcut coach:** click something that has a shortcut and a small note shows its keys, then fades away. It reads only the name of what you clicked (UI Automation, like a screen reader), never the screen. It also catches key habits: Backspace ten times in a row suggests Ctrl+Backspace.
-- **Cat Warrior:** ranks from Kitten to Nine Lives Legend. XP comes from training and from every shortcut you use. Cat Key shows the time shortcuts save you and the time the mouse costs you, app by app, and lists what you still do the long way with a "Train these" button. Cat Cards, a friends board and a leaderboard on GitHub.
-- **Your cat:** eleven cats, including the warriors of the meme (Ya'qub, Khalid, Khidir, Ismail, Usman, Sumbul) and Jasmine the kitten, each with their outfit. A wardrobe of turbans, helmets, headbands, capes, belts and more, unlocked rank by rank. Make your own cat by hand or with an AI.
-- **Touch typing:** home row first, new keys only when you're accurate and quick, lines built around your weakest key, and a "no peeking" mode.
-- **Cat sounds, on by default:** soft paw taps, mews, chirps and trills on every click, and cat feedback in training. Pet the cat and she makes biscuits on her keyboard.
-- **Background purr:** a warm purr loop to work to. It's the paw button at the top or in the tray menu, and keeps going with the window closed.
-- **Train any set:** Your shortcuts and every template can be trained, next to the library packs. Packs made with AI can carry their own little animated demos.
-- **The store:** post a pack from Cat Key and it shows with your GitHub name. People ❤️ it and the most loved rise to the top. Built-in packs say "Comes with Cat Key".
-- **Make your own with AI** is everywhere now, with a confirm step before ChatGPT or Claude opens.
-- **Your data folder, one place for everything (1.2.1):** Settings → *Your data and backups* shows the folder with all of it (shortcuts, settings, your cat, training, typing, friends, stats), what each file holds, and buttons to open the folder, back it up and restore a backup. Training and typing progress are now saved in that folder too, so copying it really is a full backup.
+- **Cat Builder, step by step:** first pick what you're making (learn an app, remap your keys, or design a new cat), and it asks only what that needs. A cat never asks for an app. Before you send, it lists everything the request carries.
+- **Send it where you like:** one button, with a menu: ChatGPT with web search, ChatGPT, Claude, Perplexity or Gemini in your browser, or the ChatGPT and Claude apps on your computer. The Claude app opens with the whole request typed in. Claude is the pick for designing cats.
+- **The whole request, every time:** long requests no longer get cut short on the way to the browser (that happened when Cat Key ran as administrator).
+- **Training stays in the trainer:** while a round runs, the keys you press go only to the trainer, so practising an app's shortcuts never touches the app. Window-closing keys like Alt+F4 are never drilled.
+- **Swap Alt and Ctrl:** a quick setting at the top of Settings swaps them everywhere, like ⌘ and Control on a Mac. Off unless you turn it on.
+- **Your cat, up top:** "Switch cat" sits right under the cat, and your rank and XP are on the home screen. Meme cats carry their full names, and one of them is now Sonbol. The house cats keep their names; to name a cat, make a new one.
+- **Unreal Engine:** a new built-in pack with the Unreal Editor's defaults for levels, the viewport, play-testing and Blueprints, with the Mac keys where they differ.
+- **About, always on the top bar:** the About button opens Cat Key's own page: who builds it, GitHub and X, what's new, sharing a pack and reporting a problem. The Discord server and the website will show up there too.
+- **Purr button:** a cat with a speaker that shows when it's playing.
+
+### Fixed
+- Copy and paste (and Ctrl+F, Ctrl+N) work in every text box, and the text in requests and notes can be selected and copied.
+- Programs that shortcuts open start as you, not as administrator, even when Cat Key runs as administrator.

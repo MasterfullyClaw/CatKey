@@ -40,8 +40,8 @@ use windows_sys::Win32::System::Threading::{
     THREAD_POWER_THROTTLING_CURRENT_VERSION, THREAD_POWER_THROTTLING_EXECUTION_SPEED, THREAD_POWER_THROTTLING_STATE,
 };
 use windows_sys::Win32::UI::Shell::{
-    SHDefExtractIconW, SHGetFileInfoW, ShellExecuteExW, SEE_MASK_FLAG_NO_UI, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW,
-    SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON,
+    AssocQueryStringW, SHDefExtractIconW, SHGetFileInfoW, ShellExecuteExW, ASSOCF_IS_PROTOCOL, ASSOCF_NOTRUNCATE, ASSOCSTR_COMMAND,
+    SEE_MASK_FLAG_NO_UI, SEE_MASK_NOASYNC, SHELLEXECUTEINFOW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     AllowSetForegroundWindow, DestroyIcon, ASFW_ANY, EnumChildWindows, EnumWindows, GetIconInfo, GetWindow, GetWindowLongPtrW, GetWindowTextLengthW,
@@ -572,19 +572,178 @@ pub fn launch(target: &str, args: &str) -> Result<(), String> {
         return Err("nothing to open".into());
     }
     let is_url = target.contains("://") || target.starts_with("mailto:");
-    // Running as admin: let Explorer open it so the app doesn't inherit admin rights.
-    if is_elevated() && args.trim().is_empty() {
-        let quoted = format!("\"{}\"", target);
-        if shell_execute(None, "explorer.exe", &quoted, None).is_ok() {
-            return Ok(());
-        }
-    }
     let dir = if is_url {
         None
     } else {
         Path::new(&target).parent().filter(|p| p.is_dir()).map(|p| p.to_string_lossy().to_string())
     };
+    // Running as admin: let Explorer start it, so it runs as the user and doesn't inherit admin rights.
+    if is_elevated() {
+        if shell_execute_via_explorer(&target, args.trim(), dir.as_deref().unwrap_or("")).is_ok() {
+            return Ok(());
+        }
+        if args.trim().is_empty() {
+            let quoted = format!("\"{}\"", target);
+            if shell_execute(None, "explorer.exe", &quoted, None).is_ok() {
+                return Ok(());
+            }
+        }
+    }
     shell_execute(None, &target, args.trim(), dir.as_deref()).map_err(|e| format!("Windows couldn't open it (error {e})"))
+}
+
+// ---------------------------------------------------------------- links of any length
+
+/// Open a link (https, or an app's own link like claude://) of any length, never as administrator.
+/// Short links go the usual way. Long ones skip Windows' link handling, which cuts them short
+/// (Explorer stops at 259 characters, the shell at about 2,000): the link goes straight to the
+/// program that opens that kind of link, as its argument.
+pub fn open_url(url: &str) -> Result<(), String> {
+    let scheme = url.split("://").next().unwrap_or_default().to_ascii_lowercase();
+    if url.len() <= 250 {
+        return open_short(url);
+    }
+    if let Some((exe, args)) = protocol_command(&scheme, url) {
+        if run_as_user(&exe, &args).is_ok() {
+            return Ok(());
+        }
+    }
+    if scheme == "https" {
+        return open_via_page(url);
+    }
+    Err("That link is too long for the app that opens it.".into())
+}
+
+fn open_short(url: &str) -> Result<(), String> {
+    // Running as admin: let Explorer open it so the browser doesn't inherit admin rights.
+    if is_elevated() && shell_execute(None, "explorer.exe", &format!("\"{url}\""), None).is_ok() {
+        return Ok(());
+    }
+    shell_execute(None, url, "", None).map_err(|e| format!("Windows couldn't open it (error {e})"))
+}
+
+/// True when some app has registered this kind of link (claude://, …).
+pub fn has_protocol(scheme: &str) -> bool {
+    assoc_command(scheme).is_some()
+}
+
+fn assoc_command(scheme: &str) -> Option<String> {
+    unsafe {
+        let assoc = wide(scheme);
+        let verb = wide("open");
+        let flags = ASSOCF_IS_PROTOCOL | ASSOCF_NOTRUNCATE;
+        let mut len = 0u32;
+        AssocQueryStringW(flags, ASSOCSTR_COMMAND, assoc.as_ptr(), verb.as_ptr(), null_mut(), &mut len);
+        if len == 0 || len > 32_768 {
+            return None;
+        }
+        let mut buf = vec![0u16; len as usize + 1];
+        let mut cap = buf.len() as u32;
+        if AssocQueryStringW(flags, ASSOCSTR_COMMAND, assoc.as_ptr(), verb.as_ptr(), buf.as_mut_ptr(), &mut cap) < 0 {
+            return None;
+        }
+        let s = from_wide(&buf);
+        (!s.trim().is_empty()).then_some(s)
+    }
+}
+
+/// The program Windows runs for a kind of link, with this link put in its place:
+/// ("C:\…\chrome.exe", "--single-argument https://…"). None for links a Store app handles.
+pub fn protocol_command(scheme: &str, url: &str) -> Option<(String, String)> {
+    split_command(&assoc_command(scheme)?, url)
+}
+
+fn split_command(cmd: &str, url: &str) -> Option<(String, String)> {
+    let (exe, rest) = catkey_core::shellcmd::split(cmd)?;
+    let exe = expand_env(&exe);
+    if file_name_lower(&exe) == "rundll32.exe" || !Path::new(&exe).is_file() {
+        return None;
+    }
+    Some((exe, catkey_core::shellcmd::fill(&rest, url)))
+}
+
+/// Start a program as the signed-in user, never as administrator (even when Cat Key is).
+pub fn run_as_user(exe: &str, args: &str) -> Result<(), String> {
+    if is_elevated() {
+        return shell_execute_via_explorer(exe, args, "");
+    }
+    shell_execute(None, exe, args, None).map_err(|e| format!("Windows couldn't open it (error {e})"))
+}
+
+/// ShellExecute run by Explorer itself, so what starts runs as the user: the way Raymond Chen
+/// describes ("How can I launch an unelevated process from my elevated process?").
+fn shell_execute_via_explorer(file: &str, args: &str, dir: &str) -> Result<(), String> {
+    use windows::core::{Interface, BSTR};
+    use windows::Win32::System::Com::{CoCreateInstance, IDispatch, IServiceProvider, CLSCTX_ALL};
+    use windows::Win32::System::Variant::VARIANT;
+    use windows::Win32::UI::Shell::{
+        IShellBrowser, IShellDispatch2, IShellFolderViewDual, IShellView, IShellWindows, ShellWindows, CSIDL_DESKTOP,
+        SID_STopLevelBrowser, SVGIO_BACKGROUND, SWC_DESKTOP, SWFO_NEEDDISPATCH,
+    };
+    ensure_com();
+    let run = || -> windows::core::Result<()> {
+        unsafe {
+            let wins: IShellWindows = CoCreateInstance(&ShellWindows, None, CLSCTX_ALL)?;
+            let loc = VARIANT::from(CSIDL_DESKTOP as i32);
+            let root = VARIANT::default();
+            let mut hwnd = 0i32;
+            let disp: IDispatch = wins.FindWindowSW(&loc, &root, SWC_DESKTOP, &mut hwnd, SWFO_NEEDDISPATCH)?;
+            let sp: IServiceProvider = disp.cast()?;
+            let browser: IShellBrowser = sp.QueryService(&SID_STopLevelBrowser)?;
+            let view: IShellView = browser.QueryActiveShellView()?;
+            let folder: IShellFolderViewDual = view.GetItemObject(SVGIO_BACKGROUND)?;
+            let shell: IShellDispatch2 = folder.Application()?.cast()?;
+            shell.ShellExecute(&BSTR::from(file), &VARIANT::from(BSTR::from(args)), &VARIANT::from(BSTR::from(dir)), &VARIANT::from(""), &VARIANT::from(1i32))
+        }
+    };
+    run().map_err(|e| format!("Explorer couldn't open it ({e})"))
+}
+
+/// Last resort for a long https link: a tiny page on disk that forwards to it
+/// (its path is short, and the browser takes links of any length).
+fn open_via_page(url: &str) -> Result<(), String> {
+    let dir = std::env::temp_dir().join("CatKey");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join("open-link.html");
+    let attr = url.replace('&', "&amp;").replace('"', "&quot;").replace('<', "&lt;");
+    let js = serde_json::to_string(url).map_err(|e| e.to_string())?;
+    let html = format!(
+        "<!doctype html><meta charset=\"utf-8\"><title>Opening…</title><meta http-equiv=\"refresh\" content=\"0;url={attr}\"><script>location.replace({js})</script><p style=\"font:16px system-ui\"><a href=\"{attr}\">Open the link</a></p>"
+    );
+    std::fs::write(&path, html).map_err(|e| e.to_string())?;
+    launch(&path.to_string_lossy(), "")
+}
+
+/// An installed app's Start-menu ID, by its name ("ChatGPT", "Claude"): exact name first, then
+/// a name that starts with it. Works for Store apps and ordinary ones alike.
+pub fn start_app_id(names: &[&str]) -> Option<String> {
+    let out = Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Get-StartApps | ForEach-Object { $_.Name + \"`t\" + $_.AppID }",
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    let text = String::from_utf8_lossy(&out.stdout);
+    let rows: Vec<(String, String)> =
+        text.lines().filter_map(|l| l.split_once('\t')).map(|(n, id)| (n.trim().to_lowercase(), id.trim().to_string())).collect();
+    let pick = |ok: &dyn Fn(&str, &str) -> bool| {
+        names.iter().find_map(|w| {
+            let w = w.to_lowercase();
+            rows.iter().find(|(n, id)| !id.is_empty() && ok(n, &w)).map(|(_, id)| id.clone())
+        })
+    };
+    pick(&|n, w| n == w).or_else(|| pick(&|n, w| n.starts_with(w) && !n.contains("uninstall") && !n.contains("code")))
+}
+
+/// Start an app by its Start-menu ID (through Explorer, so it runs as the user).
+pub fn launch_app_id(id: &str) -> Result<(), String> {
+    shell_execute(None, "explorer.exe", &format!("shell:AppsFolder\\{id}"), None).map_err(|e| format!("Windows couldn't open it (error {e})"))
 }
 
 /// Ask Windows (UAC) to start a new copy of Cat Key as administrator.

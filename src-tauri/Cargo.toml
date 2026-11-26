@@ -1,6 +1,6 @@
 [package]
 name = "catkey"
-version = "1.2.1"
+version = "1.2.2"
 description = "Cat Key - a purr-fect keyboard shortcut remapper for Windows"
 authors = ["Masterfully"]
 edition = "2021"
@@ -49,10 +49,11 @@ features = [
   "Win32_UI_WindowsAndMessaging",
 ]
 
-# UI Automation (COM) for the shortcut coach: what's under the pointer.
+# UI Automation (COM) for the shortcut coach (what's under the pointer), and the shell's own
+# ShellExecute (opening links as the signed-in user while Cat Key runs as administrator).
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
-features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Accessibility"]
+features = ["Win32_Foundation", "Win32_System_Com", "Win32_System_Ole", "Win32_System_Variant", "Win32_UI_Accessibility", "Win32_UI_Controls", "Win32_UI_Shell", "Win32_UI_Shell_Common", "Win32_UI_WindowsAndMessaging"]
 
 [features]
 # The Tauri CLI turns this on for production builds (serves the bundled UI).
