@@ -777,3 +777,37 @@ pub fn delete_admin_task() -> Result<(), String> {
     forget_task_cache();
     r
 }
+
+// ------------------------------------------------------------------- clipboard (Cat Builder's way back)
+
+/// Changes every time anything is copied. Cheap: no clipboard access.
+pub fn clipboard_seq() -> u32 {
+    unsafe { windows_sys::Win32::System::DataExchange::GetClipboardSequenceNumber() }
+}
+
+/// The text on the clipboard, if any (up to 2 MB).
+pub fn clipboard_text() -> Option<String> {
+    use windows_sys::Win32::System::DataExchange::{CloseClipboard, GetClipboardData, IsClipboardFormatAvailable, OpenClipboard};
+    use windows_sys::Win32::System::Memory::{GlobalLock, GlobalUnlock};
+    const CF_UNICODETEXT: u32 = 13;
+    unsafe {
+        if IsClipboardFormatAvailable(CF_UNICODETEXT) == 0 || OpenClipboard(null_mut()) == 0 {
+            return None;
+        }
+        let mut out = None;
+        let h = GetClipboardData(CF_UNICODETEXT);
+        if !h.is_null() {
+            let p = GlobalLock(h as _) as *const u16;
+            if !p.is_null() {
+                let mut len = 0usize;
+                while len < 1_000_000 && *p.add(len) != 0 {
+                    len += 1;
+                }
+                out = Some(String::from_utf16_lossy(std::slice::from_raw_parts(p, len)));
+                GlobalUnlock(h as _);
+            }
+        }
+        CloseClipboard();
+        out
+    }
+}

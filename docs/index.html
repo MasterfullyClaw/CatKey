@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cat Key: the cat that presses the right keys</title>
+<meta name="description" content="Every cat walks across a keyboard. Cat Key presses the right keys: your shortcuts in every app, Mac ⇄ Windows switching, ready-made packs for pro apps, and a game that trains your hands.">
+<meta property="og:title" content="Cat Key: the cat that presses the right keys">
+<meta property="og:description" content="Your shortcuts in every app, Mac ⇄ Windows switching, pro app packs, and a game that trains your hands. Free for Windows.">
+<link rel="icon" href="favicon.png">
+<style>
+@font-face { font-family: Nunito; src: url(fonts/nunito.woff2) format('woff2'); font-weight: 200 1000; font-display: swap; }
+@font-face { font-family: Fredoka; src: url(fonts/fredoka.woff2) format('woff2'); font-weight: 300 700; font-display: swap; }
+:root { --bg:#16121D; --s1:#211B2A; --s2:#2A2235; --line:#372D44; --tx:#F7F0FB; --mu:#B7AAC8; --ac:#FF8CC6; --acs:rgba(255,140,198,.14); --act:#FFC6E2; --aci:#3A0F25; --good:#7FE0C2; --cap:#2C2437; --capb:#120E18; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: radial-gradient(1200px 600px at 70% -10%, rgba(255,140,198,.14), transparent 60%), var(--bg); color: var(--tx); font: 500 17px/1.6 Nunito, system-ui, sans-serif; }
+a { color: var(--act); }
+.wrap { width: min(1080px, calc(100% - 40px)); margin: 0 auto; }
+nav { display: flex; align-items: center; gap: 14px; padding: 18px 0; }
+nav .brand { display: flex; align-items: center; gap: 10px; font: 600 21px Fredoka, Nunito, sans-serif; color: var(--tx); text-decoration: none; }
+nav .brand img { width: 30px; height: 30px; }
+nav .sp { flex: 1; }
+nav a.lnk { color: var(--mu); text-decoration: none; font-weight: 800; font-size: 15px; }
+nav a.lnk:hover { color: var(--tx); }
+.hero { display: grid; grid-template-columns: 1.15fr 1fr; gap: 40px; align-items: center; padding: 40px 0 30px; }
+h1, h2, h3 { font-family: Fredoka, Nunito, sans-serif; font-weight: 600; line-height: 1.12; margin: 0; }
+h1 { font-size: clamp(38px, 6vw, 64px); letter-spacing: -.5px; }
+h1 em { font-style: normal; color: var(--ac); }
+.lead { color: var(--mu); font-size: 19px; margin: 18px 0 28px; max-width: 34em; }
+.btns { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.btn { display: inline-flex; align-items: center; gap: 10px; height: 54px; padding: 0 24px; border-radius: 17px; font-weight: 900; font-size: 16.5px; text-decoration: none; border: 1px solid var(--line); background: var(--s2); color: var(--tx); transition: transform .2s cubic-bezier(.34,1.56,.64,1), filter .2s; }
+.btn:hover { transform: translateY(-2px); }
+.btn.main { background: var(--ac); color: var(--aci); border-color: transparent; box-shadow: 0 12px 30px -12px var(--ac); }
+.btn small { font-weight: 700; opacity: .75; }
+.fine { color: var(--mu); font-size: 13.5px; margin-top: 12px; }
+.stage { position: relative; }
+.kb { position: relative; padding: 18px; border-radius: 26px; background: var(--s1); border: 1px solid var(--line); box-shadow: 0 30px 80px -30px #000; }
+.row { display: flex; gap: 8px; margin-bottom: 8px; }
+.row:last-child { margin-bottom: 0; }
+.k { flex: 1; height: 46px; border-radius: 11px; background: var(--cap); box-shadow: inset 0 -4px 0 var(--capb), 0 0 0 1px var(--line); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 14px; color: var(--mu); transition: background .2s, color .2s, transform .15s; }
+.k.w2 { flex: 1.6; } .k.w5 { flex: 5; }
+.k.on { background: var(--ac); color: var(--aci); transform: translateY(2px); box-shadow: inset 0 -2px 0 rgba(0,0,0,.25); }
+.paw { position: absolute; width: 26px; height: 26px; opacity: 0; pointer-events: none; transition: opacity .3s; }
+.paw svg { width: 100%; height: 100%; fill: var(--act); }
+.cat { position: absolute; right: -16px; top: -110px; width: 150px; }
+.toast { position: absolute; left: 50%; bottom: -26px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 16px; background: var(--s2); border: 1px solid var(--line); font-weight: 800; font-size: 14.5px; white-space: nowrap; box-shadow: 0 14px 34px -14px #000; }
+.toast b { color: var(--ac); }
+.kc { display: inline-flex; padding: 1px 8px; border-radius: 7px; background: var(--cap); box-shadow: inset 0 -2px 0 var(--capb), 0 0 0 1px var(--line); font-weight: 900; font-size: 13px; }
+section { padding: 60px 0; }
+.eyebrow { color: var(--ac); font-weight: 900; letter-spacing: 1px; text-transform: uppercase; font-size: 13px; margin-bottom: 8px; }
+h2 { font-size: clamp(28px, 4vw, 40px); margin-bottom: 14px; }
+.sub { color: var(--mu); max-width: 40em; margin: 0 0 26px; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.card { padding: 22px; border-radius: 22px; background: var(--s1); border: 1px solid var(--line); }
+.card .ico { font-size: 26px; }
+.card h3 { font-size: 21px; margin: 8px 0 6px; }
+.card p { color: var(--mu); margin: 0; font-size: 15.5px; }
+.who { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.who .card { border-style: dashed; }
+.apps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.apps span { padding: 7px 14px; border-radius: 20px; background: var(--s2); border: 1px solid var(--line); color: var(--mu); font-weight: 800; font-size: 14px; }
+.train { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: center; }
+.drill { padding: 26px; border-radius: 26px; background: var(--s1); border: 1px solid var(--good); text-align: center; }
+.drill .lab { color: var(--mu); font-size: 12px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+.drill .task { font: 600 30px Fredoka, Nunito, sans-serif; margin: 4px 0 14px; }
+.drill .keys { display: flex; justify-content: center; gap: 8px; }
+.drill .keys span { height: 48px; padding: 0 16px; line-height: 44px; border-radius: 12px; background: var(--cap); box-shadow: inset 0 -4px 0 var(--capb), 0 0 0 2px var(--good); font: 900 19px Nunito; }
+.drill .ok { color: var(--good); font: 600 19px Fredoka, Nunito, sans-serif; margin-top: 12px; }
+.drill .meta { display: flex; justify-content: space-between; color: var(--mu); font-weight: 800; font-size: 14px; margin-bottom: 12px; }
+ul.ticks { list-style: none; padding: 0; margin: 0; }
+ul.ticks li { padding-left: 30px; position: relative; margin: 10px 0; color: var(--mu); }
+ul.ticks li b { color: var(--tx); }
+ul.ticks li::before { content: '🐾'; position: absolute; left: 0; }
+.cta { text-align: center; padding: 70px 20px; border-radius: 30px; background: linear-gradient(135deg, rgba(255,140,198,.16), rgba(183,156,255,.12)); border: 1px solid var(--line); margin: 40px 0 70px; }
+.cta p { color: var(--mu); }
+footer { border-top: 1px solid var(--line); padding: 26px 0 40px; color: var(--mu); font-size: 14px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; }
+@media (max-width: 880px) { .hero, .train { grid-template-columns: 1fr; } .grid, .who { grid-template-columns: 1fr; } .cat { width: 110px; top: -80px; right: 0; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<nav class="wrap">
+  <a class="brand" href="#"><img src="cat.svg" alt="">Cat Key</a>
+  <span class="sp"></span>
+  <a class="lnk" href="#what">What it does</a>
+  <a class="lnk" href="#train">Train</a>
+  <a class="lnk" href="https://github.com/MasterfullyClaw/CatKey">GitHub</a>
+</nav>
+
+<header class="wrap hero">
+  <div>
+    <h1>Every cat walks across a keyboard. <em>This one presses the right keys.</em></h1>
+    <p class="lead">Cat Key sits on your keyboard and turns the keys you press into the shortcuts you mean, in every app or only the ones you choose. Then it trains your hands until those shortcuts are automatic.</p>
+    <div class="btns">
+      <a class="btn main" href="https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe">⬇ Download for Windows <small>free</small></a>
+      <a class="btn" href="https://github.com/MasterfullyClaw/CatKey/releases">Mac <small>coming soon</small></a>
+    </div>
+    <p class="fine">Windows 10 & 11 · open source · no account · nothing leaves your PC</p>
+  </div>
+  <div class="stage" aria-hidden="true">
+    <img class="cat" src="cat.svg" alt="">
+    <div class="kb" id="kb"></div>
+    <div class="toast" id="toast">🐾 <span id="toast-text">Alt + W → <b>closes the tab</b></span></div>
+  </div>
+</header>
+
+<section id="what" class="wrap">
+  <div class="eyebrow">What it's for</div>
+  <h2>Your hands already know the shortcuts. The apps just disagree.</h2>
+  <p class="sub">Each app keeps its own shortcuts. Cat Key adds yours on top, everywhere or app by app, and switches off with one click (or a nap).</p>
+  <div class="who">
+    <div class="card"><div class="ico">🍎</div><h3>Switching from a Mac</h3><p>Alt sits where ⌘ was. With Cat Key, Alt+C copies, Alt+W closes, Alt+Q quits, Alt+Shift+4 grabs part of the screen, everywhere. Moving to a Mac? It works the other way too.</p></div>
+    <div class="card"><div class="ico">🎬</div><h3>Pros with many apps</h3><p>Premiere keys inside DaVinci Resolve. Photoshop habits in other editors. One set of keys for the same job in every app you touch.</p></div>
+    <div class="card"><div class="ico">⌨️</div><h3>Anyone tired of fighting shortcuts</h3><p>Put any action on the keys you like. Open apps, type text, block the Insert key you keep hitting. One click to swap a shortcut around.</p></div>
+  </div>
+</section>
+
+<section class="wrap">
+  <div class="eyebrow">What's inside</div>
+  <h2>A whole toolbox, in one friendly cat.</h2>
+  <div class="grid">
+    <div class="card"><div class="ico">📚</div><h3>Library</h3><p>21 ready-made packs, 748 shortcuts: Mac ⇄ Windows switching and the pro shortcuts of the apps creators use. Tick what you want, add it.</p></div>
+    <div class="card"><div class="ico">🎯</div><h3>Train yourself</h3><p>A quick game that teaches an app's shortcuts, spaced out so they stick. A right answer goes <i>boing</i>; a miss gets a soft meow.</p></div>
+    <div class="card"><div class="ico">🪄</div><h3>Cat Builder</h3><p>Shortcuts for <i>any</i> app: Cat Key writes the request, opens ChatGPT or Claude in one click, and picks up the answer when you copy it.</p></div>
+    <div class="card"><div class="ico">🔗</div><h3>Share</h3><p>Send a whole pack as one line of text. Move your setup to another PC or a Mac; Cat Key translates ⌘ and Ctrl.</p></div>
+    <div class="card"><div class="ico">🩺</div><h3>Checkup</h3><p>Finds what gets in the way (other remappers, start-up, admin apps) and fixes it, or shows you where to click.</p></div>
+    <div class="card"><div class="ico">⚡</div><h3>Fast and careful</h3><p>Under a millisecond per key. Never misses a release, stays out of the way while you type, and keeps no keystroke log.</p></div>
+  </div>
+  <div class="apps"><span>Premiere Pro</span><span>After Effects</span><span>DaVinci Resolve</span><span>CapCut</span><span>Photoshop</span><span>Illustrator</span><span>Lightroom</span><span>Figma</span><span>Blender</span><span>Cinema 4D</span><span>VS Code</span><span>Obsidian</span><span>Chrome · Edge · Dia · Arc</span><span>+ any app with Cat Builder</span></div>
+</section>
+
+<section id="train" class="wrap train">
+  <div>
+    <div class="eyebrow">Train yourself</div>
+    <h2>From "where was that menu?" to muscle memory.</h2>
+    <ul class="ticks">
+      <li><b>You recall, not read.</b> Pulling the keys from memory is what makes them stick.</li>
+      <li><b>Spaced review.</b> Each shortcut returns right before you'd forget it, then less and less often.</li>
+      <li><b>Mixed, not drilled in blocks,</b> with instant sound and a little picture of what the action does.</li>
+      <li><b>Speed counts.</b> A shortcut is yours when it comes back fast. Score, streaks, a timer and your progress, day by day.</li>
+      <li><b>Real use, counted.</b> Cat Key notices when you use a shortcut you're learning in its app.</li>
+    </ul>
+  </div>
+  <div class="drill" aria-hidden="true">
+    <div class="meta"><span>Premiere Pro · 7 of 20</span><span>🔥 6 · 1,240 pts</span></div>
+    <div class="lab">Editing</div>
+    <div class="task" id="drill-task">Ripple delete</div>
+    <div class="keys" id="drill-keys"><span>Shift</span><span>Delete</span></div>
+    <div class="ok" id="drill-ok">Paw-some!</div>
+  </div>
+</section>
+
+<div class="wrap cta">
+  <h2>Let the cat on the keyboard.</h2>
+  <p>Free, open source, and ready in a minute.</p>
+  <div class="btns" style="justify-content:center">
+    <a class="btn main" href="https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe">⬇ Download for Windows</a>
+    <a class="btn" href="https://github.com/MasterfullyClaw/CatKey">View on GitHub</a>
+  </div>
+</div>
+
+<footer><div class="wrap"><span>Cat Key · MIT licensed · app names belong to their owners.</span><span><a href="https://github.com/MasterfullyClaw/CatKey/issues/new?template=share-a-pack.yml">Share a pack</a> · <a href="https://github.com/MasterfullyClaw/CatKey/issues">Report a problem</a></span></div></footer>
+
+<script>
+// A keyboard the cat walks across: paw prints land on keys, and the right shortcut lights up.
+const rows = [['Esc','1','2','3','4','5','6','7','8','9','0'], ['Tab','Q','W','E','R','T','Y','U','I','O','P'], ['Caps','A','S','D','F','G','H','J','K','L'], ['Shift','Z','X','C','V','B','N','M',',','.'], ['Ctrl','Win','Alt','Space','Alt','Ctrl']];
+const kb = document.getElementById('kb');
+for (const r of rows) {
+  const row = document.createElement('div'); row.className = 'row';
+  for (const k of r) { const el = document.createElement('div'); el.className = 'k' + (['Tab','Caps','Shift','Ctrl','Esc'].includes(k) ? ' w2' : k === 'Space' ? ' w5' : ''); el.textContent = k; el.dataset.k = k; row.append(el); }
+  kb.append(row);
+}
+const pawSvg = '<svg viewBox="0 0 24 24"><ellipse cx="12" cy="16" rx="5" ry="4"/><circle cx="6.5" cy="10.5" r="2.2"/><circle cx="10" cy="7" r="2.2"/><circle cx="14" cy="7" r="2.2"/><circle cx="17.5" cy="10.5" r="2.2"/></svg>';
+const shows = [[['Alt','W'], 'closes the tab'], [['Alt','C'], 'copies'], [['Alt','V'], 'pastes'], [['Alt','T'], 'opens a new tab'], [['Alt','Z'], 'undoes'], [['Alt','Q'], 'quits the app']];
+const key = (k, nth = 0) => [...kb.querySelectorAll('.k')].filter((e) => e.dataset.k === k)[nth];
+let i = 0;
+const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function step() {
+  const [keys, what] = shows[i++ % shows.length];
+  kb.querySelectorAll('.k.on').forEach((e) => e.classList.remove('on'));
+  kb.querySelectorAll('.paw').forEach((p) => p.remove());
+  keys.forEach((k, j) => setTimeout(() => {
+    const el = key(k); if (!el) return;
+    el.classList.add('on');
+    if (!still) { const p = document.createElement('span'); p.className = 'paw'; p.innerHTML = pawSvg; const kr = el.getBoundingClientRect(), br = kb.getBoundingClientRect(); p.style.left = `${kr.left - br.left + kr.width / 2 - 13}px`; p.style.top = `${kr.top - br.top - 16}px`; kb.append(p); requestAnimationFrame(() => (p.style.opacity = '1')); }
+  }, j * 260));
+  document.getElementById('toast-text').innerHTML = `${keys.join(' + ')} → <b>${what}</b>`;
+}
+step();
+if (!still) setInterval(step, 2200);
+const drills = [['Ripple delete', ['Shift','Delete']], ['Add edit', ['Ctrl','K']], ['Razor', ['C']], ['Mark in', ['I']], ['Export media', ['Ctrl','M']]];
+let d = 0;
+if (!still) setInterval(() => { const [t, ks] = drills[++d % drills.length]; document.getElementById('drill-task').textContent = t; document.getElementById('drill-keys').innerHTML = ks.map((k) => `<span>${k}</span>`).join(''); document.getElementById('drill-ok').textContent = ['Paw-some!', 'Yes!', 'On fire!', 'Got it!', 'Meow-velous!'][d % 5]; }, 2600);
+</script>
+</body>
+</html>

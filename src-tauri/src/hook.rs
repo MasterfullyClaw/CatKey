@@ -85,6 +85,75 @@ static TEST_KEYS: AtomicBool = AtomicBool::new(false);
 pub static WATCH_FIXES: AtomicU32 = AtomicU32::new(0);
 pub static WATCH_REINSTALLS: AtomicU32 = AtomicU32::new(0);
 
+/// Shortcuts you're learning, counted when you use them for real (Train yourself).
+pub struct Tracked {
+    ids: Vec<String>,
+    by_vk: Vec<Vec<(catkey_core::keys::ModSpec, Vec<String>, u32)>>,
+}
+static TRACKED: Mutex<Option<Arc<Tracked>>> = Mutex::new(None);
+static TRACK_COUNTS: Mutex<Vec<(u32, u32)>> = Mutex::new(Vec::new());
+
+pub fn set_tracked(list: Vec<(String, catkey_core::keys::Shortcut, Vec<String>)>) {
+    let mut t = Tracked { ids: Vec::with_capacity(list.len()), by_vk: vec![Vec::new(); 256] };
+    for (i, (id, sc, apps)) in list.into_iter().enumerate() {
+        t.ids.push(id);
+        let apps = apps.into_iter().map(|a| a.to_ascii_lowercase()).collect();
+        t.by_vk[sc.key as usize].push((sc.mods, apps, i as u32));
+    }
+    if let Ok(mut g) = TRACKED.lock() {
+        *g = if t.ids.is_empty() { None } else { Some(Arc::new(t)) };
+    }
+    if let Ok(mut c) = TRACK_COUNTS.lock() {
+        c.clear();
+    }
+}
+
+pub fn take_tracked_counts() -> std::collections::HashMap<String, u32> {
+    let counts: Vec<(u32, u32)> = TRACK_COUNTS.lock().map(|mut c| std::mem::take(&mut *c)).unwrap_or_default();
+    let Some(t) = TRACKED.lock().ok().and_then(|g| g.clone()) else { return Default::default() };
+    let mut out = std::collections::HashMap::new();
+    for (i, n) in counts {
+        if let Some(id) = t.ids.get(i as usize) {
+            *out.entry(id.clone()).or_insert(0) += n;
+        }
+    }
+    out
+}
+
+/// A real key press: if it's a shortcut being learned, in its app, count it.
+fn count_tracked(ctx: &mut Ctx, ev: &KeyEvent) {
+    let vk = ev.vk as usize;
+    let fresh = ev.down && !ctx.track_down[vk];
+    ctx.track_down[vk] = ev.down;
+    if !fresh || ev.injected || catkey_core::keys::is_modifier(ev.vk) || ctx.engine.is_recording() {
+        return;
+    }
+    let Some(t) = TRACKED.try_lock().ok().and_then(|g| g.clone()) else { return };
+    let list = &t.by_vk[vk];
+    if list.is_empty() {
+        return;
+    }
+    let mods = ctx.engine.held_mods();
+    let mut exe: Option<String> = None;
+    for (spec, apps, idx) in list {
+        if !spec.matches(mods) {
+            continue;
+        }
+        if !apps.is_empty() {
+            let e = exe.get_or_insert_with(|| ctx.env.foreground_exe().to_string());
+            if !apps.iter().any(|a| a == e) {
+                continue;
+            }
+        }
+        if let Ok(mut c) = TRACK_COUNTS.try_lock() {
+            match c.iter_mut().find(|(i, _)| i == idx) {
+                Some((_, n)) => *n += 1,
+                None => c.push((*idx, 1)),
+            }
+        }
+    }
+}
+
 pub fn set_test_keys(on: bool) {
     TEST_KEYS.store(on, Ordering::SeqCst);
 }
@@ -294,6 +363,8 @@ struct Ctx {
     /// (time, vk, flags, scan) of the last event, to ignore an exact duplicate.
     last: (u32, u32, u32, u32),
     watch: Watch,
+    /// Real keys held (to count a tracked shortcut once per press, not per repeat).
+    track_down: [bool; 256],
 }
 
 impl Ctx {
@@ -482,6 +553,7 @@ unsafe fn run(compiled: Arc<Compiled>, enabled: bool, effects: Sender<Effect>) {
             effects,
             last: (0, 0, 0, 0),
             watch: Watch { hwnd: hwnd as usize, ..Watch::default() },
+            track_down: [false; 256],
         })
     });
     THREAD_ID.store(GetCurrentThreadId(), Ordering::SeqCst);
@@ -640,6 +712,9 @@ unsafe fn handle(kb: &KBDLLHOOKSTRUCT, wparam: WPARAM) -> bool {
         let logging = diag_on();
         let held = if logging { held_now() } else { String::new() };
         let mut swallow = ctx.engine.handle(ev, &mut ctx.env);
+        if !really_injected {
+            count_tracked(ctx, &ev);
+        }
         let mut deferred = false;
         let mut sends: Vec<Out> = Vec::new();
         if !swallow && !ev.injected && sending() {

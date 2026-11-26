@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "catkey"
-version = "1.0.6"
+version = "1.1.0"
 dependencies = [
  "catkey-core",
  "png 0.17.16",

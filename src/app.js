@@ -3,7 +3,7 @@
 
 import * as K from './keys.js';
 import { Mascot, SKINS, skinName } from './mascot.js';
-import { sounds, setSoundsEnabled } from './sound.js';
+import { sounds, setSoundsEnabled, trainSounds, setTrainSounds } from './sound.js';
 
 const backend = window.__TAURI__
   ? { invoke: window.__TAURI__.core.invoke, listen: window.__TAURI__.event.listen }
@@ -43,8 +43,13 @@ const I = {
   swap: '<path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/>',
   layers: '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  wand: '<path d="m4 20 11-11M14 4v3M19 9h-3M17.5 5.5l-2 2M18 14v2M20 15h-4M8 3v2M9 4H7"/>',
+  star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+  book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+  select: '<rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="m8 12 3 3 5-6"/>',
 };
-const FILLED = new Set(['paw', 'more', 'sparkle']);
+const FILLED = new Set(['paw', 'more', 'sparkle', 'star']);
 const icon = (name, extra = '') =>
   `<svg class="i ${FILLED.has(name) ? 'fill' : ''} ${extra}" viewBox="0 0 24 24" aria-hidden="true">${I[name]}</svg>`;
 
@@ -85,7 +90,7 @@ const S = {
   fresh: new Set(),
   firedTimers: new Map(),
   bannerDismissed: false,
-  view: 'shortcuts', // 'shortcuts' | 'templates'
+  view: 'shortcuts', // 'shortcuts' | 'library' | 'templates' | 'ai' | 'train'
   templates: [], // built-in templates (from Rust); the user's own live in config.templates
   tplReversed: new Set(), // template ids shown (and added) with keys swapped
   tplOpen: new Set(), // template ids showing every shortcut
@@ -233,6 +238,7 @@ async function boot() {
   $('#btn-close').innerHTML = icon('x');
   $('#ico-search').outerHTML = icon('search');
   $('#btn-new').innerHTML = `${icon('plus')}<span>New shortcut</span>`;
+  $('#btn-select').innerHTML = `${icon('select')}<span>Select</span>`;
   $('.master .knob').innerHTML = icon('paw');
 
   hero = new Mascot($('#cushion'), { skin: S.config.settings.skin, size: 148, track: true, name: cat() });
@@ -250,6 +256,7 @@ async function boot() {
   if (S.status.configReset) {
     toast('Your settings file was damaged, so Cat Key started fresh (a copy was kept).', { kind: 'warn', ms: 8000 });
   }
+  setTimeout(() => libData().then(() => { renderTabs(); if (S.view === 'library') renderLibrary(); }).catch(() => {}), 400);
   setInterval(refreshStatus, 6000);
   setInterval(async () => {
     if (document.hidden) return;
@@ -306,14 +313,22 @@ function renderAll() {
 function renderTabs() {
   const box = $('#tabs');
   box.textContent = '';
-  for (const [id, label, n, ic] of [['shortcuts', 'Your shortcuts', rules().length, 'keyboard'], ['templates', 'Templates', allTemplates().length, 'layers']]) {
+  const libN = L.data ? libPacks().filter((p) => p._origin !== 'community').length : null;
+  for (const [id, label, n, ic] of [['shortcuts', 'Your shortcuts', rules().length, 'keyboard'], ['library', 'Library', libN, 'book'],
+    ['templates', 'Templates', allTemplates().length, 'layers'], ['train', 'Train yourself', null, 'target'], ['ai', 'Cat Builder', null, 'wand']]) {
     box.append(h('button', { class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(S.view === id), onclick: () => setView(id) },
-      h('span', { class: 'ic', html: icon(ic) }), h('span', { text: label }), h('span', { class: 'count', text: String(n) })));
+      h('span', { class: 'ic', html: icon(ic) }), h('span', { text: label }), n == null ? null : h('span', { class: 'count', text: String(n) })));
   }
 }
 
+const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train' };
 function applyView() {
-  $('#app').classList.toggle('view-templates', S.view === 'templates');
+  for (const v of Object.keys(VIEW_BOX)) $('#app').classList.toggle(`view-${v}`, S.view === v);
+  if (S.view !== 'shortcuts' && SEL.on) setSelecting(false);
+  if (S.view === 'library') renderLibrary();
+  if (S.view === 'ai') { if (!L.data) libData().then(renderAI); renderAI(); }
+  if (S.view === 'train') renderTrain();
+  if (S.view !== 'train') trainStop();
 }
 
 function setView(v) {
@@ -325,7 +340,7 @@ function setView(v) {
   const scroll = $('#scroll');
   const gap = $('#tabs').getBoundingClientRect().top - scroll.getBoundingClientRect().top;
   if (gap < 0) scroll.scrollTo({ top: scroll.scrollTop + gap - 12, behavior: reduced() ? 'auto' : 'smooth' });
-  if (!reduced()) $(v === 'templates' ? '#templates' : '#list').animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 280, easing: 'cubic-bezier(.22,1,.36,1)' });
+  if (!reduced()) $(VIEW_BOX[v] || '#list').animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 280, easing: 'cubic-bezier(.22,1,.36,1)' });
 }
 
 function renderTitle() {
@@ -607,8 +622,12 @@ function fillCard(el, r) {
         onclick: (e) => { e.stopPropagation(); swapRule(r); }, onkeydown: (e) => e.stopPropagation() },
       h('span', { class: 'go', html: arrowSvg }), h('span', { class: 'sw', html: icon('swap') }))
     : h('span', { class: 'arrow', html: arrowSvg });
-  const main = h('div', { class: 'card-main', role: 'button', tabindex: '0', 'aria-label': `Edit ${ruleName(r)}`, onclick: () => openEditor(r),
-    onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openEditor(r); } } },
+  const picked = SEL.on && SEL.ids.has(r.id);
+  el.classList.toggle('picked', picked);
+  const open = (e) => (SEL.on ? toggleSelect(r, e) : openEditor(r));
+  const main = h('div', { class: 'card-main', role: 'button', tabindex: '0', 'aria-label': SEL.on ? `Select ${ruleName(r)}` : `Edit ${ruleName(r)}`, 'aria-pressed': SEL.on ? String(picked) : null, onclick: open,
+    onkeydown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open(e); } } },
+    SEL.on ? h('span', { class: `pick${picked ? ' on' : ''}`, 'aria-hidden': 'true', html: picked ? icon('check') : '' }) : null,
     h('span', { class: 'from' }, capsEl(r.trigger)),
     arrow,
     to,
@@ -826,6 +845,7 @@ function wire() {
   $('#btn-min').onclick = () => invoke('window_minimize');
   $('#btn-close').onclick = () => invoke('window_close');
   $('#btn-new').onclick = () => openEditor(null);
+  $('#btn-select').onclick = () => setSelecting(!SEL.on);
   $('#master').onclick = () => setMaster(!S.config.enabled);
   $('#cushion').onclick = () => {
     if (!S.config.enabled) {
@@ -845,7 +865,7 @@ function wire() {
   };
   const search = $('#search');
   search.addEventListener('input', () => { S.query = search.value; renderList(); });
-  $('#scrim').onclick = () => { if (E) closeEditor(); else if (SETTINGS_OPEN) closeSettings(); };
+  $('#scrim').onclick = () => { if (E) closeEditor(); else if (PK) closePack(); else if (SETTINGS_OPEN) closeSettings(); };
 
   backend.listen('ck://fired', (e) => onFired(e.payload));
   backend.listen('ck://enabled', (e) => { S.config = { ...S.config, enabled: !!e.payload }; renderHero(); renderList(); });
@@ -866,11 +886,21 @@ function wire() {
       if (closePop()) return;
       if (DIALOG) { DIALOG(false); return; }
       if (E) { closeEditor(); return; }
+      if (PK) { closePack(); return; }
       if (SETTINGS_OPEN) { closeSettings(); return; }
+      if (SEL.on) { setSelecting(false); return; }
+    }
+    if (TR.on) return; // training: the keys belong to the drill
+    if (SEL.on && e.ctrlKey && e.key.toLowerCase() === 'a' && !E && !DIALOG && !/^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName)) {
+      e.preventDefault(); visibleRules().forEach((r) => SEL.ids.add(r.id)); renderList(); renderBulkBar(); return;
     }
     const ctrl = e.ctrlKey && !e.altKey && !e.metaKey;
-    if (ctrl && e.key.toLowerCase() === 'f' && !E && !SETTINGS_OPEN && !DIALOG) { e.preventDefault(); setView('shortcuts'); search.focus(); search.select(); }
-    if (ctrl && e.key.toLowerCase() === 'n' && !E && !SETTINGS_OPEN && !DIALOG) { e.preventDefault(); openEditor(null); }
+    if (ctrl && e.key.toLowerCase() === 'f' && !E && !PK && !SETTINGS_OPEN && !DIALOG) {
+      e.preventDefault();
+      if (S.view === 'library') { $('#lib-search')?.focus(); return; }
+      setView('shortcuts'); search.focus(); search.select();
+    }
+    if (ctrl && e.key.toLowerCase() === 'n' && !E && !PK && !SETTINGS_OPEN && !DIALOG) { e.preventDefault(); openEditor(null); }
     if (ctrl && e.key.toLowerCase() === 's' && E) { e.preventDefault(); saveEditor(); }
   });
 }
@@ -948,13 +978,14 @@ function analyze(d) {
   return { err, notes };
 }
 
-function openEditor(rule) {
+function openEditor(rule, { isNew = !rule } = {}) {
   if (SETTINGS_OPEN) closeSettings();
+  if (PK) closePack();
   const d = rule ? clone(rule) : { id: newId(), enabled: true, name: '', trigger: '', action: { type: 'keys', keys: '' }, scope: { mode: 'all', apps: [] } };
   d.scope = d.scope || { mode: 'all', apps: [] };
   d.scope.apps = d.scope.apps || [];
   E = {
-    d, isNew: !rule, err: {}, rec: null, live: '', manual: { trigger: false, keys: false }, apps: null,
+    d, isNew, err: {}, rec: null, live: '', manual: { trigger: false, keys: false }, apps: null,
     mem: { keys: d.action.keys || '', launch: { target: d.action.target || '', args: d.action.args || '' }, text: d.action.text || '' },
   };
   const sheet = $('#editor');
@@ -1316,10 +1347,12 @@ async function saveEditor() {
 
 const STARTER = 'builtin-starter';
 const allTemplates = () => [...S.templates, ...(S.config.templates || [])];
-const actKey = (a) => [a.type, a.keys || '', a.target || '', a.args || '', a.text || ''].join('\u0001');
+/** "LCtrl+C" and "Ctrl+C" send the same keys (a plain Ctrl goes out as the left one). */
+const sideless = (x) => String(x || '').split('+').map((t) => t.replace(/^L(Ctrl|Alt|Shift|Win)$/, '$1')).join('+');
+const actKey = (a) => [a.type, sideless(a.keys), a.target || '', a.args || '', a.text || ''].join('\u0001');
 const scopeKey = (s) => `${s?.mode || 'all'}:${[...(s?.apps || [])].sort().join(',')}`;
 /** Same keys, same result, same apps (on/off and name don't matter). */
-const sameRule = (a, b) => a.trigger === b.trigger && actKey(a.action) === actKey(b.action) && scopeKey(a.scope) === scopeKey(b.scope);
+const sameRule = (a, b) => (a.trigger === b.trigger || K.overlaps(a.trigger, b.trigger)) && actKey(a.action) === actKey(b.action) && scopeKey(a.scope) === scopeKey(b.scope);
 const inList = (x) => rules().some((r) => sameRule(r, x));
 
 /** A template's shortcuts as they'd be added (swapped when Reverse is on). */
@@ -1700,20 +1733,8 @@ function renderSettings() {
       h('section', {}, h('h2', { text: 'Your shortcuts' }),
         h('div', { class: 'grid2' },
           h('button', { class: 'btn', type: 'button', html: `${icon('down')}<span>Import from PowerToys</span>`, onclick: importPowerToys }),
-          h('button', { class: 'btn', type: 'button', html: `${icon('folder')}<span>Import file…</span>`, onclick: async () => {
-            try {
-              const r = await invoke('import_file');
-              if (r) {
-                S.config = r.config;
-                renderAll();
-                const parts = [];
-                if (r.added) parts.push(`${r.added} shortcut${r.added === 1 ? '' : 's'}`);
-                if (r.templates) parts.push(`${r.templates} template${r.templates === 1 ? '' : 's'}`);
-                toast(parts.length ? `Added ${parts.join(' and ')}.` : 'Nothing new in that file.');
-              }
-            } catch (e) { toast(String(e), { kind: 'warn' }); }
-          } }),
-          h('button', { class: 'btn', type: 'button', html: `${icon('up')}<span>Export…</span>`, onclick: async () => { try { if (await invoke('export_file')) toast('Exported. Keep it somewhere safe.'); } catch (e) { toast(String(e), { kind: 'err' }); } } }),
+          h('button', { class: 'btn', type: 'button', html: `${icon('folder')}<span>Import…</span>`, title: 'A Cat Key setup, a pack, an AI answer or a PowerToys file', onclick: importFile }),
+          h('button', { class: 'btn', type: 'button', html: `${icon('up')}<span>Export my setup…</span>`, title: 'Everything: shortcuts, templates, saved packs and settings. Works on a Mac too.', onclick: exportProfile }),
           h('button', { class: 'btn', type: 'button', html: `${icon('refresh')}<span>Restore defaults</span>`, onclick: async () => {
             const n = S.templates.find((t) => t.id === STARTER)?.rules.length || 12;
             if (!(await confirmBox('Restore the starter shortcuts?', `This replaces your shortcut list with the starter set (${n} Alt shortcuts). Settings and templates stay as they are.`, 'Restore', true))) return;
@@ -1777,3 +1798,1411 @@ boot().catch((e) => {
   document.body.append(h('pre', { style: { color: '#fff', padding: '20px', whiteSpace: 'pre-wrap' }, text: `Cat Key UI failed to start:\n${e?.stack || e}` }));
   invoke('ui_ready').catch(() => {});
 });
+
+// ------------------------------------------------------------------ library: ready-made packs (apps, switching OS, yours, community)
+
+const PLAT = () => (S.status.platform === 'mac' ? 'mac' : 'windows');
+const LIB_CATS = [
+  ['all', 'Everything'], ['switch', 'Switching OS'], ['system', 'System'], ['video', 'Video & motion'], ['design', 'Design & photo'],
+  ['3d', '3D'], ['code', 'Code'], ['browser', 'Browsers'], ['work', 'Work & notes'], ['mine', 'Yours'], ['community', 'Community'],
+];
+const L = { data: null, loading: null, cat: 'all', q: '', community: null, communityState: 'idle' };
+const REPO = 'MasterfullyClaw/CatKey';
+const COMMUNITY_INDEX = `https://raw.githubusercontent.com/${REPO}/main/library/community/index.json`;
+const SHARE_PACK_URL = `https://github.com/${REPO}/issues/new?template=share-a-pack.yml`;
+/** Packs that only make sense on one system: they don't travel to the other one. */
+const SWITCHERS = new Set(['mac-on-windows', 'windows-on-mac']);
+
+function libData() {
+  if (L.data) return Promise.resolve(L.data);
+  L.loading ||= import('./library/data.js').then((m) => {
+    L.data = { APPS: m.APPS, PACKS: m.PACKS };
+    for (const a of Object.values(m.APPS)) for (const exe of a.windows || []) if (!appNames.has(exe)) appNames.set(exe, a.name.replace(/ \(.*\)$/, ''));
+    return L.data;
+  });
+  return L.loading;
+}
+
+/** "Mod+Shift+T" -> "Ctrl+Shift+T" here (Win+Shift+T, i.e. ⌘⇧T, on a Mac). */
+function combo(str, plat = PLAT()) {
+  if (!str) return '';
+  const map = { Mod: plat === 'mac' ? 'Win' : 'Ctrl', Opt: 'Alt', Option: 'Alt', Cmd: 'Win', Command: 'Win', Control: 'Ctrl' };
+  return String(str).split('+').map((t) => map[t] || t).join('+');
+}
+const packFits = (p, plat = PLAT()) => !p.platform || p.platform === 'both' || p.platform === plat;
+const itemFits = (it, plat = PLAT()) => !it.platform || it.platform === 'both' || it.platform === plat;
+const isRemap = (p) => p.kind !== 'cheatsheet';
+
+function appIds(ref) {
+  const plat = PLAT();
+  const apps = L.data?.APPS || {};
+  const out = [];
+  for (const x of [].concat(ref || [])) {
+    if (typeof x !== 'string' || !x.trim()) continue;
+    if (x.startsWith('app:')) out.push(...(apps[x.slice(4)]?.[plat] || []));
+    else out.push(x.trim().toLowerCase());
+  }
+  return [...new Set(out)];
+}
+function packApps(p) {
+  if (p.apps && typeof p.apps === 'object' && !Array.isArray(p.apps)) return appIds(p.apps[PLAT()] || []);
+  if (p.app && L.data?.APPS[p.app]) return appIds(`app:${p.app}`);
+  return [];
+}
+function packAppName(p) {
+  return (p.app && L.data?.APPS[p.app]?.name) || (typeof p.app === 'string' ? p.app : '') || '';
+}
+function itemScope(p, it) {
+  if (it.only) return { mode: 'only', apps: appIds(it.only) };
+  if (it.except) return { mode: 'except', apps: appIds(it.except) };
+  const apps = packApps(p);
+  return apps.length ? { mode: 'only', apps } : { mode: 'all', apps: [] };
+}
+function packItems(p) {
+  const out = [];
+  (p.sections || []).forEach((s, si) => (s.items || []).forEach((it, ii) => { if (itemFits(it)) out.push({ s, si, it, ii, key: `${si}:${ii}` }); }));
+  return out;
+}
+function itemRule(p, it) {
+  let action;
+  if (it.does) action = { type: 'keys', keys: combo(it.does) };
+  else if (it.launch) action = { type: 'launch', target: it.launch, args: it.args || '' };
+  else if (it.text != null) action = { type: 'text', text: String(it.text) };
+  else action = { type: 'block' };
+  return { id: newId(), enabled: true, name: it.name || '', trigger: combo(it.press), action, scope: itemScope(p, it), source: p.id || '' };
+}
+const itemKeys = (it) => combo(PLAT() === 'mac' && it.mac ? it.mac : it.keys);
+/** Rules from this pack already in the list. */
+function packHave(p) {
+  if (!isRemap(p)) return [];
+  const list = packItems(p).map((x) => itemRule(p, x.it));
+  return rules().filter((r) => (p.id && r.source === p.id) || list.some((x) => sameRule(r, x)));
+}
+
+function libPacks() {
+  if (!L.data) return [];
+  const mine = (S.config.packs || []).map((p) => ({ ...p, _origin: 'mine' }));
+  const built = L.data.PACKS.map((p) => ({ ...p, _origin: 'builtin' }));
+  const comm = (L.community || []).map((p) => ({ ...p, _origin: 'community' }));
+  return [...mine, ...built, ...comm].filter((p) => packFits(p));
+}
+function libMatches(p, q) {
+  if (!q) return true;
+  const hay = [p.name, p.description, packAppName(p), ...(p.tags || []), ...packItems(p).map((x) => x.it.name)].join(' ').toLowerCase();
+  return q.split(/\s+/).every((w) => hay.includes(w));
+}
+
+function libTile(p, cls = 'lib-ico') {
+  const exe = packApps(p)[0];
+  if (exe && PLAT() === 'windows' && p.category !== 'switch') return appIcon(exe, cls);
+  const ic = p.category === 'switch' ? 'swap' : p._origin === 'mine' ? 'paw' : p.kind === 'cheatsheet' ? 'keyboard' : 'sparkle';
+  return h('span', { class: `${cls} glyph`, html: icon(ic) });
+}
+
+function libCard(p) {
+  const items = p._summary ? [] : packItems(p);
+  const favs = items.filter((x) => x.it.fav).length;
+  const have = p._summary ? 0 : packHave(p).length;
+  const n = p._summary ? p.count || 0 : items.length;
+  const meta = [`${n} shortcut${n === 1 ? '' : 's'}`];
+  if (favs) meta.push(`${favs} pro pick${favs === 1 ? '' : 's'}`);
+  const badge = (t, cls = '') => h('span', { class: `lib-badge ${cls}`, text: t });
+  return h('article', { class: `lib-card${have ? ' has' : ''}`, tabindex: '0', role: 'button', 'aria-label': `Open ${p.name}`,
+    onclick: () => openPackFrom(p), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPackFrom(p); } } },
+    h('div', { class: 'lib-top' }, libTile(p),
+      h('div', { class: 'lib-badges' },
+        badge(isRemap(p) ? 'Remap' : 'Cheat sheet', isRemap(p) ? 'remap' : ''),
+        p._origin === 'mine' ? badge('Yours', 'mine') : p._origin === 'community' ? badge('Community', 'comm') : null,
+        p.platform === 'mac' ? badge('Mac') : p.platform === 'windows' ? badge('Windows') : null)),
+    h('div', { class: 'lib-name display', text: p.name }),
+    h('div', { class: 'lib-desc', text: p.description || '' }),
+    h('div', { class: 'lib-meta' }, h('span', { text: meta.join(' · ') }),
+      have ? h('span', { class: 'lib-have', html: `${icon('check')}<span>${have} in your list</span>` }) : null));
+}
+
+function renderLibrary() {
+  const box = $('#library');
+  if (!box) return;
+  if (!L.data) {
+    box.textContent = '';
+    box.append(h('p', { class: 'hint', text: 'Opening the library…' }));
+    libData().then(() => { renderLibrary(); renderTabs(); }).catch((e) => toast(`Couldn’t open the library: ${e}`, { kind: 'err' }));
+    return;
+  }
+  const keepFocus = document.activeElement?.id === 'lib-search';
+  box.textContent = '';
+  box.append(h('div', { class: 'tpl-intro' },
+    h('div', { class: 'txt' },
+      h('h2', { class: 'display', text: 'Library' }),
+      h('p', { class: 'hint', text: `Ready-made shortcuts for the apps you use and for switching between Mac and Windows. Open one, tick what you want, add it. ${cat()} keeps every app’s own shortcuts as they are, and only adds yours on top.` })),
+    h('div', { class: 'lib-actions' },
+      h('button', { class: 'btn', type: 'button', html: `${icon('folder')}<span>Import…</span>`, onclick: importFile }),
+      h('button', { class: 'btn', type: 'button', html: `${icon('link')}<span>Paste a share code</span>`, onclick: pasteShareCode }))));
+  const search = h('input', { id: 'lib-search', class: 'field', type: 'search', placeholder: 'Search apps, packs or actions (e.g. “ripple”, “Figma”)', value: L.q, autocomplete: 'off', spellcheck: 'false',
+    oninput: (e) => { L.q = e.target.value; renderLibGrid(); } });
+  const cats = h('div', { class: 'cats', role: 'group', 'aria-label': 'Categories' });
+  for (const [id, label] of LIB_CATS) {
+    cats.append(h('button', { type: 'button', class: 'cat', 'aria-pressed': String(L.cat === id), text: label,
+      onclick: () => { L.cat = id; if (id === 'community' && !L.community) loadCommunity(); renderLibrary(); } }));
+  }
+  box.append(h('div', { class: 'lib-tools' }, h('label', { class: 'search' }, h('span', { html: icon('search') }), search), cats));
+  box.append(h('div', { id: 'lib-grid', class: 'lib-grid' }));
+  renderLibGrid();
+  if (keepFocus) { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
+}
+
+function renderLibGrid() {
+  const grid = $('#lib-grid');
+  if (!grid) return;
+  grid.textContent = '';
+  const q = L.q.trim().toLowerCase();
+  let list = libPacks().filter((p) => libMatches(p, q));
+  if (L.cat === 'mine') list = list.filter((p) => p._origin === 'mine');
+  else if (L.cat === 'community') list = list.filter((p) => p._origin === 'community');
+  else if (L.cat !== 'all') list = list.filter((p) => p.category === L.cat && p._origin !== 'community');
+  for (const p of list) grid.append(libCard(p));
+  if (L.cat === 'community' || L.cat === 'all') grid.append(communityCard());
+  if (L.cat === 'mine' && !list.length) {
+    grid.append(h('div', { class: 'lib-empty' }, h('b', { text: 'Nothing here yet.' }),
+      h('span', { text: ' Packs you import, get as a share code or make with Cat Builder show up here.' }),
+      h('button', { class: 'btn small strong', type: 'button', html: `${icon('wand')}<span>Make one with Cat Builder</span>`, onclick: () => setView('ai') })));
+  } else if (!list.length && L.cat !== 'community') {
+    grid.append(h('div', { class: 'lib-empty' }, h('b', { text: `No pack matches “${L.q}”.` }),
+      h('span', { text: ' Make one in a minute: describe it, and any AI writes it for you.' }),
+      h('button', { class: 'btn small strong', type: 'button', html: `${icon('wand')}<span>Make it with Cat Builder</span>`, onclick: () => { AI.want = L.q; setView('ai'); } })));
+  }
+}
+
+function communityCard() {
+  const st = L.communityState;
+  const text = st === 'loading' ? 'Fetching packs shared by other people…'
+    : st === 'error' ? 'Couldn’t reach the community library. Check your connection and try again.'
+    : st === 'done' ? (L.community?.length ? `${L.community.length} pack${L.community.length === 1 ? '' : 's'} shared by people like you.` : 'No community packs yet. Yours could be the first!')
+    : 'Packs shared by other Cat Key users, checked before they’re listed.';
+  return h('div', { class: 'lib-card comm-card' },
+    h('div', { class: 'lib-top' }, h('span', { class: 'lib-ico glyph', html: icon('globe') })),
+    h('div', { class: 'lib-name display', text: 'Community library' }),
+    h('div', { class: 'lib-desc', text }),
+    h('div', { class: 'lib-meta row' },
+      st !== 'done' ? h('button', { class: 'btn small', type: 'button', text: st === 'loading' ? 'Loading…' : st === 'error' ? 'Try again' : 'Show them', onclick: loadCommunity }) : null,
+      h('button', { class: 'btn small ghost', type: 'button', html: `${icon('up')}<span>Share yours</span>`, onclick: () => invoke('open_link', { url: SHARE_PACK_URL }).catch((e) => toast(String(e), { kind: 'warn' })) })));
+}
+
+async function loadCommunity() {
+  if (L.communityState === 'loading') return;
+  L.communityState = 'loading';
+  renderLibGrid();
+  try {
+    const res = await fetch(COMMUNITY_INDEX, { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status);
+    const idx = await res.json();
+    L.community = (idx.packs || []).filter((p) => p && p.id && p.name && p.file).map((p) => ({ ...p, _summary: true, id: `community-${p.id}` }));
+    L.communityState = 'done';
+  } catch {
+    L.communityState = 'error';
+  }
+  renderLibGrid();
+}
+
+async function openPackFrom(p) {
+  if (!p._summary) return openPack(p, { origin: p._origin });
+  try {
+    const url = new URL(p.file, COMMUNITY_INDEX).href;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status);
+    const { pack, problems } = checkPack(await res.json());
+    pack.id = p.id;
+    openPack(pack, { origin: 'community', problems });
+  } catch (e) {
+    toast(`Couldn’t open that pack (${e.message || e}).`, { kind: 'warn' });
+  }
+}
+
+// ------------------------------------------------------------------ one pack: pick what to add
+
+let PK = null;
+function openPack(pack, { origin = 'builtin', problems = [] } = {}) {
+  if (E) closeEditor();
+  if (SETTINGS_OPEN) closeSettings();
+  const items = packItems(pack);
+  const sel = new Set();
+  if (isRemap(pack)) {
+    for (const x of items) {
+      if (x.s.off || x.it.off) continue;
+      const r = itemRule(pack, x.it);
+      if (!inList(r)) sel.add(x.key);
+    }
+  }
+  PK = { pack, origin, problems, sel, q: '', favOnly: false, last: null };
+  const sheet = $('#packsheet');
+  sheet.hidden = false;
+  renderPack();
+  $('#scrim').classList.add('on');
+  requestAnimationFrame(() => sheet.classList.add('on'));
+}
+
+function closePack() {
+  if (!PK) return;
+  PK = null;
+  const sheet = $('#packsheet');
+  sheet.classList.remove('on');
+  if (!E && !SETTINGS_OPEN) $('#scrim').classList.remove('on');
+  setTimeout(() => { if (!PK) { sheet.hidden = true; sheet.textContent = ''; } }, 260);
+}
+
+function packClash(r) {
+  return clashFor(r, rules());
+}
+
+function pkRow(x) {
+  const { pack, sel } = PK;
+  const it = x.it;
+  if (!isRemap(pack)) {
+    const keys = itemKeys(it);
+    return h('div', { class: 'pk-row sheet-row' },
+      h('span', { class: 'from' }, capsEl(keys)),
+      h('span', { class: 'nm' }, it.fav ? h('span', { class: 'star', title: 'Pro pick', html: icon('star') }) : null, h('span', { text: it.name }),
+        it.note ? h('small', { text: ` · ${it.note}` }) : null),
+      h('button', { class: 'btn small ghost', type: 'button', title: 'Pick your own keys that do this',
+        html: `${icon('edit')}<span>Use my keys</span>`, onclick: () => useMyKeys(pack, it) }));
+  }
+  const r = itemRule(pack, it);
+  const has = inList(r);
+  const clash = !has && packClash(r);
+  const on = sel.has(x.key);
+  let to;
+  if (r.action.type === 'keys') to = capsEl(r.action.keys, { to: true });
+  else if (r.action.type === 'launch') to = h('span', { class: 'nm', text: `Opens ${appName(r.action.target)}` });
+  else if (r.action.type === 'text') to = h('span', { class: 'nm', text: 'Types text' });
+  else to = h('span', { class: 'nm', text: 'Does nothing (blocked)' });
+  const status = has ? h('span', { class: 'pk-st ok', html: `${icon('check')}<span>In your list</span>` })
+    : clash ? h('span', { class: 'pk-st warn', title: `You already use ${K.plain(r.trigger)} for “${ruleName(clash)}”. This one comes in switched off.`, html: `${icon('info')}<span>Keys in use</span>` })
+    : null;
+  const cb = h('input', { type: 'checkbox', class: 'cb', checked: on && !has, disabled: has, 'aria-label': `Add ${it.name}` });
+  const row = h('label', { class: `pk-row${has ? ' has' : ''}${on && !has ? ' on' : ''}` },
+    cb,
+    h('span', { class: 'from' }, capsEl(r.trigger)),
+    h('span', { class: 'mini-arrow', 'aria-hidden': 'true', text: '→' }),
+    h('span', { class: 'to' }, to),
+    h('span', { class: 'nm' }, it.fav ? h('span', { class: 'star', title: 'Pro pick', html: icon('star') }) : null,
+      h('span', { text: it.name }), it.note ? h('small', { text: ` · ${it.note}` }) : null,
+      r.scope.mode !== 'all' ? h('small', { class: 'sc', text: ` · ${scopeText(r.scope)}` }) : null),
+    status);
+  cb.addEventListener('click', (e) => {
+    const keys = pkVisible().filter((y) => !inList(itemRule(pack, y.it))).map((y) => y.key);
+    if (e.shiftKey && PK.last && keys.includes(PK.last)) {
+      const [a, b] = [keys.indexOf(PK.last), keys.indexOf(x.key)].sort((m, n) => m - n);
+      for (const k of keys.slice(a, b + 1)) (cb.checked ? sel.add(k) : sel.delete(k));
+    } else if (cb.checked) sel.add(x.key);
+    else sel.delete(x.key);
+    PK.last = x.key;
+    renderPack(true);
+  });
+  return row;
+}
+
+function pkVisible() {
+  const { pack, q, favOnly } = PK;
+  const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return packItems(pack).filter((x) => (!favOnly || x.it.fav) && (!words.length || words.every((w) =>
+    [x.it.name, x.it.note || '', x.s.name, K.plain(x.it.press ? combo(x.it.press) : itemKeys(x.it)), x.it.does ? K.plain(combo(x.it.does)) : ''].join(' ').toLowerCase().includes(w))));
+}
+
+function renderPack(keepScroll = false) {
+  if (!PK) return;
+  const { pack, origin, problems, sel } = PK;
+  const sheet = $('#packsheet');
+  const prevScroll = $('#pk-body')?.scrollTop || 0;
+  const hadFocus = document.activeElement?.id === 'pk-search';
+  sheet.textContent = '';
+  const remap = isRemap(pack);
+  const visible = pkVisible();
+  const addable = visible.filter((x) => !inList(itemRule(pack, x.it)));
+  const total = packItems(pack).length;
+  const chosen = remap ? [...sel].length : 0;
+  const have = packHave(pack);
+  const appNm = packAppName(pack);
+  const sources = (pack.sources || []).filter((s) => /^https:\/\//.test(s.url || ''));
+  sheet.append(h('div', { class: 'sheet-head' },
+    libTile(pack, 'pk-ico'),
+    h('div', { style: { flex: '1', minWidth: '0' } },
+      h('h1', { id: 'pk-title', text: pack.name }),
+      h('p', { text: [pack.description, appNm && !pack.description?.includes(appNm) ? `Works in ${appNm}.` : ''].filter(Boolean).join(' ') })),
+    h('button', { class: 'tbtn', 'aria-label': 'Close', html: icon('x'), onclick: closePack })));
+  const search = h('input', { id: 'pk-search', class: 'field', type: 'search', placeholder: 'Find in this pack', value: PK.q, autocomplete: 'off',
+    oninput: (e) => { PK.q = e.target.value; renderPack(true); } });
+  const tools = h('div', { class: 'pk-tools' },
+    h('label', { class: 'search' }, h('span', { html: icon('search') }), search),
+    h('button', { class: `chipbtn${PK.favOnly ? ' on' : ''}`, type: 'button', 'aria-pressed': String(PK.favOnly), html: `${icon('star')}<span>Pro picks</span>`,
+      onclick: () => { PK.favOnly = !PK.favOnly; renderPack(true); } }),
+    remap ? h('button', { class: 'btn small ghost', type: 'button', text: 'Select all', onclick: () => { addable.forEach((x) => sel.add(x.key)); renderPack(true); } }) : null,
+    remap ? h('button', { class: 'btn small ghost', type: 'button', text: 'Select none', onclick: () => { visible.forEach((x) => sel.delete(x.key)); renderPack(true); } }) : null);
+  const body = h('div', { class: 'sheet-body', id: 'pk-body' }, tools);
+  if (problems.length) {
+    body.append(h('div', { class: 'pk-problems' }, h('b', { text: `${problems.length} line${problems.length === 1 ? '' : 's'} skipped:` }),
+      h('ul', {}, ...problems.slice(0, 8).map((m) => h('li', { text: m }))), problems.length > 8 ? h('div', { text: `…and ${problems.length - 8} more.` }) : null));
+  }
+  if (!remap) body.append(h('p', { class: 'hint pk-hint', text: `These are ${appNm || 'the app'}’s own shortcuts: they already work. Learn them, or press “Use my keys” to do one with keys you like better.` }));
+  const bySection = new Map();
+  for (const x of visible) {
+    if (!bySection.has(x.si)) bySection.set(x.si, []);
+    bySection.get(x.si).push(x);
+  }
+  for (const [si, list] of bySection) {
+    const s = pack.sections[si];
+    const secAdd = list.filter((x) => !inList(itemRule(pack, x.it)));
+    const allOn = remap && secAdd.length && secAdd.every((x) => sel.has(x.key));
+    body.append(h('div', { class: 'pk-sec' },
+      h('div', { class: 'pk-sec-head' },
+        remap && secAdd.length ? h('input', { type: 'checkbox', class: 'cb', checked: allOn, 'aria-label': `Select all in ${s.name}`,
+          onclick: (e) => { secAdd.forEach((x) => (e.target.checked ? sel.add(x.key) : sel.delete(x.key))); renderPack(true); } }) : null,
+        h('b', { text: s.name }), h('span', { class: 'n', text: String(list.length) }),
+        s.off ? h('span', { class: 'lib-badge', text: 'Optional' }) : null),
+      s.note ? h('div', { class: 'pk-note', text: s.note }) : null,
+      h('div', { class: 'pk-rows' }, ...list.map(pkRow))));
+  }
+  if (!visible.length) body.append(h('p', { class: 'hint', text: 'Nothing matches. Try another word.' }));
+  if (sources.length) {
+    body.append(h('div', { class: 'pk-sources' }, h('span', { text: 'Sources: ' }),
+      ...sources.map((s, i) => [i ? ', ' : '', h('a', { href: '#', text: s.title || s.url, onclick: (e) => { e.preventDefault(); invoke('open_link', { url: s.url }).catch(() => {}); } })])));
+  }
+  const saved = origin === 'mine';
+  const foot = h('div', { class: 'sheet-foot' },
+    h('button', { class: 'btn ghost', type: 'button', title: 'Copy a code anyone can paste into Cat Key', html: `${icon('link')}<span>Share code</span>`, onclick: () => copyShareCode(pack) }),
+    h('button', { class: 'btn ghost', type: 'button', html: `${icon('up')}<span>Export</span>`, onclick: () => exportPack(pack) }),
+    origin !== 'builtin' && !saved ? h('button', { class: 'btn ghost', type: 'button', html: `${icon('down')}<span>Keep in my Library</span>`, onclick: () => savePack(pack) }) : null,
+    saved ? h('button', { class: 'btn ghost danger', type: 'button', html: `${icon('trash')}<span>Remove from Library</span>`, onclick: () => deletePack(pack) }) : null,
+    h('span', { class: 'spacer' }),
+    remap && have.length ? h('button', { class: 'btn ghost', type: 'button', text: `Remove ${have.length} from my list`, onclick: () => removePackRules(pack) }) : null,
+    remap
+      ? h('button', { class: 'btn primary', id: 'pk-add', type: 'button', disabled: !chosen, html: `${icon('plus')}<span>${chosen ? `Add ${chosen} shortcut${chosen === 1 ? '' : 's'}` : 'Pick some to add'}</span>`, onclick: (e) => addFromPack(e.currentTarget) })
+      : h('button', { class: 'btn primary', type: 'button', text: 'Done', onclick: closePack }));
+  sheet.append(body, foot);
+  if (remap) foot.prepend(h('span', { class: 'pk-count', text: `${chosen} of ${total} picked` }));
+  if (keepScroll) $('#pk-body').scrollTop = prevScroll;
+  if (hadFocus) { const s2 = $('#pk-search'); s2.focus(); s2.setSelectionRange(s2.value.length, s2.value.length); }
+}
+
+async function addFromPack(btn) {
+  if (!PK) return;
+  const { pack, sel } = PK;
+  const fresh = [];
+  let clashes = 0;
+  for (const x of packItems(pack)) {
+    if (!sel.has(x.key)) continue;
+    const r = itemRule(pack, x.it);
+    if (inList(r) || !r.trigger) continue;
+    r.enabled = !clashFor(r, [...rules(), ...fresh]);
+    if (!r.enabled) clashes++;
+    fresh.push(r);
+  }
+  if (!fresh.length) return;
+  if (btn) { const rc = btn.getBoundingClientRect(); confetti(rc.left + rc.width / 2, rc.top); }
+  fresh.forEach((r) => markFresh(r.id));
+  sounds.saved();
+  closePack();
+  await commit({ ...S.config, rules: [...rules(), ...fresh] });
+  hero.react(1300);
+  const n = fresh.length;
+  toast(`Added ${n} shortcut${n === 1 ? '' : 's'} from “${pack.name}”.` + (clashes ? ` ${clashes} came in switched off: you already use those keys.` : ''),
+    { kind: clashes ? 'warn' : 'ok', ms: 8000, action: { label: 'Undo', fn: () => commit({ ...S.config, rules: rules().filter((r) => !fresh.some((f) => f.id === r.id)) }) } });
+}
+
+function removePackRules(pack) {
+  const before = rules();
+  const gone = new Set(packHave(pack).map((r) => r.id));
+  if (!gone.size) return;
+  sounds.off();
+  commit({ ...S.config, rules: before.filter((r) => !gone.has(r.id)) });
+  renderPack(true);
+  toast(`Removed ${gone.size} shortcut${gone.size === 1 ? '' : 's'} from “${pack.name}”.`, { ms: 8000, action: { label: 'Undo', fn: () => commit({ ...S.config, rules: before }) } });
+}
+
+function useMyKeys(pack, it) {
+  const draft = { id: newId(), enabled: true, name: it.name, trigger: '', action: { type: 'keys', keys: itemKeys(it) }, scope: itemScope(pack, it), source: pack.id || '' };
+  closePack();
+  setTimeout(() => openEditor(draft, { isNew: true }), 120);
+}
+
+function stripPack(pack) {
+  const out = {};
+  for (const [k, v] of Object.entries(pack)) if (!k.startsWith('_')) out[k] = v;
+  return { format: 'catkey-pack', version: 1, ...out };
+}
+
+async function savePack(pack) {
+  const clean = stripPack(pack);
+  if (!clean.id || L.data?.PACKS.some((p) => p.id === clean.id) || (S.config.packs || []).some((p) => p.id === clean.id)) clean.id = `my-${slug(clean.name)}-${Math.random().toString(36).slice(2, 6)}`;
+  await commit({ ...S.config, packs: [...(S.config.packs || []), clean] });
+  if (PK) { PK.pack = clean; PK.origin = 'mine'; renderPack(true); }
+  toast(`“${clean.name}” is in your Library now (under Yours).`);
+}
+
+async function deletePack(pack) {
+  if (!(await confirmBox(`Remove “${pack.name}” from your Library?`, 'Shortcuts you already added from it stay in your list.', 'Remove', true))) return;
+  const before = S.config.packs || [];
+  closePack();
+  await commit({ ...S.config, packs: before.filter((p) => p.id !== pack.id) });
+  toast(`Removed “${pack.name}”.`, { action: { label: 'Undo', fn: () => commit({ ...S.config, packs: before }) } });
+}
+
+const slug = (s) => String(s || 'pack').toLowerCase().normalize('NFKD').replace(/[^\w\s-]/g, '').trim().replace(/[\s_]+/g, '-').slice(0, 40) || 'pack';
+
+async function exportPack(pack) {
+  try {
+    if (await invoke('save_text', { name: `${slug(pack.name)}.catkey.json`, text: JSON.stringify(stripPack(pack), null, 2) })) toast('Exported. Anyone can import that file into Cat Key.');
+  } catch (e) { toast(String(e), { kind: 'err' }); }
+}
+
+// ------------------------------------------------------------------ share codes: a whole pack as one line of text
+
+const b64url = (bytes) => { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+const unb64url = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+async function pipe(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+
+async function shareCodeFor(obj) {
+  const raw = new TextEncoder().encode(JSON.stringify(obj));
+  return `CK1:${b64url(await pipe(raw, new CompressionStream('deflate-raw')))}`;
+}
+async function readShareCode(code) {
+  const m = String(code).trim().match(/CK1:([A-Za-z0-9_-]+)/);
+  if (!m) throw new Error('That isn’t a Cat Key share code (they start with CK1:).');
+  const bytes = await pipe(unb64url(m[1]), new DecompressionStream('deflate-raw'));
+  return new TextDecoder().decode(bytes);
+}
+
+async function copyShareCode(pack) {
+  try {
+    const code = await shareCodeFor(stripPack(pack));
+    await navigator.clipboard.writeText(code);
+    toast(`Share code copied (${code.length.toLocaleString()} characters). Paste it in a message; the other person pastes it into Cat Key.`, { ms: 7000 });
+  } catch (e) { toast(`Couldn’t make a share code: ${e.message || e}`, { kind: 'err' }); }
+}
+
+async function pasteShareCode() {
+  let text = '';
+  try { text = await navigator.clipboard.readText(); } catch { /* ask instead */ }
+  if (!/CK1:/.test(text)) text = await promptBox('Paste a share code', 'Share codes start with CK1:. Paste the whole thing.', '', 'Open') || '';
+  if (!text) return;
+  importText(text, 'share code');
+}
+
+// ------------------------------------------------------------------ importing anything: packs, AI answers, whole setups, PowerToys
+
+const KEY_SET = new Set([...K.KEY_GROUPS.flatMap(([, ks]) => ks), 'Clear', 'Kana', 'Kanji', 'Convert', 'NonConvert', 'Select', 'Print', 'Execute', 'Help', 'Sleep', 'NumSeparator', 'LaunchMedia', 'BrowserStop', 'BrowserFavorites', 'Oem8', 'MediaStop']);
+const KEY_ALIAS = { '[': 'LBracket', ']': 'RBracket', '\\': 'Backslash', '/': 'Slash', ',': 'Comma', '.': 'Period', '`': 'Backtick', '~': 'Backtick', '=': 'Equals', '-': 'Minus', ';': 'Semicolon', "'": 'Quote',
+  plus: 'Equals', del: 'Delete', escape: 'Esc', esc: 'Esc', return: 'Enter', enter: 'Enter', space: 'Space', spacebar: 'Space', backspace: 'Backspace', tab: 'Tab', capslock: 'CapsLock', caps: 'CapsLock',
+  pgup: 'PageUp', pageup: 'PageUp', pgdn: 'PageDown', pagedown: 'PageDown', home: 'Home', end: 'End', insert: 'Insert', ins: 'Insert', delete: 'Delete', forwarddelete: 'Delete',
+  left: 'Left', right: 'Right', up: 'Up', down: 'Down', arrowleft: 'Left', arrowright: 'Right', arrowup: 'Up', arrowdown: 'Down', '←': 'Left', '→': 'Right', '↑': 'Up', '↓': 'Down',
+  printscreen: 'PrintScreen', prtsc: 'PrintScreen', grave: 'Backtick', backquote: 'Backtick', tilde: 'Backtick', bracketleft: 'LBracket', leftbracket: 'LBracket', bracketright: 'RBracket', rightbracket: 'RBracket',
+  comma: 'Comma', period: 'Period', dot: 'Period', slash: 'Slash', backslash: 'Backslash', minus: 'Minus', hyphen: 'Minus', equal: 'Equals', equals: 'Equals', semicolon: 'Semicolon', quote: 'Quote', apostrophe: 'Quote' };
+const MOD_ALIAS = { mod: 'Mod', cmdorctrl: 'Mod', commandorcontrol: 'Mod', opt: 'Opt', option: 'Opt', '⌥': 'Opt', alt: 'Alt', cmd: 'Cmd', command: 'Cmd', '⌘': 'Cmd', meta: 'Win', super: 'Win', win: 'Win', windows: 'Win',
+  ctrl: 'Ctrl', control: 'Ctrl', ctl: 'Ctrl', '⌃': 'Ctrl', shift: 'Shift', '⇧': 'Shift', lctrl: 'LCtrl', rctrl: 'RCtrl', lalt: 'LAlt', ralt: 'RAlt', lshift: 'LShift', rshift: 'RShift', lwin: 'LWin', rwin: 'RWin' };
+
+/** Tidy one combo ("cmd + shift + [") into Cat Key's spelling ("Cmd+Shift+LBracket"). */
+function tidyCombo(str) {
+  if (typeof str !== 'string' || !str.trim()) return { error: 'empty keys' };
+  let s = str.trim().replace(/\s*\+\s*/g, '+');
+  let plusKey = false;
+  if (/\+\+$/.test(s) || s === '+') { plusKey = true; s = s.replace(/\+?\+$/, ''); }
+  if (/\s/.test(s)) return { error: `“${str}” looks like two shortcuts in a row; Cat Key takes one at a time` };
+  const parts = s ? s.split('+') : [];
+  let key = plusKey ? 'Equals' : parts.pop();
+  const mods = [];
+  for (const m of parts) {
+    const mm = MOD_ALIAS[m.toLowerCase()];
+    if (!mm) return { error: `“${m}” isn’t a modifier (use Mod, Opt, Shift, Ctrl…)` };
+    if (!mods.includes(mm)) mods.push(mm);
+  }
+  if (/^[a-z0-9]$/i.test(key)) key = key.toUpperCase();
+  else if (/^f([1-9]|1\d|2[0-4])$/i.test(key)) key = key.toUpperCase();
+  else if (/^num(pad)?\s*\d$/i.test(key)) key = `Num${key.slice(-1)}`;
+  else if (KEY_ALIAS[key] || KEY_ALIAS[key.toLowerCase()]) key = KEY_ALIAS[key] || KEY_ALIAS[key.toLowerCase()];
+  else if (MOD_ALIAS[key.toLowerCase()] && !mods.length) key = { Ctrl: 'LCtrl', Alt: 'LAlt', Shift: 'LShift', Win: 'LWin', Cmd: 'LWin', Opt: 'LAlt' }[MOD_ALIAS[key.toLowerCase()]] || key;
+  if (!KEY_SET.has(key)) return { error: `unknown key “${key}”` };
+  return { value: [...mods, key].join('+') };
+}
+
+/** Read a pack from anywhere (file, share code, AI answer): keep what's usable, list what isn't. */
+function checkPack(raw) {
+  const problems = [];
+  const src = raw && typeof raw === 'object' ? raw : {};
+  let sections = Array.isArray(src.sections) ? src.sections : [];
+  if (!sections.length && Array.isArray(src.shortcuts || src.items)) sections = [{ name: 'Shortcuts', items: src.shortcuts || src.items }];
+  const cheat = src.kind === 'cheatsheet' || (!src.kind && sections.some((s) => (s.items || []).some((i) => i && i.keys && !i.press)));
+  const out = [];
+  for (const [si, s] of sections.entries()) {
+    const items = [];
+    for (const [ii, it] of (Array.isArray(s?.items) ? s.items : []).entries()) {
+      const at = `${s?.name || `Section ${si + 1}`}, line ${ii + 1}${it?.name ? ` (${it.name})` : ''}`;
+      if (!it || typeof it !== 'object') { problems.push(`${at}: not a shortcut`); continue; }
+      const x = { name: String(it.name || '').slice(0, 80) };
+      const field = (k) => { const t = tidyCombo(it[k]); if (t.error) { problems.push(`${at}: ${t.error}`); return null; } return t.value; };
+      if (cheat) {
+        x.keys = field('keys'); if (!x.keys) continue;
+        if (it.mac) { const t = tidyCombo(it.mac); if (!t.error) x.mac = t.value; }
+      } else {
+        x.press = field('press'); if (!x.press) continue;
+        if (it.does != null) { x.does = field('does'); if (!x.does) continue; }
+        else if (it.launch) x.launch = String(it.launch);
+        else if (it.text != null) x.text = String(it.text);
+        else if (it.block) x.block = true;
+        else { problems.push(`${at}: says what to press but not what it does`); continue; }
+        if (x.does && x.does === x.press) { problems.push(`${at}: presses and does the same keys`); continue; }
+      }
+      if (!x.name) x.name = cheat ? K.plain(combo(x.keys)) : x.does ? `${K.plain(combo(x.press))} → ${K.plain(combo(x.does))}` : K.plain(combo(x.press));
+      for (const k of ['only', 'except']) if (it[k]) x[k] = [].concat(it[k]).map(String);
+      if (it.fav) x.fav = true;
+      if (it.off) x.off = true;
+      if (it.note) x.note = String(it.note).slice(0, 140);
+      if (it.platform && ['windows', 'mac', 'both'].includes(it.platform)) x.platform = it.platform;
+      items.push(x);
+    }
+    if (items.length) out.push({ name: String(s?.name || `Section ${si + 1}`).slice(0, 60), items, ...(s?.off ? { off: true } : {}), ...(s?.note ? { note: String(s.note).slice(0, 200) } : {}) });
+  }
+  const pack = {
+    format: 'catkey-pack', version: 1,
+    id: typeof src.id === 'string' && /^[a-z0-9-]{2,60}$/.test(src.id) ? src.id : '',
+    name: String(src.name || 'Imported pack').slice(0, 60),
+    kind: cheat ? 'cheatsheet' : 'remap',
+    category: LIB_CATS.some(([c]) => c === src.category) ? src.category : 'work',
+    platform: ['windows', 'mac', 'both'].includes(src.platform) ? src.platform : 'both',
+    description: String(src.description || '').slice(0, 300),
+    author: String(src.author || '').slice(0, 60),
+    sections: out,
+  };
+  if (typeof src.app === 'string') pack.app = src.app.slice(0, 60);
+  if (src.apps && typeof src.apps === 'object') pack.apps = { windows: [].concat(src.apps.windows || []).map(String), mac: [].concat(src.apps.mac || []).map(String) };
+  if (Array.isArray(src.sources)) pack.sources = src.sources.filter((x) => x && /^https:\/\//.test(x.url || '')).slice(0, 12).map((x) => ({ title: String(x.title || x.url).slice(0, 120), url: x.url }));
+  if (Array.isArray(src.tags)) pack.tags = src.tags.map(String).slice(0, 12);
+  return { pack, problems };
+}
+
+/** Pull the JSON out of whatever was pasted: plain JSON, an AI answer with a ```json block, or a share code. */
+async function parseAnything(text) {
+  let t = String(text || '').trim();
+  if (/CK1:[A-Za-z0-9_-]{8,}/.test(t)) t = await readShareCode(t);
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  try { return JSON.parse(t); } catch { /* try the outermost braces */ }
+  const a = t.indexOf('{');
+  const b = t.lastIndexOf('}');
+  if (a >= 0 && b > a) return JSON.parse(t.slice(a, b + 1));
+  throw new Error('There’s no Cat Key pack in there. Paste the whole answer, including the part in { }.');
+}
+
+async function importText(text, from = 'file') {
+  let data;
+  try { data = await parseAnything(text); } catch (e) { toast(e.message || String(e), { kind: 'warn', ms: 7000 }); return false; }
+  if (data && (data.format === 'catkey-profile' || (Array.isArray(data.rules) && !data.sections))) return importProfile(data);
+  if (data && (data.remapKeys || data.remapShortcuts || data.properties?.remapKeys || data.properties?.remapShortcuts)) {
+    try { return mergeRules(await invoke('powertoys_rules', { text: JSON.stringify(data) }), 'PowerToys'); } catch (e) { toast(String(e), { kind: 'warn' }); return false; }
+  }
+  const { pack, problems } = checkPack(data);
+  if (!pack.sections.length) {
+    toast(problems.length ? `Nothing usable in that ${from}: ${problems[0]}.` : `There are no shortcuts in that ${from}.`, { kind: 'warn', ms: 8000 });
+    return false;
+  }
+  setView('library');
+  openPack(pack, { origin: 'new', problems });
+  return true;
+}
+
+async function importFile() {
+  try {
+    const f = await invoke('open_text_file');
+    if (f) await importText(f.text, 'file');
+  } catch (e) { toast(String(e), { kind: 'warn' }); }
+}
+
+async function mergeRules(incoming, label) {
+  const fresh = [];
+  let clashes = 0;
+  for (const x of incoming || []) {
+    const r = { ...clone(x), id: newId() };
+    if (inList(r)) continue;
+    r.enabled = r.enabled !== false && !clashFor(r, [...rules(), ...fresh]);
+    if (!r.enabled) clashes++;
+    fresh.push(r);
+  }
+  if (!fresh.length) { toast(`Nothing new from ${label}: you have all of it already.`); return false; }
+  fresh.forEach((r) => markFresh(r.id));
+  await commit({ ...S.config, rules: [...rules(), ...fresh] });
+  setView('shortcuts');
+  toast(`Added ${fresh.length} shortcut${fresh.length === 1 ? '' : 's'} from ${label}.` + (clashes ? ` ${clashes} came in switched off: you already use those keys.` : ''),
+    { kind: clashes ? 'warn' : 'ok', ms: 8000, action: { label: 'Undo', fn: () => commit({ ...S.config, rules: rules().filter((r) => !fresh.some((f) => f.id === r.id)) }) } });
+  return true;
+}
+
+// ------------------------------------------------------------------ whole setup (profile): move to another PC or Mac
+
+function exportProfileData() {
+  return {
+    format: 'catkey-profile', version: 1, platform: PLAT(), app: `Cat Key ${S.status.version || ''}`.trim(), exported: new Date().toISOString().slice(0, 10),
+    enabled: S.config.enabled, rules: rules(), templates: S.config.templates || [], packs: S.config.packs || [], settings: S.config.settings,
+  };
+}
+
+async function exportProfile() {
+  try {
+    if (await invoke('save_text', { name: `Cat Key setup ${new Date().toISOString().slice(0, 10)}.json`, text: JSON.stringify(exportProfileData(), null, 2) })) {
+      toast('Saved your whole setup. Import it on any PC or Mac with Cat Key.');
+    }
+  } catch (e) { toast(String(e), { kind: 'err' }); }
+}
+
+/** Windows' Ctrl is the Mac's ⌘ (Cat Key writes ⌘ as Win): swap the two families. */
+function crossCombo(str) {
+  return String(str || '').split('+').map((t) => t.replace(/^(L|R)?(Ctrl|Win)$/, (_, side, fam) => `${side || ''}${fam === 'Ctrl' ? 'Win' : 'Ctrl'}`)).join('+');
+}
+function crossApps(apps, to) {
+  const from = to === 'mac' ? 'windows' : 'mac';
+  const out = [];
+  for (const a of apps || []) {
+    const hit = Object.values(L.data?.APPS || {}).find((x) => (x[from] || []).some((y) => y.toLowerCase() === String(a).toLowerCase()));
+    if (!hit || !(hit[to] || []).length) return null;
+    out.push(...hit[to]);
+  }
+  return [...new Set(out)];
+}
+
+async function importProfile(data) {
+  await libData().catch(() => {});
+  const from = data.platform === 'mac' ? 'mac' : 'windows';
+  const to = PLAT();
+  let incoming = Array.isArray(data.rules) ? data.rules : [];
+  let dropped = 0;
+  if (from !== to) {
+    const next = [];
+    for (const r of incoming) {
+      if (SWITCHERS.has(r.source)) { dropped++; continue; }
+      const x = clone(r);
+      x.trigger = crossCombo(x.trigger);
+      if (x.action?.type === 'keys') x.action.keys = crossCombo(x.action.keys);
+      if (x.action?.type === 'launch') { dropped++; continue; } // programs differ between systems
+      if (x.scope?.mode !== 'all' && x.scope?.apps?.length) {
+        const apps = crossApps(x.scope.apps, to);
+        if (!apps) { dropped++; continue; }
+        x.scope.apps = apps;
+      }
+      next.push(x);
+    }
+    incoming = next;
+  }
+  const tpls = (data.templates || []).filter((t) => t && !t.builtin);
+  const packs = (data.packs || []).filter((p) => p && p.sections && !(S.config.packs || []).some((q) => q.id === p.id));
+  const sys = from !== to ? ` It comes from a ${from === 'mac' ? 'Mac' : 'Windows PC'}, so ${cat()} translates ⌘ and Ctrl for this ${to === 'mac' ? 'Mac' : 'PC'}${dropped ? ` and leaves out ${dropped} that only make sense there` : ''}.` : '';
+  const choice = await choiceBox('Import this setup?', `${incoming.length} shortcut${incoming.length === 1 ? '' : 's'}, ${tpls.length} template${tpls.length === 1 ? '' : 's'} and ${packs.length} saved pack${packs.length === 1 ? '' : 's'}.${sys}`,
+    [['cancel', 'Cancel', 'ghost'], ['replace', 'Replace mine', ''], ['add', 'Add to mine', 'primary']]);
+  if (!choice || choice === 'cancel') return false;
+  const before = S.config;
+  if (choice === 'replace') {
+    const next = { ...S.config, rules: incoming.map((r) => ({ ...r, id: newId() })), templates: tpls, packs: [...(S.config.packs || []), ...packs] };
+    if (data.settings && from === to) next.settings = { ...S.config.settings, ...data.settings };
+    await commit(next);
+    setView('shortcuts');
+    toast(`Your setup is now the imported one (${next.rules.length} shortcuts).`, { ms: 8000, action: { label: 'Undo', fn: () => commit(before) } });
+    return true;
+  }
+  const names = new Set((S.config.templates || []).map((t) => t.name.toLowerCase()));
+  await commit({ ...S.config, templates: [...(S.config.templates || []), ...tpls.filter((t) => !names.has(String(t.name).toLowerCase())).map((t) => ({ ...t, id: '' }))], packs: [...(S.config.packs || []), ...packs] });
+  return mergeRules(incoming, 'that setup');
+}
+
+function choiceBox(title, text, choices) {
+  return new Promise((resolve) => {
+    const scrim = h('div', { class: 'dialog-scrim' });
+    const done = (v) => { scrim.remove(); box.remove(); DIALOG = null; resolve(v); };
+    const box = h('div', { class: 'dialog', role: 'alertdialog', 'aria-modal': 'true' },
+      h('h2', { text: title }), h('p', { text }),
+      h('div', { class: 'row wrap' }, ...choices.map(([v, label, cls]) => h('button', { class: `btn ${cls}`, type: 'button', text: label, onclick: () => done(v) }))));
+    DIALOG = (yes) => done(yes ? choices[choices.length - 1][0] : null);
+    scrim.onclick = () => done(null);
+    layer().append(scrim, box);
+    box.querySelector('.btn.primary')?.focus();
+  });
+}
+
+// ------------------------------------------------------------------ make a pack with any AI (Cat Key writes the request; you bring the AI)
+
+const AI = { want: '', kind: 'cheatsheet', app: '', plat: null, answer: '', showPrompt: false, context: true, waiting: false, seq: 0, poll: null, until: 0 };
+const AI_IDEAS = [
+  ['Make DaVinci Resolve feel like Premiere Pro', 'remap', 'DaVinci Resolve'],
+  ['The Blender shortcuts pros use most', 'cheatsheet', 'Blender'],
+  ['One-hand editing in CapCut: everything on the left side of the keyboard', 'remap', 'CapCut'],
+  ['Mac-style shortcuts inside Excel', 'remap', 'Excel'],
+  ['Figma shortcuts I should know', 'cheatsheet', 'Figma'],
+];
+
+function aiPrompt() {
+  const plat = AI.plat || PLAT();
+  const platText = plat === 'both' ? 'both Windows and macOS' : plat === 'mac' ? 'macOS' : 'Windows';
+  const want = AI.want.trim() || (AI.kind === 'remap' ? 'Useful shortcuts for this app.' : 'The shortcuts professionals use most.');
+  const app = AI.app.trim();
+  const remap = AI.kind === 'remap';
+  return [
+    'You are helping me make a keyboard-shortcut pack for Cat Key, a keyboard-remapping app for Windows and macOS. Cat Key imports the JSON you write.',
+    '',
+    '## What I want',
+    want,
+    `App: ${app || '(not tied to one app: works everywhere)'}`,
+    `Pack type: ${remap ? 'remap (my own keys that trigger the app’s existing shortcuts)' : 'cheatsheet (the app’s own default shortcuts, to learn and to build on)'}`,
+    `Computer: ${platText}`,
+    '',
+    '## How to do it well',
+    `1. Research first. Check ${app ? `${app}’s` : 'the'} official keyboard-shortcut documentation for the current version, then trusted sources pros use (official manuals and help pages, well-known cheat sheets). If you can browse the web, do it. Never invent a shortcut: if you aren’t sure a default exists in the current version, leave it out.`,
+    remap
+      ? '2. Each entry says what I press ("press") and which of the app’s REAL default shortcuts Cat Key should send ("does"). Cat Key can only trigger actions that already have a default shortcut, so every "does" must be a real default. Choose "press" keys that are easy to reach and don’t replace something important in the app. Single letters are fine for tools (Cat Key pauses them while I type in a text box).'
+      : '2. List the app’s real default shortcuts ("keys"), grouped into clear sections (tools, editing, view…), about 25–60 entries: the ones professionals really use, not every menu item. Mark the 10–15 most valuable with "fav": true.',
+    '3. Names are short and plain, like a menu item: "Split clip at playhead". Add a "note" only when it helps (under 12 words).',
+    '4. Cite your sources in "sources".',
+    '',
+    '## Output',
+    'Reply with exactly one JSON code block and nothing after it. Use this format:',
+    '```json',
+    JSON.stringify({
+      format: 'catkey-pack', version: 1, name: remap ? 'Premiere keys in DaVinci Resolve' : 'Blender essentials', kind: remap ? 'remap' : 'cheatsheet',
+      platform: plat === 'both' ? 'both' : plat, app: app || 'App name', description: 'One sentence about what this pack does.',
+      apps: { windows: ['resolve.exe'], mac: ['com.blackmagic-design.DaVinciResolve'] },
+      sources: [{ title: 'Official keyboard shortcuts', url: 'https://example.com/shortcuts' }],
+      sections: [{ name: 'Editing', items: remap
+        ? [{ name: 'Split clip at playhead', press: 'Mod+K', does: 'Mod+B', fav: true }, { name: 'Ripple delete', press: 'Shift+Delete', does: 'Shift+Backspace', note: 'Closes the gap' }]
+        : [{ name: 'Split clip at playhead', keys: 'Mod+B', fav: true }, { name: 'Ripple delete', keys: 'Shift+Delete', mac: 'Shift+Backspace' }] }],
+    }, null, 2),
+    '```',
+    '',
+    '## Key names (exact spelling)',
+    '- Modifiers: Mod = Ctrl on Windows and ⌘ Command on Mac. Opt = Alt on Windows and ⌥ Option on Mac. Shift. Ctrl = Control on both. In a Windows-only pack you may also use Alt and Win; in a Mac-only pack Cmd, Option and Control.',
+    '- Keys: A–Z, 0–9, F1–F24, Esc, Tab, CapsLock, Space, Enter, Backspace (the Mac “delete” key), Delete (forward delete), Insert, Home, End, PageUp, PageDown, Left, Right, Up, Down, Backtick, Minus, Equals, LBracket, RBracket, Backslash, Semicolon, Quote, Comma, Period, Slash, Num0–Num9, NumAdd, NumSubtract, NumMultiply, NumDivide, NumDecimal, PrintScreen, MediaPlayPause, MediaNext, MediaPrev, VolumeUp, VolumeDown, VolumeMute.',
+    '- Write one combo with "+", e.g. "Mod+Shift+LBracket". No sequences like "Ctrl+K Ctrl+S".',
+    '- "platform": "both" only when every combo uses Mod / Opt / Ctrl / Shift and is the same on both systems; where the Mac key differs, add "mac": "<combo>" to that entry.',
+    '- "apps": the app’s Windows .exe file name(s) and macOS bundle id(s), so the pack only acts inside that app. Leave it out for packs that work everywhere.',
+    '- Optional per entry: "note", "fav": true, "off": true (not ticked by default).',
+    '- Never use as "press": Win+L, Ctrl+Alt+Delete, Cmd+Option+Esc.',
+    ...(remap && AI.context ? aiContext() : []),
+  ].join('\n');
+}
+
+/** What the AI should know about this computer: keys already taken. */
+function aiContext() {
+  const used = [...new Set(rules().filter((r) => r.enabled).map((r) => K.plain(r.trigger).replace(/ /g, '+')))].slice(0, 80);
+  return used.length ? ['', '## Keys I already use with Cat Key (don’t use these as "press")', used.join(', ')] : [];
+}
+
+const AI_SITES = [
+  ['ChatGPT', (q) => `https://chatgpt.com/?hints=search&q=${encodeURIComponent(q)}`, 'https://chatgpt.com/'],
+  ['Claude', (q) => `https://claude.ai/new?q=${encodeURIComponent(q)}`, 'https://claude.ai/new'],
+  ['Perplexity', (q) => `https://www.perplexity.ai/search?q=${encodeURIComponent(q)}`, 'https://www.perplexity.ai/'],
+  ['Gemini', null, 'https://gemini.google.com/app'],
+];
+
+async function openInAI([name, link, home]) {
+  const q = aiPrompt();
+  const url = link ? link(q) : '';
+  try { await navigator.clipboard.writeText(q); } catch { /* the link carries it anyway */ }
+  bridgeStart();
+  try {
+    if (url && url.length <= 7800) await invoke('open_link', { url });
+    else { await invoke('open_link', { url: home }); toast(`${name} is open. Paste the request (Ctrl+V) and send it.`, { ms: 8000 }); }
+  } catch (e) { toast(String(e), { kind: 'warn' }); }
+}
+
+/** The way back: while waiting, Cat Key watches the clipboard for a pack (only while waiting, and only for packs). */
+async function bridgeStart() {
+  bridgeStop();
+  AI.waiting = true;
+  AI.until = Date.now() + 15 * 60e3;
+  AI.seq = await invoke('clipboard_seq').catch(() => 0);
+  AI.poll = setInterval(bridgeTick, 1200);
+  renderAI();
+}
+function bridgeStop() {
+  clearInterval(AI.poll);
+  AI.poll = null;
+  if (AI.waiting) { AI.waiting = false; if (S.view === 'ai') renderAI(); }
+}
+async function bridgeTick() {
+  if (!AI.waiting || Date.now() > AI.until) { bridgeStop(); return; }
+  const seq = await invoke('clipboard_seq').catch(() => 0);
+  if (!seq || seq === AI.seq) return;
+  AI.seq = seq;
+  const text = await invoke('read_clipboard').catch(() => null);
+  if (!text || !/catkey-pack|CK1:|"sections"\s*:/.test(text)) return;
+  bridgeStop();
+  await invoke('focus_window').catch(() => {});
+  sounds.saved();
+  toast(`${cat()} caught the AI’s answer from your clipboard!`);
+  await importText(text, 'answer');
+}
+
+function renderAI() {
+  const box = $('#aihelp');
+  if (!box) return;
+  const hadFocus = document.activeElement?.id;
+  box.textContent = '';
+  if (!AI.plat) AI.plat = PLAT();
+  box.append(h('div', { class: 'tpl-intro' }, h('div', { class: 'txt' },
+    h('h2', { class: 'display', text: 'Cat Builder' }),
+    h('p', { class: 'hint', text: `Shortcuts for any app, written by the AI you already use. ${cat()} writes the request: what to research, the format, the keys you already use. ChatGPT, Claude or another AI does the research, and ${cat()} picks up the answer when you copy it. Nothing is sent anywhere by ${cat()} itself.` }))));
+  const want = h('textarea', { id: 'ai-want', class: 'field area', rows: '3', placeholder: 'e.g. “The shortcuts top editors use in Premiere Pro” or “Make DaVinci Resolve work with my Premiere keys”', oninput: (e) => { AI.want = e.target.value; refreshPrompt(); } });
+  want.value = AI.want;
+  const app = h('input', { id: 'ai-app', class: 'field', type: 'text', list: 'ai-apps', placeholder: 'Which app? Premiere Pro, Blender, Excel…', value: AI.app, oninput: (e) => { AI.app = e.target.value; refreshPrompt(); } });
+  const apps = h('datalist', { id: 'ai-apps' }, ...Object.values(L.data?.APPS || {}).map((x) => h('option', { value: x.name.replace(/ \(.*\)$/, '') })));
+  const seg = (items, val, set) => h('div', { class: 'seg soft', role: 'group' }, ...items.map(([v, label]) =>
+    h('button', { type: 'button', 'aria-pressed': String(val === v), text: label, onclick: () => { set(v); renderAI(); } })));
+  const ideas = h('div', { class: 'ai-ideas' }, ...AI_IDEAS.map(([t, kind, appName]) => h('button', { class: 'cat', type: 'button', text: t,
+    onclick: () => { AI.want = t; AI.kind = kind; AI.app = appName; renderAI(); } })));
+  box.append(h('section', { class: 'ai-step' },
+    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '1' }), 'What do you want?'),
+    h('div', { class: 'ai-row' }, app, apps),
+    seg([['cheatsheet', 'Learn an app (pro shortcuts + training)'], ['remap', 'Remap my keys']], AI.kind, (v) => { AI.kind = v; }),
+    want, ideas,
+    h('div', { class: 'ai-row' },
+      seg([['windows', 'Windows'], ['mac', 'Mac'], ['both', 'Both']], AI.plat, (v) => { AI.plat = v; }),
+      AI.kind === 'remap' ? h('label', { class: 'ai-check' }, h('input', { type: 'checkbox', class: 'cb', checked: AI.context, onchange: (e) => { AI.context = e.target.checked; refreshPrompt(); } }),
+        h('span', { text: 'Tell the AI which keys I already use' })) : null)));
+  const pre = h('pre', { id: 'ai-prompt', class: 'ai-prompt', hidden: !AI.showPrompt });
+  pre.textContent = aiPrompt();
+  box.append(h('section', { class: 'ai-step' },
+    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '2' }), 'Send it to an AI'),
+    h('div', { class: 'ai-open' }, ...AI_SITES.map((site) => h('button', { class: `btn${site[0] === 'ChatGPT' ? ' primary' : ''}`, type: 'button', html: `${icon('sparkle')}<span>Open in ${site[0]}</span>`, onclick: () => openInAI(site) }))),
+    h('div', { class: 'ai-row' },
+      h('button', { class: 'btn ghost', type: 'button', html: `${icon('copy')}<span>Copy the request</span>`, onclick: async () => {
+        try { await navigator.clipboard.writeText(aiPrompt()); bridgeStart(); toast('Copied. Paste it into any AI.'); } catch { AI.showPrompt = true; renderAI(); toast('Couldn’t copy. Select the text below and copy it.', { kind: 'warn' }); }
+      } }),
+      h('button', { class: 'btn ghost', type: 'button', html: `${icon('down')}<span>Save as a file</span>`, title: 'A text file you can drop into any AI app', onclick: async () => {
+        try { if (await invoke('save_text', { name: `Cat Builder request${AI.app ? ` - ${AI.app}` : ''}.txt`, text: aiPrompt() })) { bridgeStart(); toast('Saved. Drop it into your AI chat.'); } } catch (e) { toast(String(e), { kind: 'err' }); }
+      } }),
+      h('button', { class: 'btn ghost', type: 'button', text: AI.showPrompt ? 'Hide the request' : 'Show the request', onclick: () => { AI.showPrompt = !AI.showPrompt; renderAI(); } })),
+    pre,
+    h('p', { class: 'hint', text: 'Turn on web search in the AI if it asks: the shortcuts come out more accurate.' })));
+  const ans = h('textarea', { id: 'ai-answer', class: 'field area', rows: '4', placeholder: 'Or paste the AI’s whole answer here.', oninput: (e) => { AI.answer = e.target.value; } });
+  ans.value = AI.answer;
+  box.append(h('section', { class: 'ai-step' },
+    h('div', { class: 'step-title' }, h('span', { class: 'n', text: '3' }), 'Bring it back'),
+    AI.waiting
+      ? h('div', { class: 'ai-bridge' }, h('span', { class: 'dot' }), h('span', { text: `Waiting for the answer. Click “Copy” on the AI’s code block and ${cat()} picks it up by itself.` }),
+          h('span', { class: 'spacer' }), h('button', { class: 'btn small ghost', type: 'button', text: 'Stop waiting', onclick: bridgeStop }))
+      : h('p', { class: 'hint', text: `After you send the request, ${cat()} watches for the answer on your clipboard, so just click Copy in the AI.` }),
+    ans,
+    h('div', { class: 'ai-row' },
+      h('button', { class: 'btn', type: 'button', html: `${icon('check')}<span>Check what I pasted</span>`, onclick: async () => { if (await importText(AI.answer, 'answer')) AI.answer = ''; } }),
+      h('span', { class: 'hint', text: `${cat()} checks every key, skips what it can’t use, and you pick before anything is added. Cheat sheets go straight into Train yourself.` }))));
+  if (hadFocus && $(`#${hadFocus}`)) { const el = $(`#${hadFocus}`); el.focus(); if (el.setSelectionRange && el.value != null) el.setSelectionRange(el.value.length, el.value.length); }
+}
+function refreshPrompt() { const pre = $('#ai-prompt'); if (pre) pre.textContent = aiPrompt(); }
+
+// ------------------------------------------------------------------ select many shortcuts at once
+
+const SEL = { on: false, ids: new Set(), last: null };
+function setSelecting(on) {
+  SEL.on = on;
+  if (!on) { SEL.ids.clear(); SEL.last = null; }
+  $('#app').classList.toggle('selecting', on);
+  renderList();
+  renderBulkBar();
+}
+function toggleSelect(r, e) {
+  const ids = visibleRules().map((x) => x.id);
+  if (e?.shiftKey && SEL.last && ids.includes(SEL.last)) {
+    const [a, b] = [ids.indexOf(SEL.last), ids.indexOf(r.id)].sort((m, n) => m - n);
+    const on = !SEL.ids.has(r.id);
+    for (const id of ids.slice(a, b + 1)) (on ? SEL.ids.add(id) : SEL.ids.delete(id));
+  } else if (SEL.ids.has(r.id)) SEL.ids.delete(r.id);
+  else SEL.ids.add(r.id);
+  SEL.last = r.id;
+  renderList();
+  renderBulkBar();
+}
+function renderBulkBar() {
+  const bar = $('#bulkbar');
+  if (!bar) return;
+  bar.hidden = !SEL.on;
+  bar.textContent = '';
+  if (!SEL.on) return;
+  for (const id of [...SEL.ids]) if (!rules().some((r) => r.id === id)) SEL.ids.delete(id);
+  const n = SEL.ids.size;
+  const picked = () => rules().filter((r) => SEL.ids.has(r.id));
+  const act = (ic, label, fn, cls = '') => h('button', { class: `btn small ${cls}`, type: 'button', disabled: !n, html: `${icon(ic)}<span>${label}</span>`, onclick: fn });
+  bar.append(
+    h('b', { class: 'bulk-n', text: n ? `${n} selected` : 'Pick shortcuts' }),
+    h('button', { class: 'btn small ghost', type: 'button', text: 'All', onclick: () => { visibleRules().forEach((r) => SEL.ids.add(r.id)); renderList(); renderBulkBar(); } }),
+    h('button', { class: 'btn small ghost', type: 'button', text: 'None', onclick: () => { SEL.ids.clear(); renderList(); renderBulkBar(); } }),
+    h('span', { class: 'spacer' }),
+    act('paw', 'Turn on', () => bulkSet(true)),
+    act('moon', 'Turn off', () => bulkSet(false)),
+    act('layers', 'Template', async () => {
+      const name = await promptBox('Save as a template', `${n} shortcut${n === 1 ? '' : 's'} as one set you can add back any time.`, `My set ${shortDate()}`);
+      if (!name) return;
+      await commit({ ...S.config, templates: [...(S.config.templates || []), { id: '', name, description: '', rules: picked().map((r) => ({ ...r })), builtin: false }] });
+      toast(`Saved “${name}” in Templates.`);
+    }),
+    act('up', 'Export', () => exportPack({ name: `My shortcuts ${shortDate()}`, kind: 'remap', platform: PLAT(), category: 'work', description: '', sections: [{ name: 'Shortcuts', items: picked().map(ruleToItem) }] })),
+    act('link', 'Share code', () => copyShareCode({ name: `Shortcuts from a friend`, kind: 'remap', platform: PLAT(), category: 'work', description: '', sections: [{ name: 'Shortcuts', items: picked().map(ruleToItem) }] })),
+    act('trash', 'Delete', async () => {
+      const before = rules();
+      if (!(await confirmBox(`Delete ${n} shortcut${n === 1 ? '' : 's'}?`, 'You can undo right after.', 'Delete', true))) return;
+      await commit({ ...S.config, rules: before.filter((r) => !SEL.ids.has(r.id)) });
+      SEL.ids.clear();
+      renderBulkBar();
+      toast(`Deleted ${n}.`, { action: { label: 'Undo', fn: () => commit({ ...S.config, rules: before }) } });
+    }, 'danger'),
+    h('button', { class: 'btn small strong', type: 'button', text: 'Done', onclick: () => setSelecting(false) }));
+}
+function bulkSet(on) {
+  const n = SEL.ids.size;
+  commit({ ...S.config, rules: rules().map((r) => (SEL.ids.has(r.id) ? { ...r, enabled: on } : r)) });
+  (on ? sounds.saved : sounds.off)();
+  toast(`${on ? 'Turned on' : 'Turned off'} ${n}.`);
+  renderBulkBar();
+}
+function ruleToItem(r) {
+  const it = { name: ruleName(r), press: r.trigger };
+  const a = r.action;
+  if (a.type === 'keys') it.does = a.keys;
+  else if (a.type === 'launch') { it.launch = a.target; if (a.args) it.args = a.args; }
+  else if (a.type === 'text') it.text = a.text;
+  else it.block = true;
+  if (r.scope?.mode === 'only' && r.scope.apps?.length) it.only = r.scope.apps;
+  if (r.scope?.mode === 'except' && r.scope.apps?.length) it.except = r.scope.apps;
+  return it;
+}
+
+// ------------------------------------------------------------------ train yourself: learn an app's shortcuts like a game
+//
+// Built on how skills stick:
+// * retrieval practice: you recall the keys; you're never just shown them (except once, the first time);
+// * spaced review (Leitner boxes): a shortcut comes back right before you'd forget it, then less and less often;
+// * interleaving: sections are mixed, never drilled one block at a time;
+// * immediate feedback in sound and picture (Grossman et al., CHI 2007: audio feedback speeds up hotkey learning);
+// * speed matters: a shortcut is "yours" when it comes back fast, not just right;
+// * the real goal is use in the app, so Cat Key counts the times you use them for real.
+
+const TR = { on: false, pack: null, queue: [], cur: null, learn: false, streak: 0, best: 0, ok: 0, miss: 0, n: 0, score: 0, len: 20, mode: 'smart', phase: 'pick',
+  live: '', last: null, misses: [], times: [], t0: 0, tPress: 0, started: 0, sound: true, mascot: null, timer: null, clock: null };
+const TRAIN_KEY = 'catkey.train.v2';
+const BOX_WAIT = [0, 0, 10 * 60e3, 24 * 3600e3, 3 * 24 * 3600e3, 7 * 24 * 3600e3]; // box 1..5
+const FLUENT_MS = 2500;
+const NEW_PER_ROUND = 5;
+const today = () => new Date().toLocaleDateString('en-CA');
+function trainDb() {
+  try { const d = JSON.parse(localStorage.getItem(TRAIN_KEY) || '{}'); return { items: d.items || {}, days: d.days || {}, sessions: d.sessions || [], track: d.track !== false }; } catch { return { items: {}, days: {}, sessions: [], track: true }; }
+}
+function trainSave(db) { try { localStorage.setItem(TRAIN_KEY, JSON.stringify(db)); } catch { /* storage full or private: progress just isn't kept */ } }
+try { TR.sound = localStorage.getItem('catkey.train.sound') !== '0'; } catch { /* default on */ }
+setTrainSounds(TR.sound);
+
+function trainItems(p) {
+  return packItems(p).map((x) => {
+    const keys = isRemap(p) ? combo(x.it.press) : itemKeys(x.it);
+    return keys ? { id: `${x.it.name}|${keys}`, name: x.it.name, keys, section: x.s.name, fav: !!x.it.fav, does: isRemap(p) && x.it.does ? combo(x.it.does) : '', scope: itemScope(p, x.it) } : null;
+  }).filter(Boolean);
+}
+const trainable = () => libPacks().filter((p) => !p._summary && trainItems(p).length >= 4);
+function packTrainStats(p, db = trainDb()) {
+  const items = trainItems(p);
+  const st = db.items[p.id] || {};
+  const now = Date.now();
+  let learned = 0, due = 0, fresh = 0, real = 0;
+  for (const i of items) {
+    const s = st[i.id];
+    if (!s || !s.box) { fresh++; continue; }
+    if (s.box >= 4) learned++;
+    if ((s.due || 0) <= now) due++;
+    real += s.real || 0;
+  }
+  return { total: items.length, learned, due, fresh, real, pct: items.length ? Math.round((100 * learned) / items.length) : 0, started: Object.keys(st).length > 0 };
+}
+function dayStreak(db) {
+  let n = 0;
+  const d = new Date();
+  if (!db.days[today()]?.answers) d.setDate(d.getDate() - 1); // today not done yet: the streak is still alive
+  for (;;) {
+    const k = d.toLocaleDateString('en-CA');
+    if (!db.days[k]?.answers) break;
+    n++;
+    d.setDate(d.getDate() - 1);
+  }
+  return n;
+}
+const fmtTime = (ms) => { const s = Math.round(ms / 1000); return s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min` : s >= 60 ? `${Math.floor(s / 60)} min` : `${s} s`; };
+const clock = (ms) => { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+function renderTrain() {
+  const box = $('#train');
+  if (!box) return;
+  if (!L.data) { box.textContent = ''; box.append(h('p', { class: 'hint', text: 'Opening the library…' })); libData().then(() => S.view === 'train' && renderTrain()); return; }
+  if (TR.on) return renderTrainSession();
+  const db = trainDb();
+  box.textContent = '';
+  box.append(h('div', { class: 'tpl-intro' },
+    h('div', { class: 'txt' },
+      h('h2', { class: 'display', text: 'Train yourself' }),
+      h('p', { class: 'hint', text: `Pick an app. ${cat()} names an action, you press its keys. Keys pressed here never reach an app, so nothing closes by accident. Each shortcut comes back right before you'd forget it, until it's automatic.` })),
+    h('div', { class: 'lib-actions' },
+      h('button', { class: `chipbtn${TR.sound ? ' on' : ''}`, type: 'button', 'aria-pressed': String(TR.sound), html: `${icon('paw')}<span>Sounds ${TR.sound ? 'on' : 'off'}</span>`,
+        onclick: () => { TR.sound = !TR.sound; setTrainSounds(TR.sound); try { localStorage.setItem('catkey.train.sound', TR.sound ? '1' : '0'); } catch { /* fine */ } renderTrain(); } }))));
+  // the progress dashboard
+  const t = db.days[today()] || {};
+  const week = Object.entries(db.days).filter(([k]) => Date.now() - new Date(k).getTime() < 7 * 864e5).reduce((n, [, v]) => n + (v.real || 0), 0);
+  const learned = trainable().reduce((n, p) => n + packTrainStats(p, db).learned, 0);
+  const dueAll = trainable().map((p) => [p, packTrainStats(p, db)]).filter(([, st]) => st.started && st.due > 0);
+  const stat = (big, small, cls = '') => h('div', { class: `tstat ${cls}` }, h('b', { class: 'display', text: big }), h('span', { text: small }));
+  box.append(h('div', { class: 'tdash' },
+    stat(`${dayStreak(db)}🔥`, 'day streak', 'fire'),
+    stat(fmtTime(t.ms || 0), `today · ${t.answers || 0} answers`),
+    stat(String(learned), 'shortcuts learned'),
+    stat(String(week), 'used for real this week'),
+    h('div', { class: 'tchart', title: 'Answers per day, last 14 days' }, ...Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(); d.setDate(d.getDate() - 13 + i);
+      const v = db.days[d.toLocaleDateString('en-CA')] || {};
+      const max = Math.max(10, ...Object.values(db.days).map((x) => x.answers || 0));
+      return h('span', { class: 'col', title: `${d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}: ${v.answers || 0} answers, ${v.real || 0} real uses` },
+        h('span', { class: 'fill', style: { height: `${Math.round((100 * (v.answers || 0)) / max)}%` } }), h('span', { class: 'real', style: { height: `${Math.min(100, (v.real || 0) * 4)}%` } }));
+    }))));
+  if (dueAll.length) {
+    box.append(h('div', { class: 'tdue' }, h('span', { html: icon('target') }),
+      h('span', { text: `Time to review: ${dueAll.reduce((n, [, st]) => n + st.due, 0)} shortcut${dueAll.length === 1 ? '' : 's'} are about to slip. Five minutes keeps them.` }),
+      h('button', { class: 'btn small strong', type: 'button', text: `Review ${dueAll[0][0].name}`, onclick: () => startTrain(dueAll[0][0]) })));
+  }
+  const seg = (items, val, set) => h('div', { class: 'seg soft', role: 'group' }, ...items.map(([v, label]) =>
+    h('button', { type: 'button', 'aria-pressed': String(val === v), text: label, onclick: () => { set(v); renderTrain(); } })));
+  box.append(h('div', { class: 'train-opts' },
+    h('span', { class: 'hint', text: 'Practice' }), seg([['smart', 'Smart (due + new)'], ['fav', 'Pro picks'], ['all', 'Everything'], ['weak', 'My misses']], TR.mode, (v) => { TR.mode = v; }),
+    h('span', { class: 'hint', text: 'Round' }), seg([[10, '10'], [20, '20'], [0, 'Endless']], TR.len, (v) => { TR.len = v; })));
+  const grid = h('div', { class: 'lib-grid' });
+  for (const p of trainable()) {
+    const st = packTrainStats(p, db);
+    grid.append(h('article', { class: `lib-card train-card${st.due && st.started ? ' due' : ''}`, tabindex: '0', role: 'button', 'aria-label': `Train ${p.name}`,
+      onclick: () => startTrain(p), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startTrain(p); } } },
+      h('div', { class: 'lib-top' }, libTile(p), h('div', { class: 'lib-badges' },
+        st.started && st.due ? h('span', { class: 'lib-badge comm', text: `${st.due} due` }) : null,
+        h('span', { class: 'lib-badge', text: isRemap(p) ? 'Your keys' : 'App keys' }))),
+      h('div', { class: 'lib-name display', text: p.name }),
+      h('div', { class: 'mastery' }, h('span', { class: 'bar' }, h('span', { style: { width: `${st.pct}%` } })),
+        h('span', { text: st.started ? `${st.learned}/${st.total} learned` : `${st.total} to learn` })),
+      st.real ? h('div', { class: 'lib-meta', text: `Used ${st.real}× for real` }) : null));
+  }
+  grid.append(h('article', { class: 'lib-card comm-card' },
+    h('div', { class: 'lib-top' }, h('span', { class: 'lib-ico glyph', html: icon('wand') })),
+    h('div', { class: 'lib-name display', text: 'Any other app' }),
+    h('div', { class: 'lib-desc', text: 'Cat Builder asks ChatGPT or Claude for the pro shortcuts of any app. Import the answer and it’s here to practice.' }),
+    h('div', { class: 'lib-meta row' }, h('button', { class: 'btn small strong', type: 'button', html: `${icon('wand')}<span>Open Cat Builder</span>`, onclick: () => { AI.kind = 'cheatsheet'; setView('ai'); } }))));
+  box.append(grid);
+  box.append(h('label', { class: 'track-opt' },
+    h('input', { type: 'checkbox', class: 'cb', checked: db.track, onchange: (e) => { const d = trainDb(); d.track = e.target.checked; trainSave(d); syncTracked(); } }),
+    h('span', {}, h('b', { text: 'Count the shortcuts I use for real. ' }),
+      h('span', { class: 'hint', text: `${cat()} notices when you press a shortcut you’re learning in its app, and counts it here. Only those shortcuts are counted; nothing you type is kept.` }))));
+  if (db.sessions.length) {
+    box.append(h('div', { class: 'tsessions' }, h('b', { text: 'Recent rounds' }),
+      ...db.sessions.slice(-5).reverse().map((x) => h('div', { class: 'tsess' }, h('span', { text: x.pack }), h('span', { class: 'hint', text: `${x.score} pts · ${x.n ? Math.round((100 * x.ok) / x.n) : 0}% · ${(x.avg / 1000).toFixed(1)} s avg · ${new Date(x.ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}` })))));
+  }
+}
+
+/** Build the round: due reviews first, a few new ones (shown once, then asked), all mixed. */
+function startTrain(p, only = null) {
+  const items = trainItems(p);
+  const db = trainDb();
+  const st = db.items[p.id] || {};
+  const now = Date.now();
+  let pool = only || items;
+  if (!only && TR.mode === 'fav') { const f = items.filter((i) => i.fav); if (f.length >= 4) pool = f; }
+  if (!only && TR.mode === 'weak') {
+    const w = items.filter((i) => st[i.id]?.miss > 0 && (st[i.id].box || 0) < 4);
+    if (w.length) pool = w; else toast('No misses to practice yet: here’s a smart round instead.', { kind: 'warn' });
+  }
+  const shuffle = (xs) => { for (let i = xs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [xs[i], xs[j]] = [xs[j], xs[i]]; } return xs; };
+  const due = shuffle(pool.filter((i) => st[i.id]?.box && (st[i.id].due || 0) <= now)).sort((a, b) => (st[a.id].box || 0) - (st[b.id].box || 0));
+  const fresh = pool.filter((i) => !st[i.id]?.box).sort((a, b) => Number(b.fav) - Number(a.fav));
+  const known = shuffle(pool.filter((i) => st[i.id]?.box && (st[i.id].due || 0) > now));
+  const queue = [];
+  for (const i of due) queue.push({ item: i });
+  for (const i of fresh.slice(0, only ? fresh.length : NEW_PER_ROUND)) {
+    const at = Math.min(queue.length, Math.floor(Math.random() * (queue.length + 1)));
+    queue.splice(at, 0, { item: i, learn: true }, ...(queue.length > at ? [] : []));
+    queue.splice(Math.min(queue.length, at + 3), 0, { item: i });
+  }
+  if (TR.mode !== 'smart' || only) for (const i of shuffle(pool.filter((x) => !queue.some((q) => q.item.id === x.id)))) queue.push({ item: i, learn: !st[i.id]?.box });
+  while (queue.length < (TR.len || 30) && known.length) queue.push({ item: known.shift() });
+  if (!queue.length) queue.push(...shuffle(pool.slice()).map((i) => ({ item: i })));
+  Object.assign(TR, { on: true, pack: p, queue, cur: null, learn: false, streak: 0, best: 0, ok: 0, miss: 0, n: 0, score: 0, phase: 'ask', live: '', last: null, misses: [], times: [], started: performance.now() });
+  $('#app').classList.add('training');
+  clearInterval(TR.clock);
+  TR.clock = setInterval(() => { const c = $('#tr-clock'); if (c && TR.on && TR.phase !== 'end') c.textContent = clock(performance.now() - TR.started); }, 500);
+  renderTrainSession(true);
+  trainNext();
+}
+
+function trainNext() {
+  if (!TR.on) return;
+  if ((TR.len && TR.n >= TR.len) || (!TR.queue.length && TR.len)) return trainEnd();
+  if (!TR.queue.length) { // endless: keep going with whatever is weakest
+    const st = trainDb().items[TR.pack.id] || {};
+    const items = trainItems(TR.pack).sort((a, b) => (st[a.id]?.box || 0) - (st[b.id]?.box || 0) || Math.random() - 0.5);
+    TR.queue.push(...items.slice(0, 8).map((i) => ({ item: i, learn: !st[i.id]?.box })));
+  }
+  const next = TR.queue.shift();
+  TR.cur = next.item;
+  TR.learn = !!next.learn;
+  TR.phase = 'ask';
+  TR.live = '';
+  TR.last = null;
+  TR.t0 = performance.now();
+  TR.tPress = 0;
+  renderTrainSession();
+  trainListen();
+}
+
+function trainAlternatives(target, scope) {
+  return rules().filter((r) => r.enabled && r.action.type === 'keys' && K.overlaps(r.action.keys, target) &&
+    (r.scope.mode === 'all' || (scope.mode === 'only' && r.scope.mode === 'only' && r.scope.apps.some((x) => scope.apps.includes(x))))).map((r) => r.trigger);
+}
+
+function trainListen() {
+  if (!TR.on || TR.phase !== 'ask') return;
+  startRecording({
+    onUpdate: (sc) => { if (!TR.tPress && sc) TR.tPress = performance.now(); TR.live = sc || ''; paintTrainKeys(); },
+    onDone: (sc) => trainJudge(sc),
+    onCancel: () => { if (TR.on && TR.phase === 'ask' && S.view === 'train' && !document.hidden) setTimeout(trainListen, 60); },
+  });
+}
+
+function trainJudge(sc) {
+  if (!TR.on || TR.phase !== 'ask') return;
+  const cur = TR.cur;
+  if (!sc) { trainListen(); return; }
+  if (sc === 'Esc' && !K.overlaps(cur.keys, 'Esc')) { trainPause(); return; }
+  const hint = sc === '__hint__';
+  const good = !hint && (K.overlaps(sc, cur.keys) || trainAlternatives(cur.does || cur.keys, cur.scope).some((x) => K.overlaps(sc, x)));
+  const rt = Math.max(0, (TR.tPress || performance.now()) - TR.t0);
+  const db = trainDb();
+  const st = ((db.items[TR.pack.id] ||= {})[cur.id] ||= { box: 0, ok: 0, miss: 0, seen: 0, due: 0 });
+  const day = (db.days[today()] ||= { ms: 0, answers: 0, ok: 0, real: 0 });
+  st.seen++;
+  st.last = Date.now();
+  day.answers++;
+  TR.n++;
+  TR.last = { sc: hint ? '' : sc, good };
+  if (good) {
+    st.ok++;
+    day.ok++;
+    if (!TR.learn) {
+      const fast = rt <= FLUENT_MS;
+      st.box = Math.min(5, Math.max(1, (st.box || 0) + (fast || st.box < 2 ? 1 : 0)));
+      st.best = st.best ? Math.min(st.best, rt) : rt;
+      TR.times.push(rt);
+    } else st.box = Math.max(st.box || 0, 1);
+    st.due = Date.now() + BOX_WAIT[st.box];
+    TR.ok++;
+    TR.streak++;
+    TR.best = Math.max(TR.best, TR.streak);
+    const speed = TR.learn ? 0 : Math.max(0, Math.min(50, Math.round(50 - (rt - 700) / 60)));
+    TR.score += Math.round((TR.learn ? 25 : 100 + speed) * (1 + Math.min(TR.streak - 1, 10) * 0.1));
+    trainSounds.boing();
+    if (TR.streak % 5 === 0) setTimeout(() => trainSounds.streak(TR.streak / 5), 220);
+  } else {
+    st.miss++;
+    st.box = 1;
+    st.due = Date.now();
+    TR.miss++;
+    TR.streak = 0;
+    if (!TR.misses.some((m) => m.id === cur.id)) TR.misses.push(cur);
+    TR.queue.splice(Math.min(TR.queue.length, 2), 0, { item: cur }); // ask again soon
+    trainSounds.meow();
+  }
+  trainSave(db);
+  TR.phase = good ? 'right' : 'wrong';
+  renderTrainSession();
+  clearTimeout(TR.timer);
+  TR.timer = setTimeout(trainNext, good ? 850 : 2200);
+}
+
+function trainPause() {
+  TR.phase = 'paused';
+  stopRecording();
+  renderTrainSession();
+}
+
+function trainLog() {
+  if (!TR.n) return;
+  const db = trainDb();
+  const ms = performance.now() - TR.started;
+  (db.days[today()] ||= { ms: 0, answers: 0, ok: 0, real: 0 }).ms += ms;
+  db.sessions.push({ pack: TR.pack.name, ts: Date.now(), ms: Math.round(ms), n: TR.n, ok: TR.ok, score: TR.score, best: TR.best, avg: TR.times.length ? Math.round(TR.times.reduce((a, b) => a + b, 0) / TR.times.length) : 0 });
+  db.sessions = db.sessions.slice(-60);
+  trainSave(db);
+  syncTracked();
+}
+
+function trainStop() {
+  if (!TR.on) return;
+  clearTimeout(TR.timer);
+  clearInterval(TR.clock);
+  if (TR.phase !== 'end') trainLog();
+  TR.on = false;
+  TR.phase = 'pick';
+  $('#app').classList.remove('training');
+  stopRecording();
+}
+
+function trainEnd() {
+  clearTimeout(TR.timer);
+  TR.phase = 'end';
+  stopRecording();
+  trainLog();
+  trainSounds.done();
+  renderTrainSession();
+}
+
+/** A tiny animation of what the action does (a cut, a ripple, a copy…), never a copy of the app. */
+const CUES = [
+  ['ripple', /ripple|close (the )?gap/i], ['cut', /\b(cut|split|razor|blade|slice|add edit|knife|loop cut)\b/i],
+  ['delete', /delete|remove|clear|trash|reject|lift/i], ['copy', /copy|duplicate|clone|stamp/i],
+  ['paste', /paste|insert|place|import|overwrite|append/i], ['undo', /\bundo\b|back\b|previous|backward/i],
+  ['redo', /\bredo\b|forward|next/i], ['zoom', /zoom|fit|100%/i], ['play', /play|stop|pause|shuttle|preview/i],
+  ['select', /select|marquee|lasso|pick\b|deselect|invert/i], ['save', /save|export|render|deliver/i],
+  ['marker', /mark|marker|keyframe|\bin point|\bout point|flag|star/i], ['group', /group|join|merge|link|combine|parent/i],
+  ['new', /\bnew\b|add|create|open/i],
+];
+const cueFor = (name) => (CUES.find(([, re]) => re.test(name)) || ['spark'])[0];
+const CUE_ICON = { undo: 'refresh', redo: 'refresh', zoom: 'search', save: 'down', new: 'plus', spark: 'sparkle' };
+function cueSvg(kind) {
+  const ic = (I[CUE_ICON[kind] || 'sparkle'] || '').replace(/<(path|circle|rect|ellipse)/g, '<$1 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"');
+  return `<svg class="cue-svg" viewBox="0 0 260 74" aria-hidden="true">
+    <rect class="trk" x="6" y="21" width="248" height="32" rx="10"/>
+    <rect class="b b1" x="14" y="26" width="70" height="22" rx="6"/>
+    <rect class="b b2a" x="90" y="26" width="38" height="22" rx="6"/><rect class="b b2b" x="128" y="26" width="38" height="22" rx="6"/>
+    <rect class="b b3" x="172" y="26" width="74" height="22" rx="6"/>
+    <rect class="b b4" x="90" y="26" width="76" height="22" rx="6"/>
+    <line class="blade" x1="128" y1="12" x2="128" y2="62"/>
+    <rect class="lasso" x="84" y="20" width="88" height="34" rx="8"/>
+    <path class="pin" d="M128 4c-6 0-10 4-10 9 0 7 10 15 10 15s10-8 10-15c0-5-4-9-10-9z"/>
+    <circle class="play" cx="128" cy="37" r="15"/><path class="playtri" d="M123 29v16l13-8z"/>
+    <g class="glyph"><svg x="112" y="21" width="32" height="32" viewBox="0 0 24 24">${ic}</svg></g>
+  </svg>`;
+}
+
+function paintTrainKeys() {
+  const box = $('#tr-keys');
+  if (!box) return;
+  box.textContent = '';
+  const show = TR.phase === 'ask' ? TR.live : TR.last?.sc || '';
+  if (show) box.append(capsEl(show, { big: true, pop: TR.phase !== 'ask' }));
+  else box.append(h('span', { class: 'tr-wait', text: TR.phase === 'ask' ? (TR.learn ? 'Now press it…' : 'Press the shortcut…') : '' }));
+}
+
+function renderTrainSession(fresh = false) {
+  const box = $('#train');
+  if (!box || !TR.on) return;
+  const p = TR.pack;
+  if (fresh || !$('#tr-stage')) {
+    box.textContent = '';
+    const mini = h('div', { class: 'tr-cat' });
+    box.append(h('div', { class: 'tr-session' },
+      h('div', { class: 'tr-head' },
+        libTile(p, 'pk-ico'),
+        h('div', { class: 'txt' }, h('b', { class: 'display', text: p.name }), h('span', { id: 'tr-progress', class: 'hint' })),
+        h('div', { class: 'tr-score' }, h('b', { id: 'tr-points', class: 'display' }), h('span', { id: 'tr-clock', class: 'hint', text: '0:00' })),
+        h('span', { id: 'tr-streak', class: 'tr-streak' }),
+        h('button', { class: 'btn small ghost', type: 'button', html: `${icon('x')}<span>Stop</span>`, onclick: () => { trainStop(); renderTrain(); } })),
+      h('div', { class: 'tr-bar' }, h('span', { id: 'tr-bar' })),
+      h('div', { id: 'tr-stage', class: 'tr-stage' }, mini,
+        h('div', { class: 'tr-card' },
+          h('div', { id: 'tr-section', class: 'tr-section' }),
+          h('div', { id: 'tr-task', class: 'tr-task display' }),
+          h('div', { id: 'tr-cue', class: 'tr-cue' }),
+          h('div', { id: 'tr-learn', class: 'tr-learn' }),
+          h('div', { id: 'tr-keys', class: 'tr-keys', 'aria-live': 'polite' }),
+          h('div', { id: 'tr-answer', class: 'tr-answer' }))),
+      h('div', { id: 'tr-foot', class: 'tr-foot' })));
+    TR.mascot?.destroy?.();
+    TR.mascot = new Mascot(mini, { skin: S.config.settings.skin, size: 96 });
+  }
+  const cur = TR.cur;
+  $('#tr-points').textContent = `${TR.score.toLocaleString()} pts`;
+  $('#tr-progress').textContent = TR.phase === 'end' ? 'Round done' : `${Math.min(TR.n + (TR.phase === 'ask' ? 1 : 0), TR.len || 1e9)} of ${TR.len || '∞'} · ${TR.ok} right${TR.miss ? ` · ${TR.miss} missed` : ''}`;
+  $('#tr-bar').style.width = TR.len ? `${Math.min(100, (100 * TR.n) / TR.len)}%` : '100%';
+  const streak = $('#tr-streak');
+  streak.textContent = TR.streak >= 2 ? `🔥 ${TR.streak}` : '';
+  streak.classList.toggle('hot', TR.streak >= 5);
+  const stage = $('#tr-stage');
+  stage.classList.remove('right', 'wrong', 'paused', 'end', 'learn');
+  if (['right', 'wrong', 'paused', 'end'].includes(TR.phase)) stage.classList.add(TR.phase);
+  if (TR.learn && TR.phase === 'ask') stage.classList.add('learn');
+  const kind = cur ? cueFor(cur.name) : 'spark';
+  const cue = $('#tr-cue');
+  if (cue.dataset.kind !== kind || TR.phase === 'ask') { cue.innerHTML = cueSvg(kind); cue.dataset.kind = kind; }
+  cue.className = `tr-cue cue-${kind}`;
+  const learnBox = $('#tr-learn');
+  learnBox.textContent = '';
+  const foot = $('#tr-foot');
+  foot.textContent = '';
+  if (TR.phase === 'end') {
+    const acc = TR.n ? Math.round((100 * TR.ok) / TR.n) : 0;
+    const avg = TR.times.length ? TR.times.reduce((a, b) => a + b, 0) / TR.times.length : 0;
+    $('#tr-section').textContent = 'Round done';
+    $('#tr-task').textContent = acc >= 90 ? 'Purr-fect paws!' : acc >= 70 ? 'Nice round!' : 'Good practice: that’s how it sticks.';
+    $('#tr-keys').textContent = '';
+    $('#tr-answer').textContent = `${TR.score.toLocaleString()} points · ${TR.ok}/${TR.n} right (${acc}%) · ${avg ? `${(avg / 1000).toFixed(1)} s per shortcut` : ''} · best streak ${TR.best} · ${clock(performance.now() - TR.started)}`;
+    TR.mascot.react(2000);
+    foot.append(...[
+      TR.misses.length ? h('button', { class: 'btn strong', type: 'button', html: `${icon('target')}<span>Practice the ${TR.misses.length} I missed</span>`, onclick: () => startTrain(p, TR.misses.slice()) }) : null,
+      h('button', { class: 'btn', type: 'button', html: `${icon('refresh')}<span>Another round</span>`, onclick: () => startTrain(p) }),
+      h('button', { class: 'btn ghost', type: 'button', text: 'Back to all apps', onclick: () => { trainStop(); renderTrain(); } })].filter(Boolean));
+    return;
+  }
+  $('#tr-section').textContent = [TR.learn && TR.phase === 'ask' ? 'New' : '', cur?.section, cur?.scope?.mode === 'only' ? scopeText(cur.scope).replace(/^Only in /, 'in ') : ''].filter(Boolean).join(' · ');
+  $('#tr-task').textContent = cur?.name || '';
+  if (TR.learn && TR.phase === 'ask') learnBox.append(h('span', { class: 'hint', text: 'New one. It’s ' }), capsEl(cur.keys), h('span', { class: 'hint', text: '. Press it to learn it.' }));
+  const ans = $('#tr-answer');
+  ans.textContent = '';
+  if (TR.phase === 'wrong') ans.append(h('span', { text: TR.last?.sc ? 'Not quite. It’s ' : 'It’s ' }), capsEl(cur.keys), ...(cur.does ? [h('span', { class: 'hint', text: ` (sends ${K.plain(cur.does)})` })] : []));
+  else if (TR.phase === 'right') ans.append(h('span', { class: 'good', text: TR.streak >= 5 ? ['Unstoppable!', 'On fire!', 'Paw-some!', 'Meow-velous!'][TR.streak % 4] : ['Yes!', 'Right!', 'Nice!', 'Got it!'][TR.n % 4] }));
+  else if (TR.phase === 'paused') ans.append(h('span', { text: 'Paused. Your keyboard works normally again.' }));
+  paintTrainKeys();
+  if (TR.phase === 'right') { TR.mascot.react(900); requestAnimationFrame(() => cue.classList.add('go')); }
+  if (TR.phase === 'wrong') { TR.mascot.setMood('awake'); stage.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(0)' }], { duration: 260 }); }
+  if (TR.phase === 'ask') TR.mascot.setMood('listen');
+  foot.append(...[
+    TR.phase === 'paused'
+      ? h('button', { class: 'btn strong', type: 'button', html: `${icon('paw')}<span>Keep going</span>`, onclick: () => { TR.phase = 'ask'; TR.t0 = performance.now(); TR.tPress = 0; renderTrainSession(); trainListen(); } })
+      : h('button', { class: 'btn ghost', type: 'button', html: `${icon('info')}<span>Show me</span>`, disabled: TR.phase !== 'ask', onclick: () => trainJudge('__hint__') }),
+    h('button', { class: 'btn ghost', type: 'button', text: 'Skip', disabled: TR.phase !== 'ask', onclick: () => { stopRecording(); trainNext(); } }),
+    TR.phase === 'ask' ? h('button', { class: 'btn ghost', type: 'button', text: 'Pause', onclick: trainPause } ) : null,
+    h('span', { class: 'spacer' }),
+    h('span', { class: 'hint', text: TR.phase === 'ask' ? 'Esc pauses. Keys pressed here don’t reach any app.' : '' })].filter(Boolean));
+}
+
+window.addEventListener('blur', () => { if (TR.on && TR.phase === 'ask') trainPause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && TR.on && TR.phase === 'ask') trainPause(); });
+
+// Real use: the shortcuts you're learning, counted when you press them in their app.
+async function syncTracked() {
+  if (!L.data) await libData().catch(() => null);
+  const db = trainDb();
+  const list = [];
+  if (db.track) {
+    for (const p of trainable()) {
+      const st = db.items[p.id];
+      if (!st) continue;
+      for (const i of trainItems(p)) if (st[i.id]) list.push({ id: `${p.id}\u0001${i.id}`, keys: i.keys, apps: i.scope.mode === 'only' ? i.scope.apps : [] });
+    }
+  }
+  invoke('set_tracked', { items: list.slice(0, 3000) }).catch(() => {});
+}
+async function pullTracked() {
+  const got = await invoke('tracked_counts').catch(() => null);
+  if (!got || !Object.keys(got).length) return;
+  const db = trainDb();
+  const day = (db.days[today()] ||= { ms: 0, answers: 0, ok: 0, real: 0 });
+  for (const [key, n] of Object.entries(got)) {
+    const [pid, iid] = key.split('\u0001');
+    const st = db.items[pid]?.[iid];
+    if (st) st.real = (st.real || 0) + n;
+    day.real += n;
+  }
+  trainSave(db);
+  if (S.view === 'train' && !TR.on) renderTrain();
+}
+setTimeout(syncTracked, 1500);
+setInterval(pullTracked, 15000);

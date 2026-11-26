@@ -474,3 +474,43 @@ pub async fn open_text_file(app: AppHandle) -> Result<Option<TextFile>, String> 
 pub fn powertoys_rules(text: String) -> Result<Vec<Rule>, String> {
     powertoys::import(&text)
 }
+
+#[tauri::command]
+pub fn clipboard_seq() -> u32 {
+    win::clipboard_seq()
+}
+
+#[tauri::command]
+pub fn read_clipboard() -> Option<String> {
+    win::clipboard_text()
+}
+
+/// Bring Cat Key to the front (Cat Builder caught an answer).
+#[tauri::command]
+pub fn focus_window(app: AppHandle) {
+    app::show_main(&app);
+}
+
+#[derive(serde::Deserialize)]
+pub struct TrackItem {
+    id: String,
+    keys: String,
+    #[serde(default)]
+    apps: Vec<String>,
+}
+
+/// Shortcuts to count when used for real (the ones you're training).
+#[tauri::command]
+pub fn set_tracked(items: Vec<TrackItem>) {
+    let list = items
+        .into_iter()
+        .filter_map(|t| catkey_core::keys::Shortcut::parse(&t.keys).ok().map(|sc| (t.id, sc, t.apps)))
+        .collect::<Vec<_>>();
+    hook::set_tracked(list);
+}
+
+/// How often each tracked shortcut was used since the last call.
+#[tauri::command]
+pub fn tracked_counts() -> HashMap<String, u32> {
+    hook::take_tracked_counts()
+}

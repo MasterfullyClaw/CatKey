@@ -410,6 +410,11 @@ pub fn run(args: Vec<String>) {
             crate::commands::save_text,
             crate::commands::open_text_file,
             crate::commands::powertoys_rules,
+            crate::commands::clipboard_seq,
+            crate::commands::read_clipboard,
+            crate::commands::focus_window,
+            crate::commands::set_tracked,
+            crate::commands::tracked_counts,
         ])
         .setup(move |app| {
             if second {

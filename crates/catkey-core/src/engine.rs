@@ -180,6 +180,11 @@ impl Engine {
         self.rec.is_some()
     }
 
+    /// The modifiers that count as held right now (for "which shortcut was that?").
+    pub fn held_mods(&self) -> u8 {
+        self.log_mods
+    }
+
     /// Swap in new rules. Keys held right now keep doing what they started.
     pub fn set_compiled(&mut self, compiled: Arc<Compiled>) {
         self.compiled = compiled;

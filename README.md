@@ -1,103 +1,87 @@
-# Cat Key 🐾
+<div align="center">
 
-**Purr-fect keyboard shortcuts for Windows.** Cat Key remaps shortcuts system-wide (Alt + C → Ctrl + C and friends) with a tiny Rust engine, a calm tray icon and an animated anime cat who taps along every time a shortcut fires.
+<img src="docs/cat.svg" width="132" alt="Cat Key's cat">
 
-- **Your Mac-style shortcuts, out of the box:** Alt + W / C / V / N / F / A / S / Z / R / T → Ctrl + the same key, Alt + Shift + N → Ctrl + Shift + N, Alt + Q → Alt + F4.
-- **Swap ⇄** any shortcut in one click: what you press and what it does trade places (Alt + W → Ctrl + W becomes Ctrl + W → Alt + W). Hover a card and click its arrow, use the ⋯ menu, or the **Swap** button in the editor.
-- **Templates:** ready-made sets you add (or remove) in one click, and can **Reverse** first. The built-in ones can't be changed or deleted: *Your starter set* (the shortcuts above), *More Mac-style* (cut, redo, reopen tab, zoom, tab switching…) and *Caps Lock as Escape*. Save your own list as a template too.
-- **Add, edit, delete, duplicate, switch off** any shortcut. Record keys by just pressing them, or fine-tune Left/Right/Either side by hand.
-- **Four actions:** press other keys, open an app / file / folder / link, type a piece of text, or block a key.
-- **Per app:** *Everywhere*, *Only in…* (e.g. Chrome) or *Everywhere except…*. App-only shortcuts win over everywhere ones.
-- **Key remaps too:** CapsLock → Esc, CapsLock → Ctrl (held like a real Ctrl), Right Alt → Menu…
-- **Overrides conflicts:** Cat Key's hook runs before app and Windows shortcuts and keeps itself first in line. It presses the new modifier *before* letting go of Alt/Win (plus a hidden mask key), so apps never see a lone Alt tap: no menu bar, no access-key letters, no error sound. Keys are sent right after the hook returns, never inside it, so a slow keyboard hook in another program can't make Windows skip Cat Key. Keys typed by other programs (password managers, PowerToys) are never remapped. It warns you about clashes inside your own list and about PowerToys Keyboard Manager running at the same time.
-- **Nap zones:** apps where Cat Key does nothing (games, Remote Desktop…). Plus a pause hotkey and an Awake/Napping switch.
-- **Works in admin apps** when you turn on *Work in admin apps* (runs as administrator, starts with Windows through a logon task).
-- **Cute, but light:** close the window and the UI is gone from memory; only the small keyboard engine stays in the tray. Four cat skins (Mochi, Kuro, Tora, Sora), light / dark / match Windows.
-- **Import from PowerToys** in one click, plus import / export of your own backups.
+# Cat Key
+
+### Every cat walks across a keyboard. This one presses the right keys.
+
+Cat Key sits on your keyboard and turns the keys you press into the shortcuts you mean, in every app or only in the apps you choose. Then it trains you until those shortcuts are second nature.
+
+<br>
+
+[![Download for Windows](https://img.shields.io/badge/⬇%20Download%20for%20Windows-free-ff8cc6?style=for-the-badge)](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe)
+&nbsp;
+[![Mac](https://img.shields.io/badge/Mac-coming%20soon-b79cff?style=for-the-badge)](https://github.com/MasterfullyClaw/CatKey/releases)
+
+<sub>Windows 10 and 11 · free and open source · no account, no internet needed · <a href="https://masterfullyclaw.github.io/CatKey/">website</a></sub>
+
+</div>
+
+---
+
+## What it's for
+
+**Your hands already know the shortcuts. The apps just disagree.**
+
+- **Switching from a Mac?** Keep your ⌘ habits on Windows. Alt sits right where ⌘ was, so Alt+C copies, Alt+W closes the tab and Alt+Q quits, everywhere. Moving to a Mac, the other way round.
+- **Every app wants different keys?** Give the same keys the same job everywhere, or a different job in one app only: Premiere keys inside DaVinci Resolve, Mac keys in Excel, your own keys anywhere.
+- **Learning a pro app?** Pick Premiere Pro, Resolve, Blender, Photoshop or any other app, and **Train yourself** with the shortcuts the pros use, until your fingers do them without thinking.
+
+Each app keeps its own shortcuts. Cat Key only adds yours on top, and you can switch it off (or let the cat nap) any time.
+
+## What's inside
+
+| | |
+|---|---|
+| 🐾 **Your shortcuts** | Press a key, press what it should do. Everywhere, only in some apps, or everywhere except some. Shortcuts can also open apps, type text, or do nothing at all (block a key). |
+| 📚 **Library** | 21 ready-made packs, 748 shortcuts: Mac ⇄ Windows switching, Windows power keys, and the pro shortcuts of Premiere Pro, After Effects, DaVinci Resolve, CapCut, Photoshop, Illustrator, Lightroom, Figma, Blender, Cinema 4D, VS Code, Obsidian, browsers and more. Tick what you want, add it. |
+| 🎯 **Train yourself** | A game that teaches an app's shortcuts. Cat Key names an action and you press its keys. A right answer goes *boing*, a miss gets a soft meow, and streaks score more. Each shortcut comes back just before you'd forget it (spaced review). Cat Key also counts the times you use them for real in the app. |
+| 🪄 **Cat Builder** | Shortcuts for *any* app. Cat Builder writes the perfect request for ChatGPT, Claude, Perplexity or Gemini, opens it in one click, and picks up the answer when you copy it. No AI is built in and nothing is sent by Cat Key itself. |
+| 🔁 **Swap & templates** | Flip any shortcut (what you press ⇄ what it does) with one click. Save sets as templates; the starter set can't be deleted. |
+| 🔗 **Share** | Share a pack as one line of text (a `CK1:` share code) or a file. Move your whole setup to another PC or Mac; Cat Key translates ⌘ and Ctrl for you. |
+| 🩺 **Checkup** | Finds what gets in the way (PowerToys Keyboard Manager, PowerToys Grab And Move on Alt, missing start-up entry, admin apps) and fixes it, or tells you exactly where to click. |
 
 ## Install
 
-Download the latest **`Cat Key_x.y.z_x64-setup.exe`** (installer) or **`CatKey.exe`** (portable) from the repo's Releases or Actions artifacts, then run it.
+1. [Download the installer](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-Setup-x64.exe) and run it. It doesn't need admin rights.
+2. Cat Key opens with your first shortcuts already working, and it lives in the tray by the clock.
+3. Want shortcuts in apps that run as administrator (Task Manager, admin terminals)? Settings → **Works in admin apps** → Allow.
 
-> Windows SmartScreen may say *"Windows protected your PC"* because the app isn't code-signed. Click **More info → Run anyway**.
-
-Cat Key starts with Windows by default and lives in the tray: **left-click** the cat to open it, **right-click** for Pause / Quit.
-
-If you were using **PowerToys Keyboard Manager**, turn it off in PowerToys (Keyboard Manager → toggle off). Two remappers on the same keys fight each other.
-
-### Checkup
-
-When something needs you, a **Quick checkup** card appears on the main screen (it's also always at the top of **Settings**). Each line has a button that fixes it or opens the right Windows page:
-
-| Line | What the button does |
-| --- | --- |
-| The keyboard engine isn't running | **Restart Cat Key** |
-| Windows switched Cat Key off in Startup apps | **Open Startup apps** (Settings → Apps → Startup), switch Cat Key on |
-| Start with Windows isn't set up yet | **Fix it** writes the startup entry again |
-| Admin apps aren't covered yet | **Allow** asks Windows for admin permission once (UAC), so shortcuts also work in Task Manager and admin terminals |
-| PowerToys Keyboard Manager is on | **Open PowerToys** to switch it off, or **Import its shortcuts** |
-
-**Error sound, or a shortcut you have to press twice?** Make sure PowerToys Keyboard Manager is off (the checkup shows it in red when it's on): two remappers on the same keys handle one press twice. Then open **Settings → Try a shortcut**, click the pad and press e.g. Alt + C: you should see *Ctrl + C* once. If *Alt + C* shows up, the press slipped through; check `%APPDATA%\CatKey\catkey.log` for a line about another program's slow keyboard hook.
-
-If the window doesn't appear, Cat Key may already be running in the tray (the little cat by the clock; it can hide behind the **^** arrow). Click it to open the window. Problems are written to `%APPDATA%\CatKey\catkey.log`.
-
-## Use it
-
-| Want to… | Do this |
-| --- | --- |
-| Add a shortcut | **New shortcut** (or Ctrl + N), press the keys, pick what happens, Save |
-| Change one | Click its card |
-| Turn one off | Its switch |
-| Delete / duplicate | The ⋯ menu on the card (Undo is in the toast) |
-| Swap what you press and what it does | Hover the card and click its arrow (it turns into ⇄), or ⋯ → *Swap*, or **Swap** in the editor |
-| Add a whole set | **Templates** tab → *Add all* (turn on *Reverse* first to add it flipped) |
-| Keep a copy of your list | **Templates** → *Save my shortcuts as a template* |
-| Pause everything | The **Awake** switch, the tray menu, or your pause hotkey (Settings) |
-| Make it per app | In the editor, *Where* → *Only in…* → *Add app* |
-
-Settings live in `%APPDATA%\CatKey\config.json` (plain JSON, safe to back up). Keys are written like `LAlt+LShift+N`, `Ctrl+C`, `CapsLock`.
-
-## Build from source
-
-Requirements: [Rust](https://rustup.rs) (stable), Node 18+, and on Windows the MSVC build tools + WebView2 (already on Windows 10/11).
-
-```bash
-npm install
-npm run build          # app + installer -> target/release/ and target/release/bundle/nsis/
-npm run tauri dev      # run in development
-npm test               # engine unit tests (any OS)
-npm run preview        # the UI in a normal browser with a fake backend
-```
-
-Cross-compiling from Linux works too: `npx tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc`.
-
-The **Build Cat Key** GitHub Action builds the exe and installer on demand (Actions → Run workflow) and attaches them to a release when you push a tag like `v1.0.1`.
+Prefer no installer? Grab [the portable exe](https://github.com/MasterfullyClaw/CatKey/releases/latest/download/CatKey-portable-x64.exe).
 
 ## How it works
 
+Cat Key listens to the keyboard with a standard Windows keyboard hook. When you press one of your shortcuts, it holds that key back and sends the one you meant instead, in under a millisecond. Everything else goes through untouched.
+
+- **It never misses a key.** The hook only decides; a separate thread sends keys, so a slow program elsewhere can't make Windows skip Cat Key. A watchdog reads the keyboard directly and repairs a key release that went missing.
+- **It doesn't fight other tools.** Keys typed by other programs (password managers, macro tools) pass untouched. Alt shortcuts work even with PowerToys Grab And Move holding Alt back.
+- **It stays out of your typing.** Single-letter remaps pause while a text cursor is active, so "V does A" in an editor never turns "Very" into "Aery".
+- **Your keys stay yours.** Cat Key keeps no keystroke log. Train yourself counts presses only for the shortcuts you're learning, and only on your PC. The optional key log (for troubleshooting) runs only while you have it open.
+
+## Make and share packs
+
+Packs are small JSON files. The [library guide](library/README.md) explains the format. Share yours with the [Share a pack form](https://github.com/MasterfullyClaw/CatKey/issues/new?template=share-a-pack.yml) and it can appear in everyone's *Library → Community*.
+
+## Troubleshooting
+
+- **A shortcut needs two presses.** Update to the latest version. If it still happens: Settings → *Try a shortcut* → **Start key log**, use the shortcut, then **Save**, and attach the log to an issue.
+- **Alt shortcuts feel slow or odd.** PowerToys **Grab And Move** also uses Alt. Cat Key copes with it, but setting Grab And Move to the Windows key makes Alt yours alone.
+- **An error sound with a shortcut.** Two remappers are changing the same keys. Turn off PowerToys Keyboard Manager (Cat Key can import its shortcuts first).
+
+## Build from source
+
+```bash
+npm install
+cargo test -p catkey-core          # the key engine's tests
+npx tauri build                    # on Windows
+python3 tools/library/build.py     # after editing the built-in library
 ```
-crates/catkey-core/   Pure Rust: key names, config, the remap engine, PowerToys import (unit-tested)
-src-tauri/src/hook.rs Low-level keyboard hook on its own time-critical thread
-src-tauri/src/win.rs  Windows helpers: foreground app, icons, startup, admin mode, launching
-src-tauri/src/app.rs  Tray app, config files, effects, window lifecycle
-src/                  The UI (plain HTML/CSS/JS, no build step) and the mascot
-```
 
-The engine sees every physical key event and either lets it through or swallows it and sends replacements with `SendInput`. It tracks which modifiers are really held versus which ones Windows believes are held, so:
+The keyboard engine is a pure Rust crate (`crates/catkey-core`) with no operating-system code, so every timing case (Alt menus, key repeat, release order, missed releases) is covered by unit tests.
 
-- Alt + C, Alt + V in a row keeps Ctrl down between them (fast copy/paste),
-- Alt + Tab still works right after a remap,
-- releasing Alt before C never leaves a key stuck or types a stray letter,
-- key repeat works (hold Alt + Z to undo repeatedly),
-- a missed key release (lock screen, UAC prompt) is detected and cleaned up.
+## Credits
 
-The hook callback never waits on the UI and never touches the disk, so remaps add no noticeable delay. The process also opts out of Windows 11 efficiency mode so the keyboard thread is never throttled.
+Some cheat-sheet entries were checked against [ShortcutMapper](https://github.com/waldobronchart/ShortcutMapper) (MIT) and each app's official documentation (linked in every pack).
 
-## Limits
-
-- Windows reserves **Win + L** and **Ctrl + Alt + Del**; no app can change them.
-- Without *Work in admin apps*, shortcuts don't reach programs running as administrator (Windows blocks that for security).
-
-## License
-
-MIT © 2026 MASTERFULLY-CLAW. Fonts: Nunito and Fredoka, SIL Open Font License (see `src/assets/fonts`).
+MIT licensed. App names belong to their owners; Cat Key isn't affiliated with them.

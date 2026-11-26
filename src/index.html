@@ -51,6 +51,7 @@
             <kbd>Ctrl F</kbd>
           </label>
           <div class="seg" role="group" aria-label="Show" id="filters"></div>
+          <button class="btn ghost" id="btn-select" title="Pick several shortcuts to switch on or off, delete, export or share at once"></button>
           <button class="btn primary" id="btn-new"></button>
         </div>
 
@@ -60,11 +61,19 @@
         <section class="suggest" id="suggest" aria-label="Suggestions"></section>
 
         <section class="templates" id="templates" aria-label="Templates"></section>
+
+        <section class="library" id="library" aria-label="Library"></section>
+
+        <section class="train" id="train" aria-label="Train yourself"></section>
+
+        <section class="aihelp" id="aihelp" aria-label="Make with AI"></section>
       </main>
     </div>
 
     <div class="scrim" id="scrim"></div>
     <section class="sheet" id="editor" role="dialog" aria-modal="true" aria-labelledby="ed-title" hidden></section>
+    <section class="sheet pack" id="packsheet" role="dialog" aria-modal="true" aria-labelledby="pk-title" hidden></section>
+    <div class="bulkbar" id="bulkbar" role="toolbar" aria-label="Selected shortcuts" hidden></div>
     <aside class="drawer" id="settings" aria-labelledby="st-title" hidden></aside>
     <div class="toasts" id="toasts" aria-live="polite"></div>
   </div>

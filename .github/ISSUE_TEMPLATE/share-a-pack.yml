@@ -1,0 +1,39 @@
+name: Share a pack
+description: Add your shortcuts to the Cat Key community library.
+title: "Pack: "
+labels: ["community pack"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sharing! In Cat Key, open your pack and press **Share code** (or **Export** and attach the file).
+  - type: input
+    id: app
+    attributes:
+      label: Which app is it for?
+      placeholder: e.g. DaVinci Resolve 19, or "everywhere"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What does it do?
+      placeholder: One or two sentences. Who is it for?
+    validations:
+      required: true
+  - type: textarea
+    id: pack
+    attributes:
+      label: Share code or pack JSON
+      description: Paste the CK1:… share code or the JSON. You can also drag the exported file here.
+      render: text
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: The shortcuts it uses are the app's real defaults (sources listed when I could).
+          required: true
+        - label: I tried it in Cat Key.

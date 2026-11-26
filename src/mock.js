@@ -27,7 +27,7 @@ const TEMPLATES = [
 
 function mockStatus(params) {
   return {
-    version: '1.0.6', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
+    version: '1.1.0', admin: false, powertoysRunning: params.get('pt') !== '0', firstRun: params.get('first') === '1', configReset: false,
     configDir: 'C:\\Users\\me\\AppData\\Roaming\\CatKey', problems: {}, engineRunning: params.get('engine') !== '0',
     startup: params.get('startup') || 'on',
   };
@@ -111,7 +111,7 @@ export function createMock() {
           if (!keylogOn || keylogSent) return { on: keylogOn, lines: [] };
           keylogSent = true;
           return { on: true, lines: [
-            '  0.000s  key log started · Cat Key 1.0.6 · hook on · watchdog on',
+            '  0.000s  key log started · Cat Key 1.1.0 · hook on · watchdog on',
             '  2.114s  LAlt↓  from keyboard  held: -  → passed  [chrome.exe]',
             '  2.201s  W↓  from keyboard  held: LAlt  → swallowed  then send: LCtrl↓ mask LAlt↑ W↓  [chrome.exe]',
             '  2.201s     sent 5/5 in 0 ms',
@@ -122,12 +122,29 @@ export function createMock() {
         }
         case 'set_admin_mode':
           throw 'cancelled';
-        case 'start_recording':
-          setTimeout(() => window.__mockEmit('ck://record', { phase: 'update', shortcut: 'LAlt' }), 500);
-          setTimeout(() => window.__mockEmit('ck://record', { phase: 'update', shortcut: 'LAlt+LShift' }), 800);
-          setTimeout(() => window.__mockEmit('ck://record', { phase: 'update', shortcut: 'LAlt+LShift+T' }), 1100);
-          setTimeout(() => window.__mockEmit('ck://record', { phase: 'done', shortcut: 'LAlt+LShift+T' }), 1500);
+        case 'clipboard_seq':
+          return 1;
+        case 'read_clipboard':
           return null;
+        case 'tracked_counts':
+          return {};
+        case 'set_tracked':
+        case 'focus_window':
+        case 'open_link':
+          return null;
+        case 'save_text':
+          console.log('[mock] save_text', args?.name, (args?.text || '').length);
+          return true;
+        case 'open_text_file':
+          return null;
+        case 'start_recording': {
+          if (window.__mockNoKeys) return null;
+          const keys = window.__mockKeys || 'LAlt+LShift+T';
+          const parts = keys.split('+');
+          parts.forEach((_, i) => setTimeout(() => window.__mockEmit('ck://record', { phase: 'update', shortcut: parts.slice(0, i + 1).join('+') }), 300 + i * 200));
+          setTimeout(() => window.__mockEmit('ck://record', { phase: 'done', shortcut: keys }), 400 + parts.length * 200);
+          return null;
+        }
         default:
           return null;
       }
