@@ -9,7 +9,7 @@
 html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; cursor: default; }
 body { font-family: Nunito, 'Segoe UI', sans-serif; color: #F7F0FB; display: flex; align-items: center; justify-content: center; }
 .tip { position: relative; display: flex; flex-direction: column; gap: 9px; box-sizing: border-box; width: calc(100% - 8px); height: calc(100% - 8px); margin: 4px;
-  padding: 12px 14px 12px 12px; border-radius: 22px; background: #211B2A; border: 1.5px solid #4a3c5c; box-shadow: 0 10px 28px rgba(0,0,0,.45);
+  padding: 12px 14px 12px 12px; border-radius: 22px; background: var(--s1, #211B2A); border: 1.5px solid var(--edge, #4a3c5c); box-shadow: 0 10px 28px rgba(0,0,0,.45);
   overflow: hidden; opacity: 0; --from: translateX(40px); transform: var(--from) scale(.96); }
 /* Each spot on the screen slides in from its own side. */
 body[data-anchor$="left"] .tip, body[data-anchor="left"] .tip { --from: translateX(-40px); }
@@ -27,16 +27,16 @@ body[data-anchor="top-center"] .tip { background: #0B0910; border-color: #2a2333
 @keyframes wave { 50% { transform: rotate(-16deg) translateY(-2px); } }
 .txt { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.use { font-family: Fredoka, Nunito, sans-serif; font-weight: 600; font-size: 15px; color: #FFB8D2; }
+.use { font-family: Fredoka, Nunito, sans-serif; font-weight: 600; font-size: 15px; color: var(--act, #FFB8D2); }
 .keys { display: inline-flex; gap: 5px; }
 .kc { display: inline-block; min-width: 14px; height: 28px; line-height: 28px; padding: 0 9px; border-radius: 9px; text-align: center;
-  background: #2C2437; box-shadow: inset 0 -3px 0 #120E18, 0 0 0 1px #4a3c5c; font-weight: 900; font-size: 14.5px; }
+  background: var(--cap, #2C2437); box-shadow: inset 0 -3px 0 var(--capb, #120E18), 0 0 0 1px var(--edge, #4a3c5c); font-weight: 900; font-size: 14.5px; }
 .what { font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.meta { font-weight: 700; font-size: 12px; color: #B7AAC8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta { font-weight: 700; font-size: 12px; color: var(--mu, #B7AAC8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .acts { display: flex; gap: 6px; }
-.acts button { flex: 1; height: 30px; border: 0; border-radius: 10px; background: #2C2437; color: #E9DEF3; font: 800 12.5px Nunito, sans-serif; cursor: pointer;
+.acts button { flex: 1; height: 30px; border: 0; border-radius: 10px; background: var(--cap, #2C2437); color: var(--tx, #E9DEF3); font: 800 12.5px Nunito, sans-serif; cursor: pointer;
   transition: background .15s, transform .12s; }
-.acts button:hover { background: #3a2f48; }
+.acts button:hover { background: var(--s3, #3a2f48); }
 .acts button:active { transform: scale(.96); }
 .acts .adjust { background: #FF8CC6; color: #2a1020; }
 .acts .adjust:hover { background: #ff9fd0; }

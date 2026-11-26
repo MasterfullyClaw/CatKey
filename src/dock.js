@@ -3,6 +3,7 @@
 // this page shows it all, dressed like the cat you picked in Cat Key.
 
 import { Mascot } from './mascot.js';
+import { applyVars } from './theme.js';
 import { sounds, setSoundsEnabled, setSoundParts } from './sound.js';
 
 const T = window.__TAURI__;
@@ -56,6 +57,7 @@ function applyUi() {
   root.classList.toggle('dark', u.dark !== false);
   root.classList.toggle('light', u.dark === false);
   for (const s of ['mochi', 'kuro', 'tora', 'sora']) root.classList.toggle(s, (u.skin || 'mochi') === s);
+  applyVars(root, u.vars);
   const look = u.look || { skin: 'mochi', gear: [] };
   ballCat.setLook(look);
   panelCat.setLook(look);
@@ -327,9 +329,8 @@ function renderFocus(body) {
     body.append(label,
       h('div', { class: 'dk-presets' }, ...[[15, 'quick'], [25, 'classic'], [45, 'deep'], [60, 'long']].map(([m, w]) =>
         h('button', { class: 'dk-btn', type: 'button', onclick: () => start(m) }, `${m}`, h('small', { text: w })))),
-      h('div', { class: 'dk-row' }, custom, h('button', { class: 'dk-btn', type: 'button', text: 'Start', onclick: () => { if (Number(custom.value) > 0) start(Number(custom.value)); } }),
-        h('span', { class: 'dk-sp' }), h('button', { class: 'dk-link', type: 'button', text: 'See the cat walk', onclick: () => invoke('walk_test') })),
-      h('p', { class: 'dk-hint', text: `When it ends, ${D.name} walks across the bottom of your screen to tell you. Clicks go straight through.` }));
+      h('div', { class: 'dk-row' }, custom, h('button', { class: 'dk-btn', type: 'button', text: 'Start', onclick: () => { if (Number(custom.value) > 0) start(Number(custom.value)); } })),
+      endings());
   } else {
     body.append(h('div', { class: 'dk-row', style: { justifyContent: 'center' } },
       t.state === 'running'
@@ -337,6 +338,35 @@ function renderFocus(body) {
         : h('button', { class: 'dk-btn dk-strong', type: 'button', html: `${icon('play')}<span>Go on</span>`, onclick: () => invoke('timer_resume') }),
       h('button', { class: 'dk-btn', type: 'button', html: `${icon('x')}<span>Stop</span>`, onclick: () => invoke('timer_stop') })));
   }
+}
+
+/** When a timer ends: the cat walk, the spinning cat, or a different one each time; motion and sound. */
+const END_DEFAULT = { mode: 'walk', walk: true, spin: true, motion: true, sound: true };
+function endings() {
+  const end = { ...END_DEFAULT, ...(D.settings.end || {}) };
+  const save = (patch) => {
+    const next = { ...end, ...patch };
+    D.settings = { ...D.settings, end: next };
+    renderPanel();
+    return invoke('dock_set_end', { end: next }).catch(fail);
+  };
+  const chip = (on, label, title, fn) => h('button', { class: `dk-chip${on ? ' on' : ''}`, type: 'button', 'aria-pressed': String(on), title, text: label, onclick: fn });
+  const say = { walk: `${D.name} walks along the bottom of your screen with a message.`, spin: `${D.name} spins in the middle of your screen, singing, then stretches.`,
+    shuffle: 'A different ending each time, from the ones you tick.' }[end.mode] || '';
+  return h('div', { class: 'dk-ends' },
+    h('div', { class: 'dk-ends-head' }, h('b', { text: 'When it ends' }), h('span', { class: 'dk-sp' }),
+      h('button', { class: 'dk-link', type: 'button', text: 'Try it', title: 'Play the ending now', onclick: () => invoke('walk_test', { kind: end.mode === 'shuffle' ? null : end.mode }) })),
+    h('div', { class: 'dk-chips', role: 'radiogroup', 'aria-label': 'Ending' },
+      chip(end.mode === 'walk', '🐾 Cat walk', 'The cat walks across the bottom of the screen', () => save({ mode: 'walk' })),
+      chip(end.mode === 'spin', '🌀 Spinning cat', 'The cat spins in the middle of the screen', () => save({ mode: 'spin' })),
+      chip(end.mode === 'shuffle', '🎲 Shuffle', 'A different one each time', () => save({ mode: 'shuffle' }))),
+    end.mode === 'shuffle' ? h('div', { class: 'dk-chips small' }, h('span', { class: 'dk-sub', text: 'In the shuffle:' }),
+      chip(end.walk, 'Cat walk', 'Include the cat walk', () => save({ walk: !end.walk })),
+      chip(end.spin, 'Spinning cat', 'Include the spinning cat', () => save({ spin: !end.spin }))) : null,
+    h('div', { class: 'dk-chips small' },
+      chip(end.motion, end.motion ? 'Motion on' : 'Motion off', 'Off: the cat just shows up with its message', () => save({ motion: !end.motion })),
+      chip(end.sound, end.sound ? 'Sound on' : 'Sound off', 'The ending’s sound (Cat Key’s sounds need to be on too)', () => save({ sound: !end.sound }))),
+    h('p', { class: 'dk-hint', text: `${say} Clicks go straight through.` }));
 }
 
 // ------------------------------------------------------------------ the computer's vitals, and the cat's face

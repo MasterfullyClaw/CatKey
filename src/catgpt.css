@@ -1,0 +1,51 @@
+/* CatGPT's wheel: a ring of choices that spins out around the pointer. Hovering picks. */
+html, body { background: transparent !important; overflow: hidden; }
+#cg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: transparent; font: 700 13px/1.3 Nunito, 'Segoe UI', sans-serif; color: var(--tx); }
+.cg-wheel { position: relative; width: 420px; height: 420px; }
+.cg-ring { position: absolute; inset: 0; }
+.cg-wheel::before { content: ''; position: absolute; inset: 58px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--bg) 82%, transparent) 55%, transparent 72%);
+  opacity: 0; transition: opacity .25s; }
+.cg-wheel.open::before { opacity: 1; }
+.cg-hub { position: absolute; left: 50%; top: 50%; width: 132px; height: 132px; margin: -66px 0 0 -66px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; background: var(--s1); border: 2px solid var(--ac); box-shadow: 0 14px 40px -12px rgba(0,0,0,.6), 0 0 0 6px var(--acs); text-align: center; cursor: pointer; z-index: 3;
+  transform: scale(.3) rotate(-30deg); opacity: 0; transition: transform .38s cubic-bezier(.34,1.56,.64,1), opacity .2s; }
+.cg-wheel.open .cg-hub { transform: none; opacity: 1; }
+.cg-hub .cg-cat { height: 50px; display: flex; align-items: flex-end; }
+.cg-hub b { font: 600 13.5px Fredoka, Nunito, sans-serif; max-width: 110px; }
+.cg-hub span { font-size: 10.5px; color: var(--mu); max-width: 112px; line-height: 1.15; }
+.cg-pet { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; border: 2px solid var(--line); background: var(--s1); color: var(--tx);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; cursor: pointer; z-index: 2; padding: 0;
+  transform: rotate(var(--a)) translate(0) rotate(calc(-1 * var(--a))) scale(.2); opacity: 0;
+  transition: transform .5s cubic-bezier(.34,1.45,.64,1) var(--d, 0s), opacity .25s var(--d, 0s), border-color .15s, background .15s; box-shadow: 0 10px 24px -12px rgba(0,0,0,.7); }
+.cg-wheel.open .cg-pet { transform: rotate(var(--a)) translate(150px) rotate(calc(-1 * var(--a))); opacity: 1; }
+.cg-wheel.spin .cg-ring { animation: cg-spin .55s cubic-bezier(.2,.8,.3,1); }
+@keyframes cg-spin { from { transform: rotate(-80deg); } to { transform: none; } }
+.cg-pet .em { font-size: 25px; line-height: 1; }
+.cg-pet .lb { font-size: 10.5px; font-weight: 800; margin-top: 3px; max-width: 70px; text-align: center; line-height: 1.05; }
+.cg-pet .badge { position: absolute; top: -2px; right: -2px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--ac); color: var(--aci); font: 900 11px Nunito; line-height: 20px; }
+.cg-pet:hover, .cg-pet.hot { border-color: var(--ac); background: var(--acs); }
+.cg-wheel.open .cg-pet.hot { transform: rotate(var(--a)) translate(150px) rotate(calc(-1 * var(--a))) scale(1.1); }
+/* the hover timer: a ring fills while the pointer rests */
+.cg-pet::after { content: ''; position: absolute; inset: -6px; border-radius: 50%; background: conic-gradient(var(--ac) calc(var(--p, 0) * 1%), transparent 0);
+  -webkit-mask: radial-gradient(circle, transparent 41px, #000 42px); mask: radial-gradient(circle, transparent 41px, #000 42px); opacity: .95; pointer-events: none; }
+.cg-pet.off { opacity: .4 !important; filter: grayscale(.6); }
+.cg-pet.rec { border-color: #FF5A5A; }
+.cg-pet.rec .em { animation: cg-blink 1s infinite; }
+@keyframes cg-blink { 50% { opacity: .35; } }
+.cg-card { position: absolute; left: 50%; top: 50%; width: 300px; transform: translate(-50%, -50%); z-index: 5; background: var(--s1); border: 2px solid var(--ac); border-radius: 22px;
+  box-shadow: 0 18px 50px -14px rgba(0,0,0,.7); padding: 14px; display: flex; flex-direction: column; gap: 9px; animation: cg-pop .3s cubic-bezier(.34,1.56,.64,1); }
+@keyframes cg-pop { from { transform: translate(-50%, -50%) scale(.7); opacity: 0; } }
+.cg-card h3 { margin: 0; font: 600 15px Fredoka, Nunito, sans-serif; display: flex; align-items: center; gap: 8px; }
+.cg-card textarea { width: 100%; min-height: 110px; resize: none; border-radius: 14px; border: 1.5px solid var(--line); background: var(--s2); color: var(--tx); padding: 10px 12px; font: 600 13.5px/1.45 Nunito, sans-serif; }
+.cg-card textarea:focus { outline: none; border-color: var(--ac); }
+.cg-card .row { display: flex; gap: 7px; flex-wrap: wrap; }
+.cg-card .btn { height: 36px; padding: 0 12px; font-size: 12.5px; }
+.cg-card .hint { margin: 0; font-size: 11.5px; color: var(--mu); }
+.cg-list { display: flex; flex-direction: column; gap: 4px; max-height: 230px; overflow-y: auto; }
+.cg-list button { text-align: left; height: 36px; padding: 0 12px; border-radius: 11px; border: 1.5px solid var(--line); background: var(--s2); color: var(--tx); font: 800 12.5px Nunito; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cg-list button:hover, .cg-list button.hot { border-color: var(--ac); background: var(--acs); }
+.cg-done { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 6; padding: 12px 16px; border-radius: 16px; background: var(--s1); border: 2px solid var(--ac);
+  font-weight: 800; box-shadow: 0 14px 40px -12px rgba(0,0,0,.7); animation: cg-pop .3s cubic-bezier(.34,1.56,.64,1); max-width: 320px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .cg-pet, .cg-hub { transition: opacity .15s !important; } .cg-wheel.spin .cg-ring { animation: none; } }
+.cg-card[hidden] { display: none !important; }

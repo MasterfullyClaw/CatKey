@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Recording</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+html, body { background: transparent !important; overflow: hidden; margin: 0; }
+#rec { position: fixed; inset: 3px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 14px; border-radius: 26px; background: var(--s1); border: 1.5px solid var(--line);
+  box-shadow: 0 10px 26px -10px rgba(0,0,0,.6); font: 800 14px Nunito, 'Segoe UI', sans-serif; color: var(--tx); cursor: default; user-select: none; }
+.dot { width: 12px; height: 12px; border-radius: 6px; background: #FF4D5E; box-shadow: 0 0 0 4px rgba(255,77,94,.22); animation: blink 1.1s infinite; }
+@keyframes blink { 50% { opacity: .3; } }
+#t { font-variant-numeric: tabular-nums; min-width: 42px; }
+.sub { color: var(--mu); font-size: 12px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+button { height: 34px; padding: 0 14px; border-radius: 17px; border: 0; background: var(--ac); color: var(--aci); font: 900 13px Nunito, sans-serif; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+button:active { transform: scale(.96); }
+</style>
+</head>
+<body>
+<div id="rec" class="ck dark mochi" role="status">
+  <span class="dot" aria-hidden="true"></span><span id="t">0:00</span><span class="sub">Recording, very light</span>
+  <button id="stop" type="button" title="Stop and keep it in the basket">⏹ Stop</button>
+</div>
+<script type="module">
+import { applyVars } from './theme.js';
+const T = window.__TAURI__;
+const root = document.getElementById('rec');
+let started = Date.now(), timer = 0;
+function dress() {
+  let u = {};
+  try { u = JSON.parse(localStorage.getItem('catkey.ui.now') || 'null') || {}; } catch {}
+  root.className = `ck ${u.dark === false ? 'light' : 'dark'} ${u.skin || 'mochi'}`;
+  applyVars(root, u.vars);
+}
+function tick() {
+  const s = Math.max(0, Math.floor((Date.now() - started) / 1000));
+  document.getElementById('t').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+function begin(at) {
+  started = at || Date.now();
+  dress();
+  clearInterval(timer);
+  timer = setInterval(tick, 500);
+  tick();
+  const b = document.getElementById('stop');
+  b.disabled = false;
+  b.textContent = '⏹ Stop';
+}
+document.getElementById('stop').onclick = (e) => {
+  e.currentTarget.disabled = true;
+  e.currentTarget.textContent = 'Saving…';
+  T?.core.invoke('catgpt_record', { on: false }).catch(() => {});
+};
+if (T) T.event.listen('ck://rec', (e) => begin(e.payload));
+begin();
+</script>
+</body>
+</html>

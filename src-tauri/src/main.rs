@@ -6,6 +6,7 @@
 //! hands), `coach` and `purr`. On a Mac they come from the `mac*` files.
 
 mod app;
+mod catgpt;
 mod commands;
 mod dock;
 #[cfg(windows)]
@@ -30,6 +31,9 @@ mod hook;
 mod purr;
 #[cfg(windows)]
 mod win;
+#[cfg(windows)]
+#[path = "cg_win.rs"]
+mod cg;
 
 #[cfg(target_os = "macos")]
 #[path = "mac_coach.rs"]
@@ -43,6 +47,9 @@ mod purr;
 #[cfg(target_os = "macos")]
 #[path = "macos.rs"]
 mod win;
+#[cfg(target_os = "macos")]
+#[path = "cg_mac.rs"]
+mod cg;
 
 use std::io::Write;
 

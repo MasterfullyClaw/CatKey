@@ -319,6 +319,48 @@ export const sounds = {
   tip() {
     if (soundOn('tips')) VOICES.mrrp(0.45, 0.02);
   },
+  /**
+   * The spinning cat's song (end of a focus timer): our own round "oo-ee-ah" sung
+   * over and over while it spins, a little higher each time round, and a whoosh.
+   */
+  spin(secs = 4) {
+    if (!soundOn('tools')) return;
+    const beat = 0.4;
+    const n = Math.max(2, Math.floor(secs / beat));
+    for (let i = 0; i < n; i++) {
+      const lift = 1 + (i % 4) * 0.045;
+      voice({ dur: 0.34, delay: i * beat, gain: 0.1, vib: 7.5, vibDepth: 16, breath: 0.02,
+        f0: (i % 2 ? [[0, 610], [0.4, 860], [1, 560]] : [[0, 540], [0.35, 780], [1, 620]]).map(([x, v]) => [x, v * lift]),
+        f1: [[0, 330], [0.3, 300], [0.65, 760], [1, 860]],
+        f2: [[0, 780], [0.3, 2350], [0.65, 1350], [1, 1180]] });
+    }
+    const a = audio();
+    if (!a) return;
+    const t0 = a.currentTime + 0.02;
+    const n2 = a.createBufferSource();
+    n2.buffer = noise(a);
+    n2.loop = true;
+    const bp = a.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 1.4;
+    bp.frequency.setValueAtTime(500, t0);
+    const g = a.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.035, t0 + 0.3);
+    g.gain.setValueAtTime(0.035, t0 + secs - 0.4);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + secs);
+    // the whoosh swells and fades on each turn
+    const lfo = a.createOscillator();
+    lfo.frequency.value = 1 / beat;
+    const lg = a.createGain();
+    lg.gain.value = 900;
+    lfo.connect(lg).connect(bp.frequency);
+    n2.connect(bp).connect(g).connect(out);
+    n2.start(t0);
+    n2.stop(t0 + secs + 0.05);
+    lfo.start(t0);
+    lfo.stop(t0 + secs + 0.05);
+  },
 };
 
 // ------------------------------------------------------------------ training sounds

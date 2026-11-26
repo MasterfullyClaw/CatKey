@@ -305,6 +305,8 @@ struct RecordPayload {
 fn cat_tool(app: &AppHandle, tool: &str) {
     match tool.trim().trim_end_matches('/').to_lowercase().as_str() {
         "switch" | "switcher" => crate::switcher::from_shortcut(),
+        "catgpt" => crate::catgpt::from_shortcut(""),
+        t if t.starts_with("catgpt/") => crate::catgpt::from_shortcut(&t[7..]),
         "window" | "open" | "" => show_main(app),
         other => crate::log(&format!("no Cat Key tool called {other}")),
     }
@@ -509,6 +511,29 @@ pub fn run(args: Vec<String>) {
             crate::dock::timer_stop,
             crate::dock::walk_last,
             crate::dock::walk_test,
+            crate::dock::dock_set_end,
+            crate::catgpt::catgpt_info,
+            crate::catgpt::catgpt_ask_capture,
+            crate::catgpt::catgpt_shot,
+            crate::catgpt::catgpt_draw,
+            crate::catgpt::catgpt_record,
+            crate::catgpt::catgpt_note,
+            crate::catgpt::catgpt_add_files,
+            crate::catgpt::catgpt_pick_files,
+            crate::catgpt::catgpt_remove,
+            crate::catgpt::catgpt_clear,
+            crate::catgpt::catgpt_open_folder,
+            crate::catgpt::catgpt_open_item,
+            crate::catgpt::catgpt_image,
+            crate::catgpt::catgpt_send,
+            crate::catgpt::catgpt_recent,
+            crate::catgpt::catgpt_wheel_last,
+            crate::catgpt::catgpt_wheel_hide,
+            crate::catgpt::catgpt_canvas_bg,
+            crate::catgpt::catgpt_canvas_new,
+            crate::catgpt::catgpt_canvas_save,
+            crate::catgpt::catgpt_canvas_close,
+            crate::catgpt::catgpt_wheel_open,
             crate::paws::paws_try,
             crate::paws::paws_colors,
             crate::switcher::switch_state,
@@ -538,6 +563,7 @@ pub fn run(args: Vec<String>) {
             crate::dock::start(&handle, handle.state::<AppState>().dir.clone(), &dock_settings);
             crate::paws::start(&handle, &coach_settings.paws);
             crate::switcher::start(&handle, &coach_settings.switcher);
+            crate::catgpt::start(&handle);
             if dock_test {
                 let h = handle.clone();
                 std::thread::spawn(move || {
@@ -564,6 +590,9 @@ pub fn run(args: Vec<String>) {
                         }
                     }
                     crate::log(&format!("dock: coach tip shown {tip}"));
+                    // And CatGPT: the basket, a screenshot, the wheel, the canvas, a short recording.
+                    std::thread::sleep(Duration::from_secs(1));
+                    crate::catgpt::ci_test();
                 });
             }
             let saver = handle.clone();

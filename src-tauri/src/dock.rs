@@ -7,7 +7,7 @@
 //! window's file drops). Dragging files back out uses the system's own drag (`drag`).
 
 use crate::app::{self, AppState};
-use catkey_core::config::DockSettings;
+use catkey_core::config::{DockSettings, TimerEnd};
 use catkey_core::dock::{self as data, Clip, ShelfItem};
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::{Path, PathBuf};
@@ -807,7 +807,9 @@ fn run_timer(app: AppHandle, gen: u64) {
             } else {
                 format!("{label}: done! Time to stretch like a cat.")
             };
-            walk(&app, text);
+            let end = with(|d| d.settings.end.clone()).unwrap_or_default();
+            let kind = end.pick(now_ms() / 997);
+            ending(&app, text, kind, &end);
             return;
         }
     });
@@ -819,14 +821,25 @@ fn run_timer(app: AppHandle, gen: u64) {
 pub struct WalkPayload {
     text: String,
     seq: u64,
+    /// "walk" or "spin".
+    kind: &'static str,
+    motion: bool,
+    sound: bool,
 }
 
 static LAST_WALK: Mutex<Option<WalkPayload>> = Mutex::new(None);
 
-/// A cat walks along the bottom of the screen with a message. Clicks go straight through.
+/// The cat walk (the classic ending), for callers that just want a message walked across.
 pub fn walk(app: &AppHandle, text: String) {
+    let end = with(|d| d.settings.end.clone()).unwrap_or_default();
+    ending(app, text, "walk", &end);
+}
+
+/// The end of a focus timer: a cat walks along the bottom of the screen with a message, or
+/// spins in the middle of the screen where the pointer is. Clicks go straight through.
+pub fn ending(app: &AppHandle, text: String, kind: &'static str, end: &TimerEnd) {
     let seq = WALKS.fetch_add(1, Ordering::SeqCst) + 1;
-    let p = WalkPayload { text, seq };
+    let p = WalkPayload { text, seq, kind, motion: end.motion, sound: end.sound };
     *LAST_WALK.lock().unwrap() = Some(p.clone());
     let app = app.clone();
     std::thread::spawn(move || {
@@ -853,22 +866,36 @@ pub fn walk(app: &AppHandle, text: String) {
                 w
             }
         };
-        let m = w.primary_monitor().ok().flatten();
+        let m = if kind == "spin" { monitor_at_pointer(&app) } else { None }.or_else(|| w.primary_monitor().ok().flatten());
         if let Some(m) = m {
             let k = m.scale_factor();
             let wa = m.work_area();
-            let h = (230.0 * k) as u32;
-            let _ = w.set_size(PhysicalSize::new(wa.size.width, h));
-            let _ = w.set_position(PhysicalPosition::new(wa.position.x, wa.position.y + wa.size.height as i32 - h as i32));
+            if kind == "spin" {
+                let _ = w.set_size(PhysicalSize::new(wa.size.width, wa.size.height));
+                let _ = w.set_position(PhysicalPosition::new(wa.position.x, wa.position.y));
+            } else {
+                let h = (230.0 * k) as u32;
+                let _ = w.set_size(PhysicalSize::new(wa.size.width, h));
+                let _ = w.set_position(PhysicalPosition::new(wa.position.x, wa.position.y + wa.size.height as i32 - h as i32));
+            }
         }
         let _ = w.set_ignore_cursor_events(true);
         let _ = w.emit("ck://walk", p);
         let _ = w.show();
-        std::thread::sleep(Duration::from_secs(18));
+        std::thread::sleep(Duration::from_secs(if kind == "spin" { 10 } else { 18 }));
         if WALKS.load(Ordering::SeqCst) == seq {
             let _ = w.hide();
         }
     });
+}
+
+/// The screen the pointer is on (where the spinning cat shows up).
+fn monitor_at_pointer(app: &AppHandle) -> Option<tauri::Monitor> {
+    let c = app.cursor_position().ok()?;
+    app.available_monitors().ok()?.into_iter().find(|m| {
+        let (p, s) = (m.position(), m.size());
+        c.x >= p.x as f64 && c.y >= p.y as f64 && c.x < p.x as f64 + s.width as f64 && c.y < p.y as f64 + s.height as f64
+    })
 }
 
 /// The walk window asks for its walk when it has loaded.
@@ -877,7 +904,30 @@ pub fn walk_last() -> Option<WalkPayload> {
     LAST_WALK.lock().ok()?.clone()
 }
 
+/// Try an ending: "walk", "spin", or none for the one the settings pick.
 #[tauri::command]
-pub fn walk_test(app: AppHandle) {
-    walk(&app, "This is what the end of a focus timer looks like. Stretch like a cat!".into());
+pub fn walk_test(app: AppHandle, kind: Option<String>) {
+    let end = with(|d| d.settings.end.clone()).unwrap_or_default();
+    let kind = match kind.as_deref() {
+        Some("spin") => "spin",
+        Some("walk") => "walk",
+        _ => end.pick(now_ms() / 997),
+    };
+    let text = if kind == "spin" {
+        "This is how a focus timer can end. Stretch like a cat!"
+    } else {
+        "This is what the end of a focus timer looks like. Stretch like a cat!"
+    };
+    ending(&app, text.into(), kind, &end);
+}
+
+/// How focus timers end (from the Dock's Focus page), kept with the other Dock settings.
+#[tauri::command]
+pub fn dock_set_end(app: AppHandle, end: TimerEnd) {
+    let state = app.state::<AppState>();
+    let mut cfg = state.config.lock().unwrap().clone();
+    cfg.settings.dock.end = end;
+    if let Ok(cfg) = app::apply_config(&app, cfg) {
+        let _ = app.emit("ck://settings", &cfg.settings);
+    }
 }

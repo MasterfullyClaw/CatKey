@@ -3,6 +3,7 @@
 // jumps to the one you click (or pick with the keys, when a shortcut opened it).
 
 import { Mascot } from './mascot.js';
+import { applyVars } from './theme.js';
 
 const T = window.__TAURI__;
 const invoke = (cmd, args) => (T ? T.core.invoke(cmd, args) : (window.__swMock?.(cmd, args) ?? Promise.resolve(null)));
@@ -49,6 +50,7 @@ function applyUi() {
   root.classList.toggle('dark', u.dark !== false);
   root.classList.toggle('light', u.dark === false);
   for (const s of ['mochi', 'kuro', 'tora', 'sora']) root.classList.toggle(s, (u.skin || 'mochi') === s);
+  applyVars(root, u.vars);
   cat.setLook(u.look || { skin: 'mochi', gear: [] });
   cat.setName(u.name || 'Mochi');
 }

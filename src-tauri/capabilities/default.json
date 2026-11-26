@@ -7,7 +7,10 @@
     "coach",
     "dock",
     "walk",
-    "switch"
+    "switch",
+    "catgpt",
+    "canvas",
+    "rec"
   ],
   "permissions": [
     "core:default",

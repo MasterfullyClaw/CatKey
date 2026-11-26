@@ -1,6 +1,19 @@
 // The shortcut coach's tip window: shows the tip Rust sends, waits while the pointer is
 // on it, and hides itself. Ignore = never again, Dismiss = for now, Adjust = make your own.
 import * as K from './keys.js';
+import { paletteVars, applyVars } from './theme.js';
+
+// The tip wears the cat's colours (always its dark side: tips float over anything).
+function dress() {
+  let u = {};
+  try { u = JSON.parse(localStorage.getItem('catkey.ui.now') || 'null') || {}; } catch { /* default colours */ }
+  const v = paletteVars(u.pal, true);
+  applyVars(document.documentElement, v);
+  document.documentElement.style.setProperty('--edge', v ? v['--line'] : '');
+  if (!v) document.documentElement.style.removeProperty('--edge');
+}
+dress();
+window.addEventListener('storage', (e) => { if (e.key === 'catkey.ui.now') dress(); });
 
 const T = window.__TAURI__;
 // On a Mac the keys wear their Mac names (⌘ ⌥ ⌃ ⇧).

@@ -109,6 +109,32 @@ export function createMock() {
           return { claudeInstalled: params.get('claude') !== '0', claudeConnected: params.get('claude') === 'on', entry: '{\n  "mcpServers": {\n    "catkey": { "command": "C:\\\\Users\\\\me\\\\AppData\\\\Local\\\\Cat Key\\\\CatKey.exe", "args": ["--mcp"] }\n  }\n}', claudeCode: 'claude mcp add catkey -- "C:\\Users\\me\\AppData\\Local\\Cat Key\\CatKey.exe" --mcp', tempPlace: false };
         case 'mcp_connect':
           return null;
+        case 'catgpt_info': {
+          const svg = (c, t) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="640" height="400" fill="${c}"/><rect x="40" y="40" width="560" height="40" rx="8" fill="#fff" opacity=".7"/><text x="320" y="240" font-size="44" font-family="sans-serif" text-anchor="middle" fill="#fff">${t}</text></svg>`)}`;
+          window.__cgImgs = { s1: svg('#3B6FD9', 'Screenshot'), c1: svg('#7A3FD1', 'Canvas'), r1: svg('#1F8A5B', 'Recording') };
+          const now = Date.now() / 1000;
+          const items = params.get('basket') === '0' ? [] : [
+            { id: 's1', kind: 'shot', name: 'Screenshot 2026-11-26 10-02-11.jpg', path: 'x', bytes: 182000, added: now - 60, w: 1920, h: 1080, sent: false, frames: [], text: '', secs: 0 },
+            { id: 'n1', kind: 'note', name: 'Why does this button do nothing?', text: 'Why does this button do nothing?\nIt worked yesterday.', bytes: 60, added: now - 120, sent: false, frames: [], path: '', secs: 0 },
+            { id: 'c1', kind: 'canvas', name: 'Canvas 2026-11-26 10-03-40.jpg', path: 'x', bytes: 240000, added: now - 300, w: 1920, h: 1080, sent: true, frames: [], text: '', secs: 0 },
+            { id: 'r1', kind: 'rec', name: 'Recording 2026-11-26 09-58-00.mp4', path: 'x', bytes: 2400000, added: now - 900, w: 1920, h: 1080, sent: true, frames: ['f1'], text: '', secs: 21.5 },
+            { id: 'f1', kind: 'file', name: 'report.pdf', path: 'x', bytes: 830000, added: now - 4000, sent: true, frames: [], text: '', secs: 0 },
+          ];
+          return { apps: [{ id: 'claude', name: 'Claude', installed: params.get('claudeapp') !== '0', deep: true }, { id: 'chatgpt', name: 'ChatGPT', installed: params.get('gptapp') !== '0', deep: true }],
+            items, dir: params.get('mac') === '1' ? '/Users/me/Library/Application Support/CatKey/catgpt' : 'C:\\Users\\me\\AppData\\Roaming\\CatKey\\catgpt', bytes: 3652000, recording: params.get('rec') === '1', recStarted: Date.now() - 12000,
+            canCapture: params.get('capture') !== '0' };
+        }
+        case 'catgpt_image':
+          return (window.__cgImgs || {})[args.id] || null;
+        case 'catgpt_recent':
+          return args.app === 'chatgpt' ? [1, 2, 3].map((n) => ({ title: `Recent chat ${n}`, dest: `recent:${n}` })) : [];
+        case 'catgpt_send':
+          window.__cgSent = args.req;
+          return 'Your words in the message box. Pick the model if you like, then press Enter.';
+        case 'catgpt_wheel_last':
+          return { seq: 1, recording: false, recSecs: 0, fresh: 2, apps: [{ id: 'claude', name: 'Claude', installed: true, deep: true }, { id: 'chatgpt', name: 'ChatGPT', installed: true, deep: true }] };
+        case 'catgpt_canvas_bg':
+          return { image: '', w: 0, h: 0 };
         case 'take_inbox':
           return params.get('inbox') === '1' && !window.__inboxTaken ? (window.__inboxTaken = true, [JSON.stringify({ format: 'catkey-pack', version: 1, name: 'REAPER', kind: 'cheatsheet', platform: 'both', app: 'REAPER', description: 'From Claude', apps: { windows: ['reaper.exe'] }, sections: [{ name: 'Editing', items: [{ name: 'Split items', keys: 'S', fav: true }, { name: 'Undo', keys: 'Mod+Z' }] }] })]) : [];
         case 'installed_apps':

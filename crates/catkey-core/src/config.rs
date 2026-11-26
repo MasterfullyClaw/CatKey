@@ -194,6 +194,58 @@ pub struct DockSettings {
     /// Show how hard the computer works (CPU, memory, graphics, heat).
     #[serde(default = "yes")]
     pub vitals: bool,
+    /// What happens when a focus timer ends.
+    #[serde(default)]
+    pub end: TimerEnd,
+}
+
+/// The end of a focus timer: the cat walk, the spinning cat, or a different one each time.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TimerEnd {
+    /// "walk", "spin" or "shuffle" (one of those switched on below, picked each time).
+    #[serde(default = "end_walk")]
+    pub mode: String,
+    /// In the shuffle: the cat walking along the bottom of the screen.
+    #[serde(default = "yes")]
+    pub walk: bool,
+    /// In the shuffle: the cat spinning in the middle of the screen, singing.
+    #[serde(default = "yes")]
+    pub spin: bool,
+    /// Moving cats. Off: the cat just shows up with its message.
+    #[serde(default = "yes")]
+    pub motion: bool,
+    /// The ending's sound (also needs Cat Key's sounds and their "Tools" part on).
+    #[serde(default = "yes")]
+    pub sound: bool,
+}
+
+fn end_walk() -> String {
+    "walk".into()
+}
+
+impl Default for TimerEnd {
+    fn default() -> Self {
+        TimerEnd { mode: end_walk(), walk: true, spin: true, motion: true, sound: true }
+    }
+}
+
+impl TimerEnd {
+    /// Which ending plays now. `roll` is any number that changes each time (for the shuffle).
+    pub fn pick(&self, roll: u64) -> &'static str {
+        match self.mode.as_str() {
+            "spin" => "spin",
+            "shuffle" => {
+                let pool: Vec<&'static str> = [(self.walk, "walk"), (self.spin, "spin")].iter().filter(|(on, _)| *on).map(|(_, k)| *k).collect();
+                if pool.is_empty() {
+                    "walk"
+                } else {
+                    pool[(roll % pool.len() as u64) as usize]
+                }
+            }
+            _ => "walk",
+        }
+    }
 }
 
 fn right_edge() -> String {
@@ -205,7 +257,7 @@ fn dock_y() -> f64 {
 
 impl Default for DockSettings {
     fn default() -> Self {
-        DockSettings { on: false, edge: right_edge(), y: dock_y(), clipboard: true, keep_clips: false, vitals: true }
+        DockSettings { on: false, edge: right_edge(), y: dock_y(), clipboard: true, keep_clips: false, vitals: true, end: TimerEnd::default() }
     }
 }
 
@@ -1069,5 +1121,27 @@ mod tests {
             source: String::new(),
         });
         assert_eq!(compile(&cfg).rule_count(), 0);
+    }
+}
+
+#[cfg(test)]
+mod timer_end_tests {
+    use super::*;
+
+    #[test]
+    fn timer_end_pick() {
+        let mut e = TimerEnd::default();
+        assert_eq!(e.pick(3), "walk");
+        e.mode = "spin".into();
+        assert_eq!(e.pick(3), "spin");
+        e.mode = "shuffle".into();
+        let picks: std::collections::BTreeSet<_> = (0..6).map(|i| e.pick(i)).collect();
+        assert_eq!(picks.len(), 2);
+        e.walk = false;
+        assert!((0..6).all(|i| e.pick(i) == "spin"));
+        e.spin = false;
+        assert_eq!(e.pick(1), "walk");
+        let old: DockSettings = serde_json::from_str(r#"{"on":true}"#).unwrap();
+        assert_eq!(old.end, TimerEnd::default());
     }
 }

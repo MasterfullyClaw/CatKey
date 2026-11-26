@@ -20,6 +20,36 @@ html, body { background: transparent !important; overflow: hidden; }
 .wk-paw svg { width: 100%; height: 100%; fill: currentColor; }
 @keyframes fade { to { opacity: 0; transform: scale(.7); } }
 #walk.wk-out { animation: away .6s ease forwards; }
+/* Motion off: the cat just sits there with its message. */
+.wk-cat.wk-here { left: 40px; transform: none; animation: here .5s ease forwards; opacity: 0; }
+.wk-cat.wk-here .wk-body { animation: none; }
+@keyframes here { to { opacity: 1; } }
+/* The spinning cat, in the middle of the screen. */
+.sp-stage { position: absolute; left: 50%; top: 48%; transform: translate(-50%, -50%) scale(.2); opacity: 0; display: flex; flex-direction: column; align-items: center; }
+.sp-stage.in { animation: sp-in .5s cubic-bezier(.34,1.56,.64,1) forwards; }
+.still .sp-stage.in { animation: sp-fade .5s ease forwards; }
+@keyframes sp-in { to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+@keyframes sp-fade { from { transform: translate(-50%, -50%) scale(1); } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+.sp-turn { position: relative; z-index: 2; }
+.sp-stage.spinning .sp-turn { animation: sp-turn .34s linear infinite; filter: drop-shadow(0 0 0 transparent); }
+.sp-stage.spinning .sp-turn { animation-name: sp-turn, sp-speed; animation-duration: .34s, 4.8s; animation-timing-function: linear, linear; animation-iteration-count: infinite, 1; }
+@keyframes sp-turn { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+@keyframes sp-speed { 0%, 100% { filter: none; } 30%, 70% { filter: blur(.6px); } }
+.sp-stage.done .sp-turn { animation: sp-settle .6s cubic-bezier(.34,1.56,.64,1); }
+@keyframes sp-settle { from { transform: rotateY(160deg) scale(.95); } to { transform: none; } }
+.sp-glow { position: absolute; z-index: 0; left: 50%; top: 42%; width: 340px; height: 340px; margin: -170px 0 0 -170px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ac) 45%, transparent) 0%, transparent 65%); opacity: .0; transition: opacity .4s; }
+.sp-stage.spinning .sp-glow, .sp-stage.done .sp-glow { opacity: .9; }
+.sp-box { position: relative; }
+.sp-rings { position: absolute; z-index: 1; left: 50%; bottom: 4px; width: 0; height: 0; }
+.sp-ring { position: absolute; left: -110px; top: -18px; width: 220px; height: 36px; border-radius: 50%; border: 3px solid var(--ac); opacity: 0; }
+.sp-stage.spinning .sp-ring { animation: sp-ring 1.1s ease-out infinite; }
+.sp-stage.spinning .sp-ring.r1 { animation-delay: .36s; } .sp-stage.spinning .sp-ring.r2 { animation-delay: .72s; }
+@keyframes sp-ring { from { transform: scale(.4); opacity: .9; } to { transform: scale(1.5); opacity: 0; } }
+.sp-bubble { position: relative; bottom: auto; left: auto; margin-top: 14px; z-index: 3; text-align: center; max-width: 380px; }
+.sp-stage:not(.done) .sp-bubble { animation: none; opacity: 0; }
+.sp-stage.done .sp-bubble { animation: pop .4s cubic-bezier(.34,1.56,.64,1) forwards; }
+@media (prefers-reduced-motion: reduce) { .sp-stage.spinning .sp-turn, .sp-ring { animation: none !important; } }
 @keyframes away { to { opacity: 0; } }
 </style>
 </head>

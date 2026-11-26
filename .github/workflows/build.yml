@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
   push:
     tags: ["v*"]
-    # A new version number on main publishes a release by itself.
-    branches: [main]
+    # A new version number on main publishes a release by itself. Branches named
+    # test/… build and run every check on real Windows and Mac machines, without a release.
+    branches: [main, "test/**"]
     paths: ["package.json", ".github/workflows/build.yml", ".github/release-notes.md"]
 
 permissions:
@@ -56,11 +57,11 @@ jobs:
           Start-Sleep -Seconds 2
           # Again with the Cat Dock, a cat walk, a short focus timer, the paws and the app switcher.
           $d = Start-Process -FilePath $exe -ArgumentList '--dock-test' -PassThru
-          Start-Sleep -Seconds 20
+          Start-Sleep -Seconds 48
           if ($d.HasExited) { Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue; throw "Cat Key stopped with the Dock on (exit code $($d.ExitCode))" }
-          "Dock check: still running after 20 s"
+          "Dock check: still running after 48 s"
           Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue
-          Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'dock:|switch:|coach|crash' } | ForEach-Object { "::notice title=Windows log::$_" }
+          Get-Content "$env:APPDATA\CatKey\catkey.log" -ErrorAction SilentlyContinue | Where-Object { $_ -match 'dock:|switch:|coach|catgpt|crash' } | ForEach-Object { "::notice title=Windows log::$_" }
           Stop-Process -Id $d.Id -Force
           # The MCP connection AI apps use: a handshake and the list of tools.
           Set-Content -Path mcp-in.txt -Value @('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}', '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
@@ -112,11 +113,11 @@ jobs:
           sleep 3
           # Again with the Cat Dock, a cat walk, a short focus timer, the paws and the app switcher.
           open "$APP" --args --dock-test
-          sleep 20
+          sleep 48
           if ! pgrep -x CatKey > /dev/null; then cat "$HOME/Library/Application Support/CatKey/catkey.log" || true; echo "Cat Key stopped with the Dock on"; exit 1; fi
-          echo "Dock check: still running after 20 s"
+          echo "Dock check: still running after 48 s"
           cat "$HOME/Library/Application Support/CatKey/catkey.log" || true
-          grep -E "dock:|switch:|coach|crash" "$HOME/Library/Application Support/CatKey/catkey.log" | sed 's/^/::notice title=Mac log::/' || true
+          grep -E "dock:|switch:|coach|catgpt|crash" "$HOME/Library/Application Support/CatKey/catkey.log" | sed 's/^/::notice title=Mac log::/' || true
           pkill -x CatKey || true
           # The MCP connection AI apps use: a handshake and the list of tools.
           printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"1"}}}' '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | "$APP/Contents/MacOS/CatKey" --mcp > mcp-out.txt
@@ -129,6 +130,7 @@ jobs:
 
   release:
     needs: [windows, macos]
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

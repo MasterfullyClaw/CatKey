@@ -2,7 +2,8 @@
 // keyboard does happens in Rust, so this window can be closed at any time.
 
 import * as K from './keys.js';
-import { Mascot, SKINS, CATS, GEAR, RANKS, rankFor, gearById } from './mascot.js';
+import { Mascot, SKINS, CATS, GEAR, RANKS, rankFor, gearById, catGroup, CAT_GROUPS } from './mascot.js';
+import { paletteVars, applyVars } from './theme.js';
 import { sounds, setSoundsEnabled, setSoundParts, soundOn, PART_DEFAULTS, trainSounds, clickSound } from './sound.js';
 
 const backend = window.__TAURI__
@@ -46,6 +47,7 @@ const I = {
   layers: '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   wand: '<path d="m4 20 11-11M14 4v3M19 9h-3M17.5 5.5l-2 2M18 14v2M20 15h-4M8 3v2M9 4H7"/>',
+  chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1.1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01" stroke-width="2.6"/>',
   star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
@@ -341,10 +343,14 @@ function applyLook() {
   app.classList.toggle('light', !dark);
   const theme = myCat().theme || 'mochi';
   for (const k of SKINS) app.classList.toggle(k.id, k.id === theme);
+  // Meme cats (and any cat with a palette) colour the whole app; the house cats keep their themes.
+  const vars = paletteVars(myCat().pal, dark);
+  applyVars(app, vars);
+  document.body.style.background = vars?.['--bg'] || '';
   hero?.setLook(myLook());
   hero?.setName(cat());
   E?.mini?.setLook(myLook());
-  shareUi(dark, theme);
+  shareUi(dark, theme, vars);
   syncPawColors();
 }
 
@@ -402,13 +408,17 @@ function spotPicker(cur, mac, onPick) {
 /** Cat Key's own tools, for a shortcut's "Open app". */
 const CAT_TOOLS = {
   'catkey://switch': { name: 'App switcher', sub: 'Your open windows, with the keys' },
+  'catkey://catgpt': { name: 'CatGPT wheel', sub: 'Screenshot, draw, record, send to Claude or ChatGPT' },
+  'catkey://catgpt/shot': { name: 'CatGPT screenshot', sub: 'Straight into the basket' },
+  'catkey://catgpt/draw': { name: 'CatGPT canvas', sub: 'Draw and write on the screen' },
+  'catkey://catgpt/record': { name: 'CatGPT recording', sub: 'Start or stop a very light recording' },
 };
 
 /** The Cat Dock and the cat walk dress like the app: the same cat, theme and sounds. */
-function shareUi(dark, skin) {
+function shareUi(dark, skin, vars = null) {
   const s = S.config.settings;
   try {
-    localStorage.setItem('catkey.ui.now', JSON.stringify({ look: myLook(), skin, dark, name: cat(), sounds: s.sounds !== false, soundParts: s.soundParts || {} }));
+    localStorage.setItem('catkey.ui.now', JSON.stringify({ look: myLook(), skin, dark, vars, pal: myCat().pal || null, name: cat(), sounds: s.sounds !== false, soundParts: s.soundParts || {} }));
   } catch { /* the Dock keeps its last look */ }
 }
 
@@ -432,13 +442,13 @@ function renderTabs() {
   const libN = L.data ? libPacks().filter((p) => p._origin !== 'community').length : null;
   for (const [id, label, n, ic] of [['shortcuts', 'Your shortcuts', rules().length, 'keyboard'], ['library', 'Library', libN, 'book'],
     ['templates', 'Templates', allTemplates().length, 'layers'], ['train', 'Train', null, 'target'], ['warrior', 'Cat Warrior', null, 'star'],
-    ['coach', 'Coach', null, 'sparkle'], ['ai', 'Cat Builder', null, 'wand']]) {
+    ['coach', 'Coach', null, 'sparkle'], ['ai', 'Cat Builder', null, 'wand'], ['catgpt', 'CatGPT', null, 'chat']]) {
     box.append(h('button', { class: 'tab', type: 'button', role: 'tab', 'aria-selected': String(S.view === id), onclick: () => setView(id) },
       h('span', { class: 'ic', html: icon(ic) }), h('span', { text: label }), n == null ? null : h('span', { class: 'count', text: String(n) })));
   }
 }
 
-const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train', warrior: '#warrior', coach: '#coach-page', about: '#about-page', soon: '#soon-page' };
+const VIEW_BOX = { shortcuts: '#list', library: '#library', templates: '#templates', ai: '#aihelp', train: '#train', warrior: '#warrior', coach: '#coach-page', catgpt: '#catgpt-page', about: '#about-page', soon: '#soon-page' };
 function applyView() {
   for (const v of Object.keys(VIEW_BOX)) $('#app').classList.toggle(`view-${v}`, S.view === v);
   if (S.view !== 'shortcuts' && SEL.on) setSelecting(false);
@@ -449,6 +459,7 @@ function applyView() {
   if (S.view === 'warrior') renderWarrior();
   if (S.view === 'about') renderAbout();
   if (S.view === 'coach') renderCoach();
+  if (S.view === 'catgpt') renderCatGPT();
   $('#btn-about')?.setAttribute('aria-pressed', String(S.view === 'about'));
   $('#btn-soon')?.setAttribute('aria-pressed', String(S.view === 'soon'));
   if (S.view === 'soon') renderSoon();
@@ -510,12 +521,17 @@ function renderHero() {
 function catQuickPicker(anchor) {
   const me = myCat();
   const grid = h('div', { class: 'qp-grid' });
-  for (const c of allCats()) {
-    const mini = h('span', { class: 'mini' });
-    grid.append(h('button', { class: `qp-cat${c.id === me.id ? ' on' : ''}`, type: 'button', title: c.full, 'aria-pressed': String(c.id === me.id),
-      onclick: () => { closePop(); chooseCat(c).then(() => { hero?.knead(1400); floatHearts($('#cushion')); }); } },
-      mini, h('span', { class: 'nm', text: catTitle(c) })));
-    new Mascot(mini, { size: 58, look: myLook(c) });
+  for (const [g, label] of CAT_GROUPS) {
+    const cats = allCats().filter((c) => catGroup(c) === g);
+    if (!cats.length) continue;
+    grid.append(h('div', { class: 'qp-shelf', text: label }));
+    for (const c of cats) {
+      const mini = h('span', { class: 'mini' });
+      grid.append(h('button', { class: `qp-cat${c.id === me.id ? ' on' : ''}`, type: 'button', title: c.tag ? `${c.full} · ${c.tag}` : c.full, 'aria-pressed': String(c.id === me.id),
+        onclick: () => { closePop(); chooseCat(c).then(() => { hero?.knead(1400); floatHearts($('#cushion')); }); } },
+        mini, h('span', { class: 'nm', text: catTitle(c) })));
+      new Mascot(mini, { size: 58, look: myLook(c) });
+    }
   }
   showPop(anchor, h('div', { class: 'pop qp' },
     h('div', { class: 'qp-head' }, h('b', { text: 'Pick your cat' }), h('span', { class: 'hint', text: 'Just the look: your rank and stats stay yours.' })),
@@ -1069,6 +1085,21 @@ function wire() {
   backend.listen('ck://coach-adjust', takeAdjust);
   // An AI app sent a pack through Cat Key's connection.
   backend.listen('ck://inbox', () => takeInbox());
+  backend.listen('ck://catgpt', (e) => {
+    if (CG.info) CG.info.items = e.payload || [];
+    const ids = new Set((e.payload || []).map((i) => i.id));
+    for (const id of [...CG.sel]) if (!ids.has(id)) CG.sel.delete(id);
+    renderTabs();
+    if (S.view === 'catgpt') renderCatGPT();
+  });
+  backend.listen('ck://catgpt-note', (e) => { toast(String(e.payload)); cgLoad(true).then(() => { if (S.view === 'catgpt') renderCatGPT(); }); });
+  backend.listen('ck://catgpt-open', () => { cgLoad(true).finally(() => setView('catgpt')); });
+  // Files dropped on the window while CatGPT is open go into its basket.
+  backend.listen('tauri://drag-drop', (e) => {
+    const paths = e.payload?.paths || [];
+    if (S.view !== 'catgpt' || !paths.length) return;
+    cgDo('catgpt_add_files', { paths }, `${paths.length} file${paths.length > 1 ? 's' : ''} in the basket.`);
+  });
   setTimeout(takeInbox, 600);
   // Every click gets a soft paw tap (and now and then a little mew).
   document.addEventListener('click', (e) => { if (e.target.closest?.('button, [role="button"], summary, label')) clickSound(); }, true);
@@ -1925,6 +1956,7 @@ function renderSettings() {
   settingMinis = [];
   d.textContent = '';
   const s = S.config.settings;
+  const end = { mode: 'walk', walk: true, spin: true, motion: true, sound: true, ...(s.dock?.end || {}) };
 
   const me = myCat();
   const holder = h('span', {});
@@ -2016,9 +2048,17 @@ function renderSettings() {
           switchEl(!!s.dock?.keepClips, 'Remember copies after a restart', () => setDock(!!s.dock?.on, { keepClips: !s.dock?.keepClips, quiet: true }))),
         settingRow('How hard my computer works', `Processor, memory, graphics and heat, read every 2 seconds with the system’s own counters. ${cat()} gets serious when it works hard.`,
           switchEl(s.dock?.vitals !== false, 'Show how hard my computer works', () => setDock(!!s.dock?.on, { vitals: s.dock?.vitals === false, quiet: true }))),
+        settingRow('When a focus timer ends', end.mode === 'spin' ? `${cat()} spins in the middle of your screen, singing its own little song, then stretches.`
+          : end.mode === 'shuffle' ? 'A different ending each time, from the ones switched on in the Dock’s Focus page.' : `${cat()} walks along the bottom of your screen with a message.`,
+          h('div', { class: 'seg soft', role: 'group', 'aria-label': 'Ending' }, ...[['walk', 'Cat walk'], ['spin', 'Spinning cat'], ['shuffle', 'Shuffle']].map(([v, l]) =>
+            h('button', { type: 'button', 'aria-pressed': String(end.mode === v), text: l, onclick: () => setDock(!!s.dock?.on, { end: { ...end, mode: v }, quiet: true }) })))),
+        settingRow('Moving cats', 'Off: the cat just shows up with its message, nothing moves.',
+          switchEl(end.motion !== false, 'Moving cats', () => setDock(!!s.dock?.on, { end: { ...end, motion: end.motion === false }, quiet: true }))),
+        settingRow('Its sound', 'The ending’s own sound. Cat Key’s sounds (and their “Tools” part) need to be on too.',
+          switchEl(end.sound !== false, 'Ending sound', () => setDock(!!s.dock?.on, { end: { ...end, sound: end.sound === false }, quiet: true }))),
         h('div', { class: 'row-between', style: { paddingTop: '10px' } },
-          h('button', { class: 'btn small', type: 'button', html: `${icon('paw')}<span>See the cat walk</span>`, onclick: () => invoke('walk_test').catch((e) => toast(String(e), { kind: 'warn' })) }),
-          h('span', { class: 'hint', text: 'It walks by when a focus timer ends.' }))),
+          h('button', { class: 'btn small', type: 'button', html: `${icon('paw')}<span>Try the ending</span>`, onclick: () => invoke('walk_test', { kind: end.mode === 'shuffle' ? null : end.mode }).catch((e) => toast(String(e), { kind: 'warn' })) }),
+          h('span', { class: 'hint', text: 'Clicks go straight through it.' }))),
       h('section', { style: { gap: '0' } }, h('h2', { text: 'Shortcut coach', style: { marginBottom: '4px' } }),
         settingRow('Tips when you do it the long way', `Where tips appear, what you ignored, and what ${cat()} caught: all on the Coach page.`,
           h('button', { class: 'btn small', type: 'button', html: `${icon('sparkle')}<span>Open the Coach page</span>`, onclick: () => { closeSettings(); setView('coach'); } }))),
@@ -4151,7 +4191,7 @@ function gearOk(id, c = myCat()) {
 }
 function myLook(c = myCat()) {
   const worn = LOOK().wear?.[c.id] ?? c.gear ?? [];
-  return { skin: c.skin, colors: c.colors, ears: c.ears, gear: worn.filter((g) => gearOk(g, c)) };
+  return { skin: c.skin, colors: c.colors, ears: c.ears, gear: worn.filter((g) => gearOk(g, c)), face: c.face, patches: c.patches, pose: c.pose };
 }
 function saveLook(patch, extra = {}) {
   return commitSettings({ catLook: { ...LOOK(), ...patch }, ...extra }).then(() => { applyLook(); renderHero(); if (S.view === 'warrior') renderWarrior(); });
@@ -4332,6 +4372,201 @@ function agoText(secs) {
   if (m < 60 * 24) return `${Math.round(m / 60)} h ago`;
   const d = Math.round(m / 1440);
   return d === 1 ? 'yesterday' : `${d} days ago`;
+}
+
+// ------------------------------------------------------------------ CatGPT
+
+const CG = { info: null, at: 0, loading: null, sel: new Set(), ask: '', thumbs: new Map(), cat: null };
+const CG_PREF = 'catkey.catgpt';
+function cgPrefs() {
+  const d = { app: 'claude', now: false, video: false, use: { claude: true, chatgpt: true } };
+  try { return { ...d, ...JSON.parse(localStorage.getItem(CG_PREF) || '{}') }; } catch { return d; }
+}
+function cgSetPrefs(patch) {
+  try { localStorage.setItem(CG_PREF, JSON.stringify({ ...cgPrefs(), ...patch })); } catch { /* not kept */ }
+  renderCatGPT();
+}
+function cgLoad(force = false) {
+  if (!force && CG.info && Date.now() - CG.at < 4000) return Promise.resolve(CG.info);
+  CG.loading ||= invoke('catgpt_info').then((x) => { CG.info = x; CG.at = Date.now(); renderTabs(); return x; }).finally(() => { CG.loading = null; });
+  return CG.loading;
+}
+const cgRules = () => rules().filter((r) => r.action?.type === 'launch' && /^catkey:\/\/catgpt\/?$/i.test((r.action.target || '').trim()));
+const cgDefaultKeys = () => (PLAT() === 'mac' ? 'Win+Shift+Space' : 'Ctrl+Shift+Space');
+const CG_KIND = { shot: ['📸', 'Screenshot'], canvas: ['✏️', 'Canvas'], rec: ['🎥', 'Recording'], note: ['📝', 'Note'], file: ['📄', 'File'] };
+function cgThumb(it, img) {
+  if (CG.thumbs.has(it.id)) { img.src = CG.thumbs.get(it.id); return; }
+  invoke('catgpt_image', { id: it.id, frame: null }).then((url) => {
+    if (!url) return;
+    const im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 360 / im.naturalWidth);
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(im.naturalWidth * k));
+      c.height = Math.max(1, Math.round(im.naturalHeight * k));
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      const small = c.toDataURL('image/jpeg', 0.8);
+      CG.thumbs.set(it.id, small);
+      img.src = small;
+    };
+    im.src = url;
+  }).catch(() => {});
+}
+async function cgDo(cmd, args = {}, ok = '') {
+  try {
+    const r = await invoke(cmd, args);
+    if (ok) toast(ok);
+    cgLoad(true).then(() => { if (S.view === 'catgpt') renderCatGPT(); });
+    return r;
+  } catch (e) {
+    toast(String(e), { kind: 'warn', ms: 8000 });
+    return null;
+  }
+}
+async function cgSend(app, dest) {
+  const p = cgPrefs();
+  const name = app === 'chatgpt' ? 'ChatGPT' : 'Claude';
+  toast(`Opening ${name}…`);
+  const msg = await cgDo('catgpt_send', { req: { app, dest, ids: [...CG.sel], text: CG.ask.trim(), now: !!p.now, video: !!p.video } });
+  if (msg) { toast(msg, { ms: 6000 }); CG.sel.clear(); CG.ask = ''; renderCatGPT(); }
+}
+function cgSendMenu(anchor, app) {
+  const name = app === 'chatgpt' ? 'ChatGPT' : 'Claude';
+  const pop = h('div', { class: 'pop', role: 'menu' },
+    menuItem('plus', `A new ${name} chat`, () => cgSend(app, 'new')),
+    menuItem('app', 'The chat that’s open', () => cgSend(app, 'open')),
+    h('div', { class: 'sep' }),
+    h('div', { class: 'pop-label', text: 'Recent chats' }),
+    h('div', { class: 'cg-recent', text: 'Looking…' }));
+  showPop(anchor, pop);
+  invoke('catgpt_recent', { app }).then((list) => {
+    const box = pop.querySelector('.cg-recent');
+    if (!box) return;
+    box.textContent = '';
+    if (!list?.length) { box.append(h('span', { class: 'hint', text: app === 'claude' ? 'Not readable here: “The chat that’s open” works.' : 'None found.' })); return; }
+    for (const r of list) box.append(menuItem('chev', r.title, () => cgSend(app, r.dest)));
+  }).catch(() => {});
+}
+
+function renderCatGPT() {
+  const box = $('#catgpt-page');
+  if (!box) return;
+  if (!CG.info && !CG.loading) cgLoad().then(() => { if (S.view === 'catgpt') renderCatGPT(); }).catch((e) => toast(String(e), { kind: 'err' }));
+  CG.cat?.destroy();
+  const keepScroll = $('#scroll').scrollTop;
+  box.textContent = '';
+  const info = CG.info || { apps: [], items: [], dir: '', bytes: 0, recording: false, canCapture: true };
+  const p = cgPrefs();
+  const mac = PLAT() === 'mac';
+  const kb = (k) => K.plain(k);
+
+  // ---- what it is, and the tools
+  const holder = h('span', { class: 'cp-cat' });
+  const tool = (em, label, fn, title) => h('button', { class: 'btn small', type: 'button', title: title || label, onclick: fn }, h('span', { class: 'em', text: em }), h('span', { text: label }));
+  box.append(h('div', { class: 'cp-hero cg-hero' }, holder,
+    h('div', { class: 'txt' },
+      h('h2', { class: 'display', text: 'CatGPT' }),
+      h('p', { class: 'hint', text: `Show Claude or ChatGPT what’s on your screen, fast. Press your CatGPT keys and a wheel spins out around the pointer: rest on a choice to pick it. Screenshots, drawings on the screen, very light recordings, notes and files wait in the basket; send them to a new chat, the one that’s open or a recent one, left as a draft so you can still pick the model.` }),
+      h('div', { class: 'row cg-tools' },
+        tool('🌀', 'Open the wheel', () => invoke('catgpt_wheel_open').catch((e) => toast(String(e), { kind: 'warn' }))),
+        tool('📸', 'Screenshot', () => cgDo('catgpt_shot', {}, 'Screenshot in the basket.')),
+        tool('✏️', 'Draw on the screen', () => cgDo('catgpt_draw', { blank: false })),
+        tool(info.recording ? '⏹️' : '🎥', info.recording ? 'Stop recording' : 'Record', () => cgDo('catgpt_record', { on: !info.recording }, info.recording ? '' : 'Recording. Press your CatGPT keys or Stop to finish.')),
+        tool('📎', 'Add files', () => cgDo('catgpt_pick_files')))),
+  ));
+  CG.cat = new Mascot(holder, { size: 84, look: myLook() });
+
+  if (mac && !info.canCapture) {
+    box.append(h('section', { class: 'wr-card cg-warn' },
+      h('h3', { text: 'macOS needs your OK to see the screen' }),
+      h('p', { class: 'hint', text: 'Screenshots, the canvas and recordings need Screen & System Audio Recording. Allow Cat Key there, then open Cat Key again.' }),
+      h('div', { class: 'row' }, h('button', { class: 'btn small strong', type: 'button', text: 'Allow screen recording', onclick: () => invoke('catgpt_ask_capture').then((ok) => toast(ok ? 'Allowed.' : 'Switch Cat Key on in that list, then open Cat Key again.', { ms: 8000 })).catch(() => {}) }))));
+  }
+
+  // ---- the keys, the apps, how it sends
+  const sc = cgRules()[0];
+  const keysRow = sc
+    ? h('div', { class: 'row' }, kcaps(kb(sc.trigger)), h('button', { class: 'btn small', type: 'button', text: 'Change', onclick: () => openEditor(sc) }))
+    : h('div', { class: 'row' },
+      h('button', { class: 'btn small strong', type: 'button', text: `Use ${kb(cgDefaultKeys())}`, onclick: () => {
+        const keys = cgDefaultKeys();
+        if (rules().some((r) => r.trigger === keys)) { toast(`${kb(keys)} already does something. Choose other keys.`, { kind: 'warn' }); return; }
+        commit({ ...S.config, rules: [...rules(), { id: newId(), enabled: true, name: 'CatGPT', trigger: keys, action: { type: 'launch', target: 'catkey://catgpt', args: '' }, scope: { mode: 'all', apps: [] } }] })
+          .then(() => toast(`${kb(keys)} opens the CatGPT wheel, anywhere.`));
+      } }),
+      h('button', { class: 'btn small', type: 'button', text: 'Choose keys', onclick: () => openEditor({ id: newId(), enabled: true, name: 'CatGPT', trigger: '', action: { type: 'launch', target: 'catkey://catgpt', args: '' }, scope: { mode: 'all', apps: [] } }, { isNew: true }) }));
+  const appRows = info.apps.map((a) => settingRow(
+    `${a.id === 'claude' ? '🧡' : '💚'} ${a.name} app`,
+    a.installed ? `On this computer${a.deep ? '. New chats open with your words already typed in.' : '.'}` : `Not on this computer yet. Get it from ${a.id === 'claude' ? 'claude.com/download' : 'chatgpt.com/download'}.`,
+    h('div', { class: 'row' },
+      h('label', { class: 'cg-radio' }, h('input', { type: 'radio', name: 'cg-app', checked: p.app === a.id, disabled: !a.installed, onchange: () => cgSetPrefs({ app: a.id }) }), h('span', { text: 'Default' })),
+      switchEl(a.installed && p.use?.[a.id] !== false, `${a.name} in the wheel`, () => cgSetPrefs({ use: { ...(p.use || {}), [a.id]: p.use?.[a.id] === false } })))));
+  box.append(h('section', { class: 'wr-card cg-setup' },
+    h('h3', { text: 'Your CatGPT keys' }),
+    h('p', { class: 'hint', text: `They open the wheel wherever you are. While a recording runs, they stop it.${mac ? ' ⌘ is shown as Win here.' : ''}` }),
+    keysRow,
+    h('h3', { text: 'Connected apps', style: { marginTop: '10px' } }),
+    ...appRows,
+    settingRow('When it’s in the message box', p.now ? 'Cat Key presses Enter for you once the files are in.' : 'It waits there, so you can change the model or effort, then press Enter yourself.',
+      h('div', { class: 'seg soft', role: 'group', 'aria-label': 'After pasting' },
+        h('button', { type: 'button', 'aria-pressed': String(!p.now), text: 'Leave it as a draft', onclick: () => cgSetPrefs({ now: false }) }),
+        h('button', { type: 'button', 'aria-pressed': String(!!p.now), text: 'Send it right away', onclick: () => cgSetPrefs({ now: true }) }))),
+    settingRow('Recordings as video files too', 'AI chats read pictures, so a recording goes as a few stills from it. Switch this on to attach the video file as well.',
+      switchEl(!!p.video, 'Attach video files', () => cgSetPrefs({ video: !p.video })))));
+
+  // ---- the basket
+  const items = info.items || [];
+  const fresh = items.filter((i) => !i.sent);
+  const grid = h('div', { class: 'cg-grid' });
+  for (const it of items) {
+    const [em, kind] = CG_KIND[it.kind] || ['📄', 'File'];
+    const on = CG.sel.has(it.id);
+    let thumb;
+    if (['shot', 'canvas', 'rec'].includes(it.kind) || (it.kind === 'file' && /\.(png|jpe?g|gif|webp|bmp)$/i.test(it.name))) {
+      const img = h('img', { alt: '', loading: 'lazy' });
+      thumb = h('div', { class: 'cg-thumb' }, img, it.kind === 'rec' ? h('span', { class: 'dur', text: `🎥 ${Math.round(it.secs || 0)} s` }) : null);
+      cgThumb(it, img);
+    } else if (it.kind === 'note') thumb = h('div', { class: 'cg-thumb note', text: it.text.slice(0, 220) });
+    else thumb = h('div', { class: 'cg-thumb file' }, h('span', { class: 'em', text: '📄' }), h('span', { text: (it.name.split('.').pop() || '').toUpperCase().slice(0, 5) }));
+    grid.append(h('div', { class: `cg-item${on ? ' on' : ''}${it.sent ? '' : ' fresh'}`, role: 'listitem' },
+      h('label', { class: 'cg-pick', title: 'Send this one' }, h('input', { type: 'checkbox', checked: on, onchange: (e) => { if (e.target.checked) CG.sel.add(it.id); else CG.sel.delete(it.id); renderCatGPT(); } })),
+      thumb,
+      h('div', { class: 'cg-meta' }, h('b', { text: it.kind === 'note' || it.kind === 'file' ? it.name : `${em} ${kind}` }),
+        h('span', { text: [it.kind === 'note' ? null : fmtBytes(it.bytes), agoText(it.added), it.sent ? 'sent' : 'new'].filter(Boolean).join(' · ') })),
+      h('div', { class: 'cg-acts' },
+        it.kind === 'note' ? null : h('button', { class: 'tbtn', type: 'button', title: 'Open', 'aria-label': 'Open', html: icon('launch'), onclick: () => cgDo('catgpt_open_item', { id: it.id, reveal: false }) }),
+        it.kind === 'note' ? null : h('button', { class: 'tbtn', type: 'button', title: 'Show in its folder', 'aria-label': 'Show in its folder', html: icon('folder'), onclick: () => cgDo('catgpt_open_item', { id: it.id, reveal: true }) }),
+        h('button', { class: 'tbtn', type: 'button', title: 'Remove', 'aria-label': 'Remove', html: icon('trash'), onclick: () => { CG.sel.delete(it.id); cgDo('catgpt_remove', { ids: [it.id] }); } }))));
+  }
+  const noteBox = h('textarea', { class: 'field', rows: '2', placeholder: 'Ask something with it (optional): “What’s wrong on this page?”', value: CG.ask, oninput: (e) => { CG.ask = e.target.value; } });
+  const pickInfo = CG.sel.size ? `${CG.sel.size} picked` : fresh.length ? `The ${fresh.length} new one${fresh.length > 1 ? 's' : ''} go${fresh.length > 1 ? '' : 'es'}` : 'Nothing new: a screenshot is taken';
+  const sendBtns = info.apps.filter((a) => a.installed && p.use?.[a.id] !== false).map((a) =>
+    h('button', { class: `btn ${p.app === a.id ? 'primary' : ''}`, type: 'button', html: `<span class="em">${a.id === 'claude' ? '🧡' : '💚'}</span><span>Send to ${a.name}</span>${icon('chev', 'dd')}`, onclick: (e) => cgSendMenu(e.currentTarget, a.id) }));
+  box.append(h('section', { class: 'wr-card cg-basket' },
+    h('div', { class: 'row-between' }, h('h3', { text: `The basket${items.length ? ` · ${items.length}` : ''}` }),
+      h('div', { class: 'row' },
+        items.length ? h('button', { class: 'link', type: 'button', text: 'Pick the new ones', onclick: () => { CG.sel = new Set(fresh.map((i) => i.id)); renderCatGPT(); } }) : null,
+        CG.sel.size ? h('button', { class: 'link', type: 'button', text: 'Pick none', onclick: () => { CG.sel.clear(); renderCatGPT(); } }) : null,
+        CG.sel.size ? h('button', { class: 'link danger', type: 'button', text: `Remove ${CG.sel.size}`, onclick: () => { const ids = [...CG.sel]; CG.sel.clear(); cgDo('catgpt_remove', { ids }); } }) : null)),
+    items.length ? h('div', { class: 'cg-grid-wrap', role: 'list' }, grid)
+      : h('div', { class: 'cg-empty' }, h('span', { class: 'em', text: '🧺' }), h('span', { text: 'Empty. Take a screenshot, draw on the screen, record or drop files here.' })),
+    noteBox,
+    h('div', { class: 'row cg-send' }, h('span', { class: 'hint', text: pickInfo }), h('span', { style: { flex: '1' } }), ...(sendBtns.length ? sendBtns : [h('span', { class: 'hint', text: 'Connect Claude or ChatGPT above to send.' })])),
+    h('div', { class: 'row-between cg-folder' },
+      h('span', { class: 'hint', text: `Kept in ${info.dir || 'Cat Key’s folder'} · ${fmtBytes(info.bytes)}` }),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn small', type: 'button', html: `${icon('folder')}<span>Open the folder</span>`, onclick: () => cgDo('catgpt_open_folder') }),
+        h('button', { class: 'btn small danger', type: 'button', html: `${icon('trash')}<span>Clear everything</span>`, onclick: async () => {
+          if (!(await confirmBox('Clear the CatGPT basket?', `Every screenshot, canvas, recording, note and file in it is deleted from this computer (${fmtBytes(info.bytes)}).`, 'Clear everything', true))) return;
+          CG.sel.clear(); CG.thumbs.clear();
+          cgDo('catgpt_clear', {}, 'The basket is empty.');
+        } })))));
+
+  // Drop files on the page to put them in the basket.
+  box.ondragover = (e) => { e.preventDefault(); box.classList.add('drop'); };
+  box.ondragleave = () => box.classList.remove('drop');
+  box.ondrop = (e) => { e.preventDefault(); box.classList.remove('drop'); };
+  $('#scroll').scrollTop = keepScroll;
 }
 
 /** Adjust: a new shortcut of your own that does what the tip said, in the app it was seen in. */
@@ -4635,11 +4870,17 @@ async function renderWarrior() {
 
   // ---- choose your cat
   const picker = h('div', { class: 'cat-grid' });
-  for (const c of allCats()) {
-    const mini = h('span', { class: 'mini' });
-    picker.append(h('button', { class: `cat-pick${c.id === me.id ? ' on' : ''}`, type: 'button', 'aria-pressed': String(c.id === me.id), title: c.full, onclick: () => chooseCat(c) },
-      mini, h('b', { text: catTitle(c) }), h('span', { class: 'tag', text: c.tag || '' })));
-    W.minis.push(new Mascot(mini, { size: 70, look: myLook(c) }));
+  for (const [g, label] of CAT_GROUPS) {
+    const cats = allCats().filter((c) => catGroup(c) === g);
+    if (!cats.length) continue;
+    picker.append(h('div', { class: 'cat-shelf', text: label }));
+    for (const c of cats) {
+      const mini = h('span', { class: 'mini' });
+      picker.append(h('button', { class: `cat-pick${c.id === me.id ? ' on' : ''}`, type: 'button', 'aria-pressed': String(c.id === me.id), title: c.full, onclick: () => chooseCat(c) },
+        mini, h('b', { text: catTitle(c) }), h('span', { class: 'tag', text: c.tag || '' }),
+        c.pal ? h('span', { class: 'cat-swatch', style: { background: c.pal.ac }, title: 'Colours the app' }) : null));
+      W.minis.push(new Mascot(mini, { size: 70, look: myLook(c) }));
+    }
   }
   picker.append(h('button', { class: 'cat-pick make', type: 'button', onclick: () => { W.editor = !W.editor; renderWarrior(); } },
     h('span', { class: 'plus', html: icon('plus') }), h('b', { text: 'Make one' }), h('span', { class: 'tag', text: 'Colours or AI' })));
@@ -4648,7 +4889,7 @@ async function renderWarrior() {
 
   // ---- the wardrobe
   const worn = new Set(myLook().gear);
-  const slots = [['head', 'Head'], ['face', 'Face'], ['back', 'Back'], ['belt', 'Belt'], ['hand', 'Paw'], ['aura', 'Glow']];
+  const slots = [['head', 'Head'], ['face', 'Face'], ['body', 'Outfit'], ['back', 'Back'], ['belt', 'Belt'], ['hand', 'Paw'], ['front', 'In front'], ['fx', 'Around'], ['aura', 'Glow']];
   const wardrobe = h('div', { class: 'wardrobe' });
   for (const [slot, label] of slots) {
     const items = GEAR.filter((g) => g.slot === slot);
