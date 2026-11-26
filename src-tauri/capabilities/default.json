@@ -11,7 +11,8 @@
     "catgpt",
     "canvas",
     "rec",
-    "paws"
+    "paws",
+    "glass-*"
   ],
   "permissions": [
     "core:default",

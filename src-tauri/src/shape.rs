@@ -4,7 +4,24 @@
 //! clicks between the petals reach the app underneath. On a Mac there's nothing to do.
 
 use serde::Deserialize;
-use tauri::WebviewWindow;
+use tauri::{Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
+
+/// A see-through window. On Windows it draws without a "redirection surface": the page is
+/// composed straight onto the screen with its own see-through parts. The older way (the
+/// window as a sheet of glass) shows as a solid dark or light box when Windows'
+/// transparency effects are off, or on some graphics drivers.
+pub trait SeeThrough {
+    fn see_through(self) -> Self;
+}
+
+impl<'a, R: Runtime, M: Manager<R>> SeeThrough for WebviewWindowBuilder<'a, R, M> {
+    fn see_through(self) -> Self {
+        let b = self.transparent(true);
+        #[cfg(windows)]
+        let b = b.no_redirection_bitmap(true);
+        b
+    }
+}
 
 /// A shape in CSS pixels from the window's top-left: a rounded box, or an ellipse when the
 /// corner radius is half the smaller side or more.

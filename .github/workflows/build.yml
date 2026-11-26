@@ -44,6 +44,18 @@ jobs:
           Copy-Item target/release/CatKey.exe out/CatKey-portable-x64.exe
           Copy-Item (Get-ChildItem target/release/bundle/nsis/*.exe | Select-Object -First 1).FullName out/CatKey-Setup-x64.exe
           Get-ChildItem out
+      - name: Dark mode with transparency effects off (the hardest case for see-through windows)
+        shell: pwsh
+        run: |
+          $k = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+          New-Item -Path $k -Force | Out-Null
+          Set-ItemProperty -Path $k -Name EnableTransparency -Value 0 -Type DWord
+          Set-ItemProperty -Path $k -Name AppsUseLightTheme -Value 0 -Type DWord
+          Set-ItemProperty -Path $k -Name SystemUsesLightTheme -Value 0 -Type DWord
+          Add-Type -Namespace CK -Name U -MemberDefinition '[DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr SendMessageTimeout(IntPtr h, uint m, UIntPtr w, string l, uint f, uint t, out UIntPtr r);'
+          $r = [UIntPtr]::Zero
+          [CK.U]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [UIntPtr]::Zero, 'ImmersiveColorSet', 2, 5000, [ref]$r) | Out-Null
+          "Dark mode on, transparency effects off"
       - name: Make sure it starts
         shell: pwsh
         run: |

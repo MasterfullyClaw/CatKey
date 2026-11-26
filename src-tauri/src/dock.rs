@@ -15,6 +15,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use crate::shape::SeeThrough;
 
 /// The ball's window (the ball itself is a bit smaller, with room for its shadow).
 const BALL: f64 = 84.0;
@@ -216,7 +217,7 @@ fn build(app: &AppHandle) -> Option<WebviewWindow> {
         .title("Cat Dock")
         .inner_size(BALL, BALL)
         .decorations(false)
-        .transparent(true)
+        .see_through()
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
@@ -850,7 +851,7 @@ pub fn ending(app: &AppHandle, text: String, kind: &'static str, end: &TimerEnd)
                     .title("Cat walk")
                     .inner_size(800.0, 220.0)
                     .decorations(false)
-                    .transparent(true)
+                    .see_through()
                     .shadow(false)
                     .always_on_top(true)
                     .skip_taskbar(true)

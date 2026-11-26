@@ -12,6 +12,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use crate::shape::SeeThrough;
 
 static APP: Mutex<Option<AppHandle>> = Mutex::new(None);
 static ITEMS: Mutex<Vec<Item>> = Mutex::new(Vec::new());
@@ -565,7 +566,7 @@ fn window(a: &AppHandle, label: &str, page: &str, focus: bool) -> Option<Webview
         .title("CatGPT")
         .inner_size(440.0, 440.0)
         .decorations(false)
-        .transparent(true)
+        .see_through()
         .shadow(false)
         .always_on_top(true)
         .skip_taskbar(true)
@@ -1099,6 +1100,8 @@ pub fn catgpt_wheel_open() {
 pub fn ci_test() {
     CI.store(true, Ordering::Relaxed);
     crate::log(&format!("catgpt: {}", self_test()));
+    #[cfg(windows)]
+    ci_glass();
     match shot_blocking() {
         Ok(i) => {
             crate::log(&format!("catgpt: screenshot {}x{} {} KB", i.w, i.h, i.bytes / 1000));
@@ -1140,6 +1143,48 @@ pub fn ci_test() {
     }
     let apps = detect_apps();
     crate::log(&format!("catgpt: apps {}", apps.iter().map(|a| format!("{}={}", a.id, a.installed)).collect::<Vec<_>>().join(" ")));
+}
+
+/// The release check only: the same round dot in four see-through windows made four ways,
+/// side by side in one picture, to see which way shows a box around it on this PC.
+#[cfg(windows)]
+fn ci_glass() {
+    let Some(a) = app() else { return };
+    let ways: [(&str, &str, bool, bool, bool); 4] = [
+        ("glass-a", "A old", false, false, false),
+        ("glass-b", "B old cut", false, true, false),
+        ("glass-c", "C new", true, false, false),
+        ("glass-d", "D new click-through", true, false, true),
+    ];
+    let mut made = Vec::new();
+    for (i, (label, text, new_way, cut, through)) in ways.into_iter().enumerate() {
+        let url = format!("ci-glass.html?t={}&shape={}", text.replace(' ', "%20"), if cut { 1 } else { 0 });
+        let b = WebviewWindowBuilder::new(&a, label, WebviewUrl::App(url.into()))
+            .title("Cat Key check")
+            .inner_size(240.0, 240.0)
+            .position(20.0 + 250.0 * i as f64, 470.0)
+            .decorations(false)
+            .shadow(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .resizable(false)
+            .focused(false);
+        let b = if new_way { b.see_through() } else { b.transparent(true) };
+        match b.build() {
+            Ok(w) => {
+                if through {
+                    let _ = w.set_ignore_cursor_events(true);
+                }
+                made.push(w);
+            }
+            Err(e) => crate::log(&format!("catgpt: glass {label} failed: {e}")),
+        }
+    }
+    std::thread::sleep(Duration::from_millis(2500));
+    ci_picture("glass");
+    for w in made {
+        let _ = w.destroy();
+    }
 }
 
 /// The release check only: a picture of the whole screen (the wheel, the Dock…), kept for
