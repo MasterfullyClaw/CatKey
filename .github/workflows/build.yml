@@ -32,8 +32,10 @@ jobs:
         with:
           node-version: 22
       - run: npm ci || npm install
+      - name: Minify the app's pages for the release (the repo's source stays as it is)
+        run: node scripts/protect.mjs
       - name: Build app and installer
-        run: npm run build
+        run: npx tauri build --config src-tauri/tauri.release.json
       - name: Collect files
         shell: pwsh
         run: |
@@ -87,8 +89,10 @@ jobs:
         with:
           node-version: 22
       - run: npm ci || npm install
+      - name: Minify the app's pages for the release (the repo's source stays as it is)
+        run: node scripts/protect.mjs
       - name: Build the Mac app (Apple Silicon and Intel in one)
-        run: npx tauri build --target universal-apple-darwin --bundles app
+        run: npx tauri build --target universal-apple-darwin --bundles app --config src-tauri/tauri.release.json
       - name: Disk image and zip
         run: |
           set -e

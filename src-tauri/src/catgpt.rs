@@ -520,6 +520,16 @@ fn screen_here(a: &AppHandle) -> Option<(PhysicalPosition<i32>, PhysicalSize<u32
     Some((*m.position(), *m.size(), m.scale_factor()))
 }
 
+/// Bring one of CatGPT's windows to the front with the keyboard (Windows only lets an app
+/// in the background do that through the same trick the app switcher uses).
+fn focus_hard(w: &WebviewWindow) {
+    let _ = w.set_focus();
+    #[cfg(windows)]
+    if let Ok(h) = w.hwnd() {
+        let _ = crate::win::switch_to(&(h.0 as usize).to_string(), false);
+    }
+}
+
 fn window(a: &AppHandle, label: &str, page: &str, focus: bool) -> Option<WebviewWindow> {
     if let Some(w) = a.get_webview_window(label) {
         return Some(w);
@@ -584,7 +594,7 @@ pub fn wheel() {
         *LAST_WHEEL.lock().unwrap() = Some(p.clone());
         let _ = w.emit("ck://wheel", p);
         let _ = w.show();
-        let _ = w.set_focus();
+        focus_hard(&w);
     });
 }
 
@@ -632,8 +642,13 @@ pub fn catgpt_wheel_last() -> Option<WheelPayload> {
 }
 
 /// The wheel closes; `back` gives the front back to the app that had it.
+static CI: AtomicBool = AtomicBool::new(false);
+
 #[tauri::command]
 pub fn catgpt_wheel_hide(back: bool) {
+    if CI.load(Ordering::Relaxed) {
+        crate::log(&format!("catgpt: the wheel asked to close (back {back})"));
+    }
     hide_window("catgpt");
     if back {
         give_back();
@@ -662,7 +677,7 @@ fn canvas_open(blank: bool) -> Result<(), String> {
     crate::cg::float_above_all(&a, &w, 101);
     let _ = w.emit("ck://canvas", WHEEL_SEQ.fetch_add(1, Ordering::SeqCst) + 1);
     let _ = w.show();
-    let _ = w.set_focus();
+    focus_hard(&w);
     Ok(())
 }
 
@@ -1049,7 +1064,7 @@ fn recent_chats(which: &str) -> Vec<Recent> {
         // The ChatGPT app opens its six most recent chats with ⌘⌥1–6 / Ctrl+Alt+1–6.
         return (1..=6).map(|n| Recent { title: format!("Recent chat {n}"), dest: format!("recent:{n}") }).collect();
     }
-    Vec::new()
+    crate::cg::claude_recent().into_iter().map(|(title, id)| Recent { title, dest: format!("chat:{id}") }).collect()
 }
 
 #[tauri::command]
@@ -1059,6 +1074,7 @@ pub fn catgpt_wheel_open() {
 
 /// The release check (--dock-test): every part once, each result in the log.
 pub fn ci_test() {
+    CI.store(true, Ordering::Relaxed);
     crate::log(&format!("catgpt: {}", self_test()));
     match shot_blocking() {
         Ok(i) => {
@@ -1071,7 +1087,9 @@ pub fn ci_test() {
     wheel();
     std::thread::sleep(Duration::from_secs(3));
     crate::log(&format!("catgpt: wheel shown {}", vis("catgpt")));
+    CI.store(false, Ordering::Relaxed);
     catgpt_wheel_hide(false);
+    CI.store(true, Ordering::Relaxed);
     let c = canvas_open(true);
     std::thread::sleep(Duration::from_secs(3));
     crate::log(&format!("catgpt: canvas shown {} {:?}", vis("canvas"), c.err()));

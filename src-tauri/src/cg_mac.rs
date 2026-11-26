@@ -298,3 +298,160 @@ pub fn float_above_all(app: &tauri::AppHandle, w: &tauri::WebviewWindow, level: 
 pub fn front_id() -> Option<String> {
     crate::win::front_app().map(|(_, pid)| pid.to_string()).filter(|p| p != &std::process::id().to_string())
 }
+
+// ------------------------------------------------------------------ Claude's recent chats
+
+type CFRef = *const c_void;
+
+#[link(name = "ApplicationServices", kind = "framework")]
+extern "C" {
+    fn AXIsProcessTrusted() -> bool;
+    fn AXUIElementCreateApplication(pid: i32) -> CFRef;
+    fn AXUIElementCopyAttributeValue(element: CFRef, attribute: CFRef, value: *mut CFRef) -> i32;
+    fn AXUIElementSetAttributeValue(element: CFRef, attribute: CFRef, value: CFRef) -> i32;
+    fn AXUIElementSetMessagingTimeout(element: CFRef, seconds: f32) -> i32;
+}
+#[link(name = "CoreFoundation", kind = "framework")]
+extern "C" {
+    static kCFBooleanTrue: CFRef;
+    fn CFRetain(cf: CFRef) -> CFRef;
+    fn CFGetTypeID(cf: CFRef) -> usize;
+    fn CFStringGetTypeID() -> usize;
+    fn CFArrayGetTypeID() -> usize;
+    fn CFURLGetTypeID() -> usize;
+    fn CFArrayGetCount(arr: CFRef) -> isize;
+    fn CFArrayGetValueAtIndex(arr: CFRef, i: isize) -> CFRef;
+    fn CFURLGetString(url: CFRef) -> CFRef;
+}
+
+/// An Accessibility object we own (released when dropped).
+struct Ax(CFRef);
+impl Drop for Ax {
+    fn drop(&mut self) {
+        if !self.0.is_null() {
+            unsafe { CFRelease(self.0) };
+        }
+    }
+}
+
+fn cfs(s: &str) -> core_foundation::string::CFString {
+    core_foundation::string::CFString::new(s)
+}
+
+fn cf_to_string(v: CFRef) -> Option<String> {
+    use core_foundation::base::TCFType;
+    unsafe {
+        if v.is_null() || CFGetTypeID(v) != CFStringGetTypeID() {
+            return None;
+        }
+        Some(core_foundation::string::CFString::wrap_under_get_rule(v as _).to_string())
+    }
+}
+
+impl Ax {
+    fn copy(&self, attr: &str) -> Option<Ax> {
+        use core_foundation::base::TCFType;
+        let name = cfs(attr);
+        let mut v: CFRef = std::ptr::null();
+        let ok = unsafe { AXUIElementCopyAttributeValue(self.0, name.as_concrete_TypeRef() as CFRef, &mut v) } == 0;
+        (ok && !v.is_null()).then_some(Ax(v))
+    }
+    fn text(&self, attr: &str) -> Option<String> {
+        self.copy(attr).and_then(|v| cf_to_string(v.0)).filter(|s| !s.trim().is_empty())
+    }
+    fn url(&self) -> Option<String> {
+        let v = self.copy("AXURL")?;
+        unsafe {
+            if CFGetTypeID(v.0) == CFURLGetTypeID() {
+                cf_to_string(CFURLGetString(v.0))
+            } else {
+                cf_to_string(v.0)
+            }
+        }
+    }
+    fn children(&self) -> Vec<Ax> {
+        let Some(arr) = self.copy("AXChildren") else { return Vec::new() };
+        unsafe {
+            if CFGetTypeID(arr.0) != CFArrayGetTypeID() {
+                return Vec::new();
+            }
+            (0..CFArrayGetCount(arr.0)).map(|i| Ax(CFRetain(CFArrayGetValueAtIndex(arr.0, i)))).collect()
+        }
+    }
+    /// A link's words: its title, or the text inside it.
+    fn label(&self) -> Option<String> {
+        if let Some(t) = self.text("AXTitle").or_else(|| self.text("AXDescription")) {
+            return Some(t);
+        }
+        let mut stack = self.children();
+        let mut n = 0;
+        while let Some(c) = stack.pop() {
+            n += 1;
+            if n > 40 {
+                break;
+            }
+            if let Some(v) = c.text("AXValue").or_else(|| c.text("AXTitle")) {
+                return Some(v);
+            }
+            stack.extend(c.children());
+        }
+        None
+    }
+}
+
+fn claude_pid() -> Option<i32> {
+    use objc2::rc::autoreleasepool;
+    autoreleasepool(|_| {
+        let apps = objc2_app_kit::NSRunningApplication::runningApplicationsWithBundleIdentifier(&objc2_foundation::NSString::from_str(
+            "com.anthropic.claudefordesktop",
+        ));
+        apps.iter().next().map(|a| a.processIdentifier())
+    })
+}
+
+/// The chats in the Claude app's sidebar, most recent first: (title, chat id). Read the way a
+/// screen reader reads them (Cat Key already has the Accessibility permission).
+pub fn claude_recent() -> Vec<(String, String)> {
+    use core_foundation::base::TCFType;
+    let Some(pid) = claude_pid() else { return Vec::new() };
+    if !unsafe { AXIsProcessTrusted() } {
+        return Vec::new();
+    }
+    let app = Ax(unsafe { AXUIElementCreateApplication(pid) });
+    if app.0.is_null() {
+        return Vec::new();
+    }
+    unsafe {
+        AXUIElementSetMessagingTimeout(app.0, 0.4);
+        // Electron apps build their accessibility tree only when it's asked for.
+        let first = AXUIElementSetAttributeValue(app.0, cfs("AXManualAccessibility").as_concrete_TypeRef() as CFRef, kCFBooleanTrue) == 0;
+        if first {
+            std::thread::sleep(Duration::from_millis(250));
+        }
+    }
+    let mut out: Vec<(String, String)> = Vec::new();
+    let mut queue: std::collections::VecDeque<(Ax, u32)> = app.children().into_iter().map(|c| (c, 0)).collect();
+    let start = Instant::now();
+    let mut seen = 0;
+    while let Some((el, depth)) = queue.pop_front() {
+        seen += 1;
+        if seen > 9000 || start.elapsed() > Duration::from_secs(4) || out.len() >= 15 {
+            break;
+        }
+        if el.text("AXRole").as_deref() == Some("AXLink") {
+            if let Some(url) = el.url() {
+                if let Some(id) = url.split("/chat/").nth(1).map(|s| s.chars().take_while(|c| c.is_ascii_hexdigit() || *c == '-').collect::<String>()) {
+                    if id.len() >= 32 && !out.iter().any(|(_, i)| *i == id) {
+                        let title = el.label().unwrap_or_else(|| "A chat".into());
+                        out.push((title.chars().take(80).collect(), id));
+                    }
+                }
+            }
+            continue;
+        }
+        if depth < 60 {
+            queue.extend(el.children().into_iter().map(|c| (c, depth + 1)));
+        }
+    }
+    out
+}

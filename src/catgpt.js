@@ -276,14 +276,23 @@ document.addEventListener('keydown', (e) => {
 root.addEventListener('pointerdown', (e) => {
   if (e.target === root || e.target === wheel || e.target === ring) close(true);
 });
-// Clicking another app puts it away.
-window.addEventListener('blur', () => { if (!W.busy && wheel.classList.contains('open')) close(false); });
+// Clicking another app puts it away (but not a focus hiccup right after it opens, and not
+// while the pointer is still on the wheel).
+document.addEventListener('pointermove', () => { W.moved = Date.now(); }, { passive: true });
+window.addEventListener('blur', () => {
+  setTimeout(() => {
+    if (W.busy || !wheel.classList.contains('open') || document.hasFocus()) return;
+    if (Date.now() - (W.openedAt || 0) < 900 || Date.now() - (W.moved || 0) < 1500) return;
+    close(false);
+  }, 300);
+});
 
 function open(p) {
   if (!p || p.seq === W.seq) return;
   W.seq = p.seq;
   W.p = p;
   W.busy = false;
+  W.openedAt = Date.now();
   dress();
   card.hidden = true;
   wheel.classList.remove('open');

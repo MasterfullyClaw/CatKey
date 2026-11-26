@@ -422,3 +422,50 @@ pub fn front_id() -> Option<String> {
         (pid != std::process::id()).then(|| (fg as usize).to_string())
     }
 }
+
+// ------------------------------------------------------------------ Claude's recent chats
+
+/// The chats in the Claude app's sidebar, most recent first: (title, chat id). Read through UI
+/// Automation, the way screen readers read them.
+pub fn claude_recent() -> Vec<(String, String)> {
+    use windows::core::{Interface, BSTR};
+    use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
+    use windows::Win32::System::Variant::VARIANT;
+    use windows::Win32::UI::Accessibility::*;
+    let Some(win) = crate::win::switch_windows().into_iter().find(|i| i.exe.to_lowercase().contains("claude")) else { return Vec::new() };
+    let Ok(h) = win.id.parse::<usize>() else { return Vec::new() };
+    let mut out: Vec<(String, String)> = Vec::new();
+    unsafe {
+        let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+        let mut run = || -> windows::core::Result<()> {
+            let auto: IUIAutomation = CoCreateInstance(&CUIAutomation8, None, CLSCTX_INPROC_SERVER)
+                .or_else(|_| CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER))?;
+            if let Ok(a2) = auto.cast::<IUIAutomation2>() {
+                let _ = a2.SetConnectionTimeout(2000);
+                let _ = a2.SetTransactionTimeout(3000);
+            }
+            let root = auto.ElementFromHandle(windows::Win32::Foundation::HWND(h as *mut core::ffi::c_void))?;
+            let cond = auto.CreatePropertyCondition(UIA_ControlTypePropertyId, &VARIANT::from(UIA_HyperlinkControlTypeId.0))?;
+            let all = root.FindAll(TreeScope_Descendants, &cond)?;
+            for i in 0..all.Length()?.min(400) {
+                let Ok(el) = all.GetElement(i) else { continue };
+                let url = el.GetCurrentPropertyValue(UIA_ValueValuePropertyId).ok().and_then(|v| BSTR::try_from(&v).ok()).map(|b| b.to_string()).unwrap_or_default();
+                let Some(rest) = url.split("/chat/").nth(1) else { continue };
+                let id: String = rest.chars().take_while(|c| c.is_ascii_hexdigit() || *c == '-').collect();
+                if id.len() < 32 || out.iter().any(|(_, x)| *x == id) {
+                    continue;
+                }
+                let name = el.CurrentName().map(|b| b.to_string()).unwrap_or_default();
+                out.push((if name.trim().is_empty() { "A chat".into() } else { name.chars().take(80).collect() }, id));
+                if out.len() >= 15 {
+                    break;
+                }
+            }
+            Ok(())
+        };
+        if let Err(e) = run() {
+            crate::log(&format!("catgpt: Claude's chats couldn't be read ({e})"));
+        }
+    }
+    out
+}
