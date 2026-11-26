@@ -1,5 +1,7 @@
 // Paw prints: a little print just beside the pointer where you click, a trail when you drag,
 // tiny steps when you scroll. Never under the pointer, gone in a second.
+import { autoShape } from './shape.js';
+
 const T = window.__TAURI__;
 const root = document.getElementById('paws');
 const SKIN = { mochi: ['#FFF7F0', '#6B4A5E', '#FFB8D2'], kuro: ['#2D2638', '#0E0A14', '#FF8FBF'], tora: ['#FFB36B', '#7A3E12', '#FFC1B0'], sora: ['#CFDBF1', '#43506E', '#FFC0D9'] };
@@ -49,6 +51,9 @@ function paw(p) {
     put('trail', p.x + Math.cos(rad + Math.PI / 2) * 7 * side, p.y + Math.sin(rad + Math.PI / 2) * 7 * side, p.a + 90);
   }
 }
+
+// Only the prints show, followed while they fade; the rest of the screen is clipped away.
+autoShape([['.pp', 3]], { follow: true });
 
 if (T) T.event.listen('ck://paw', (e) => paw(e.payload));
 else window.__paw = paw;

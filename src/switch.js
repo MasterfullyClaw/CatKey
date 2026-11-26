@@ -4,6 +4,9 @@
 
 import { Mascot } from './mascot.js';
 import { applyVars } from './theme.js';
+import { autoShape } from './shape.js';
+// Only the panel shows; around it the window is clipped away.
+autoShape([['.sw-panel', 2]]);
 
 const T = window.__TAURI__;
 const invoke = (cmd, args) => (T ? T.core.invoke(cmd, args) : (window.__swMock?.(cmd, args) ?? Promise.resolve(null)));

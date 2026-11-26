@@ -1144,7 +1144,7 @@ pub fn ci_test() {
 
 /// The release check only: a picture of the whole screen (the wheel, the Dock…), kept for
 /// the run's artifacts so the look can be checked on a real Windows PC.
-fn ci_picture(name: &str) {
+pub fn ci_picture(name: &str) {
     #[cfg(windows)]
     {
         let dir = crate::app::config_dir().join("ci");

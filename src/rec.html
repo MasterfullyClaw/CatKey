@@ -23,6 +23,8 @@ button:active { transform: scale(.96); }
 </div>
 <script type="module">
 import { applyVars } from './theme.js';
+import { autoShape } from './shape.js';
+autoShape([['#rec', 2]]);
 const T = window.__TAURI__;
 const root = document.getElementById('rec');
 let started = Date.now(), timer = 0;

@@ -447,6 +447,7 @@ pub fn run(args: Vec<String>) {
             crate::commands::restore_defaults,
             crate::commands::set_admin_mode,
             crate::commands::mac_allow,
+            crate::shape::shape_window,
             crate::commands::restart_normal,
             crate::commands::ui_ready,
             crate::commands::window_minimize,
@@ -577,6 +578,9 @@ pub fn run(args: Vec<String>) {
                     crate::paws::set_settings(&catkey_core::config::PawSettings { on: true, cursor: true, colors: Vec::new() });
                     crate::paws::paws_try();
                     crate::log("dock: test paws tried");
+                    // A picture of the walk (and the Dock) for the run's artifacts.
+                    std::thread::sleep(Duration::from_millis(1500));
+                    crate::catgpt::ci_picture("walk");
                     // And the app switcher: the list of windows, and its panel once.
                     std::thread::sleep(Duration::from_secs(1));
                     crate::switcher::self_test(&h);

@@ -5,6 +5,9 @@
 import { Mascot } from './mascot.js';
 import { applyVars } from './theme.js';
 import { sounds, setSoundsEnabled, setSoundParts } from './sound.js';
+import { autoShape } from './shape.js';
+// Only the ball (and the open panel) show; around them the window is clipped away.
+autoShape([['.dk-ball', 9], ['.dk-badge', 1], ['.dk-note', 2], ['.dk-panel', 2]]);
 
 const T = window.__TAURI__;
 const invoke = (cmd, args) => (T ? T.core.invoke(cmd, args) : (window.__dockMock?.(cmd, args) ?? Promise.resolve(null)));

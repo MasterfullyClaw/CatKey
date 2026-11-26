@@ -3,9 +3,6 @@ html, body { background: transparent !important; overflow: hidden; }
 #cg { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: transparent; font: 700 13px/1.3 Nunito, 'Segoe UI', sans-serif; color: var(--tx); }
 .cg-wheel { position: relative; width: 420px; height: 420px; }
 .cg-ring { position: absolute; inset: 0; }
-.cg-wheel::before { content: ''; position: absolute; inset: 58px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--bg) 82%, transparent) 55%, transparent 72%);
-  opacity: 0; transition: opacity .25s; }
-.cg-wheel.open::before { opacity: 1; }
 .cg-hub { position: absolute; left: 50%; top: 50%; width: 132px; height: 132px; margin: -66px 0 0 -66px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 1px; background: var(--s1); border: 2px solid var(--ac); box-shadow: 0 14px 40px -12px rgba(0,0,0,.6), 0 0 0 6px var(--acs); text-align: center; cursor: pointer; z-index: 3;
   transform: scale(.3) rotate(-30deg); opacity: 0; transition: transform .38s cubic-bezier(.34,1.56,.64,1), opacity .2s; }

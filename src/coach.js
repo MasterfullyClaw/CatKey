@@ -2,6 +2,9 @@
 // on it, and hides itself. Ignore = never again, Dismiss = for now, Adjust = make your own.
 import * as K from './keys.js';
 import { paletteVars, applyVars } from './theme.js';
+import { autoShape } from './shape.js';
+// Only the tip shows; around it the window is clipped away.
+autoShape([['.tip', 2]]);
 
 // The tip wears the cat's colours (always its dark side: tips float over anything).
 function dress() {

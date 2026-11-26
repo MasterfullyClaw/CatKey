@@ -4,6 +4,9 @@
 import { Mascot } from './mascot.js';
 import { applyVars } from './theme.js';
 import { sounds, setSoundsEnabled, setSoundParts } from './sound.js';
+import { autoShape } from './shape.js';
+// Only the cat, its words and its paw prints show, followed as they move; the rest is clipped away.
+autoShape([['.wk-body', 10, true], ['.wk-bubble', 3], ['.wk-paw', 1], ['.sp-box', 24, true], ['.sp-bubble', 3]], { follow: true });
 
 const T = window.__TAURI__;
 const root = document.getElementById('walk');

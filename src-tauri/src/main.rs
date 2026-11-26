@@ -16,6 +16,7 @@ mod mac_paws;
 #[cfg(windows)]
 mod paw_cursor;
 mod mcp;
+mod shape;
 mod paws;
 mod switcher;
 mod tray;

@@ -2,6 +2,7 @@
 // on one picks it (a little ring fills first), a click picks it at once, Esc closes.
 import { Mascot } from './mascot.js';
 import { applyVars } from './theme.js';
+import { autoShape } from './shape.js';
 import { sounds, setSoundsEnabled, setSoundParts } from './sound.js';
 
 const T = window.__TAURI__;
@@ -16,6 +17,8 @@ const cat = new Mascot($('#cat'), { size: 52, track: true });
 const DWELL = 420;
 const W = { p: null, mode: 'main', app: null, hot: null, start: 0, raf: 0, busy: false };
 const APP_NAME = { claude: 'Claude', chatgpt: 'ChatGPT' };
+// Only the petals, the middle and the cards show; around them the window is clipped away.
+autoShape([['.cg-pet', 3], ['.cg-pet.hot', 8], ['.cg-pet .badge', 1], ['.cg-hub', 3], ['.cg-card', 2], ['.cg-done', 2]], { fps: 60 });
 
 export function prefs() {
   const d = { app: 'claude', now: false, video: false, use: { claude: true, chatgpt: true } };
