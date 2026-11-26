@@ -86,6 +86,11 @@ fn folder(kind: &str) -> PathBuf {
 
 pub fn start(app: &AppHandle) {
     *APP.lock().unwrap() = Some(app.clone());
+    // Look for Claude and ChatGPT once, early and quietly, so the wheel never waits for it.
+    std::thread::spawn(|| {
+        std::thread::sleep(Duration::from_secs(6));
+        detect_apps();
+    });
     let list: Vec<Item> = std::fs::read(dir().join("basket.json"))
         .ok()
         .and_then(|b| serde_json::from_slice(&b).ok())
@@ -166,6 +171,28 @@ fn bundle_installed(id: &str) -> bool {
     autoreleasepool(|_| {
         objc2_app_kit::NSWorkspace::sharedWorkspace().URLForApplicationWithBundleIdentifier(&objc2_foundation::NSString::from_str(id)).is_some()
     })
+}
+
+/// The apps as last seen, at once (the wheel can't wait for a slow look). The first time,
+/// a quick look at their links; the full look runs in the background.
+fn apps_now() -> Vec<AiApp> {
+    let cached = APPS.lock().unwrap().as_ref().map(|(at, l)| (at.elapsed(), l.clone()));
+    match cached {
+        Some((age, list)) => {
+            if age > Duration::from_secs(90) {
+                std::thread::spawn(detect_apps);
+            }
+            list
+        }
+        None => {
+            std::thread::spawn(detect_apps);
+            let (claude, codex) = (crate::win::has_protocol("claude"), crate::win::has_protocol("codex"));
+            vec![
+                AiApp { id: "claude", name: "Claude", installed: claude, deep: claude },
+                AiApp { id: "chatgpt", name: "ChatGPT", installed: codex, deep: codex },
+            ]
+        }
+    }
 }
 
 fn detect_apps() -> Vec<AiApp> {
@@ -590,7 +617,7 @@ pub fn wheel() {
         let _ = w.set_size(PhysicalSize::new(size as u32, size as u32));
         let _ = w.set_position(PhysicalPosition::new(x, y));
         let fresh = ITEMS.lock().map(|l| l.iter().filter(|i| !i.sent).count()).unwrap_or(0);
-        let p = WheelPayload { seq: WHEEL_SEQ.fetch_add(1, Ordering::SeqCst) + 1, recording: false, rec_secs: 0.0, fresh, apps: detect_apps() };
+        let p = WheelPayload { seq: WHEEL_SEQ.fetch_add(1, Ordering::SeqCst) + 1, recording: false, rec_secs: 0.0, fresh, apps: apps_now() };
         *LAST_WHEEL.lock().unwrap() = Some(p.clone());
         let _ = w.emit("ck://wheel", p);
         let _ = w.show();
@@ -1084,9 +1111,15 @@ pub fn ci_test() {
         Err(e) => crate::log(&format!("catgpt: screenshot failed: {e}")),
     }
     let vis = |l: &str| app().and_then(|a| a.get_webview_window(l)).and_then(|w| w.is_visible().ok()).unwrap_or(false);
+    let t = Instant::now();
     wheel();
-    std::thread::sleep(Duration::from_secs(3));
-    crate::log(&format!("catgpt: wheel shown {}", vis("catgpt")));
+    let mut shown = false;
+    while t.elapsed() < Duration::from_secs(6) && !shown {
+        std::thread::sleep(Duration::from_millis(200));
+        shown = vis("catgpt");
+    }
+    crate::log(&format!("catgpt: wheel shown {shown} after {} ms", t.elapsed().as_millis()));
+    std::thread::sleep(Duration::from_millis(800));
     CI.store(false, Ordering::Relaxed);
     catgpt_wheel_hide(false);
     CI.store(true, Ordering::Relaxed);

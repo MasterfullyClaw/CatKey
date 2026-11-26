@@ -1,7 +1,7 @@
 {
   "name": "catkey",
   "private": true,
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Cat Key - purr-fect keyboard shortcuts for Windows",
   "scripts": {
     "tauri": "tauri",
